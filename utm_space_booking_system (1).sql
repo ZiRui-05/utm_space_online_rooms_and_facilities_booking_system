@@ -40,7 +40,7 @@ CREATE TABLE `bookings` (
   `booking_end` datetime NOT NULL,
   `purpose` varchar(255) NOT NULL,
   `remarks` text DEFAULT NULL,
-  `price_per_day` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `price_per_hour` decimal(10,2) NOT NULL DEFAULT 0.00,
   `total_price` decimal(10,2) NOT NULL DEFAULT 0.00,
   `booking_status` enum('pending','approved','rejected','cancelled','completed','expired') NOT NULL DEFAULT 'pending',
   `payment_status` enum('unpaid','pending_verification','paid','payment_rejected','refunded') NOT NULL DEFAULT 'unpaid',
