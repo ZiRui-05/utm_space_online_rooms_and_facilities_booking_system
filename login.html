@@ -666,7 +666,7 @@
                 localStorage.setItem('userData', JSON.stringify(userData));
                 
                 showLoading('signin', false);
-                window.location.href = 'dashboard.html';
+                window.location.href = 'homepage.html';
             }, 1000);
         }
 
@@ -712,7 +712,7 @@
                 localStorage.setItem('userData', JSON.stringify(userData));
                 
                 showLoading('signup', false);
-                window.location.href = 'dashboard.html';
+                window.location.href = 'homepage.html';
             }, 1500);
         }
 
@@ -761,7 +761,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             const authToken = localStorage.getItem('authToken');
             if (authToken) {
-                window.location.href = 'dashboard.html';
+                window.location.href = 'homepage.html';
                 return;
             }
             
