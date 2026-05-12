@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: May 06, 2026 at 08:05 AM
+-- Generation Time: May 09, 2026 at 07:14 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -29,7 +29,6 @@ USE `utm_space_booking_system`;
 -- Table structure for table `bookings`
 --
 
-DROP TABLE IF EXISTS `bookings`;
 CREATE TABLE `bookings` (
   `booking_id` int(11) NOT NULL,
   `user_id` int(11) NOT NULL,
@@ -40,7 +39,7 @@ CREATE TABLE `bookings` (
   `booking_end` datetime NOT NULL,
   `purpose` varchar(255) NOT NULL,
   `remarks` text DEFAULT NULL,
-  `price_per_hour` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `price_per_day` decimal(10,2) NOT NULL DEFAULT 0.00,
   `total_price` decimal(10,2) NOT NULL DEFAULT 0.00,
   `booking_status` enum('pending','approved','rejected','cancelled','completed','expired') NOT NULL DEFAULT 'pending',
   `payment_status` enum('unpaid','pending_verification','paid','payment_rejected','refunded') NOT NULL DEFAULT 'unpaid',
@@ -59,7 +58,6 @@ CREATE TABLE `bookings` (
 -- Table structure for table `facilities`
 --
 
-DROP TABLE IF EXISTS `facilities`;
 CREATE TABLE `facilities` (
   `facility_id` int(11) NOT NULL,
   `facility_name` varchar(100) NOT NULL,
@@ -82,7 +80,6 @@ CREATE TABLE `facilities` (
 -- Table structure for table `rooms`
 --
 
-DROP TABLE IF EXISTS `rooms`;
 CREATE TABLE `rooms` (
   `room_id` int(11) NOT NULL,
   `room_name` varchar(100) NOT NULL,
@@ -105,9 +102,10 @@ CREATE TABLE `rooms` (
 -- Table structure for table `users`
 --
 
-DROP TABLE IF EXISTS `users`;
 CREATE TABLE `users` (
   `user_id` int(11) NOT NULL,
+  `utm_id` varchar(30) NOT NULL,
+  `ic_no` varchar(30) NOT NULL,
   `full_name` varchar(100) NOT NULL,
   `email` varchar(100) NOT NULL,
   `password_hash` varchar(255) NOT NULL,
@@ -154,7 +152,9 @@ ALTER TABLE `rooms`
 --
 ALTER TABLE `users`
   ADD PRIMARY KEY (`user_id`),
-  ADD UNIQUE KEY `email` (`email`);
+  ADD UNIQUE KEY `email` (`email`),
+  ADD UNIQUE KEY `utm_id` (`utm_id`),
+  ADD UNIQUE KEY `ic_no` (`ic_no`);
 
 --
 -- AUTO_INCREMENT for dumped tables
