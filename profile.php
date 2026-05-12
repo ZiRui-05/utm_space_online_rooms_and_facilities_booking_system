@@ -679,17 +679,16 @@
             <!-- Profile Card -->
             <div class="profile-card">
                 <div class="profile-avatar" id="profile-avatar">J</div>
-                <div class="profile-name" id="profile-name">Nazz</div>
-                <div class="profile-role">GRADUATE RESEARCHER</div>
+                <div class="profile-name" id="profile-name">-</div>
 
                 <div class="profile-info">
                     <div class="info-item">
-                        <div class="info-label">Student ID</div>
-                        <div class="info-value">A24DW0460</div>
+                        <div class="info-label">UTM ID</div>
+                        <div class="info-value" id="profile-utm-id">-</div>
                     </div>
                     <div class="info-item">
                         <div class="info-label">Department</div>
-                        <div class="info-value">Computer Scrience</div>
+                        <div class="info-value" id="profile-department">Waiting to edit</div>
                     </div>
                 </div>
             </div>
@@ -738,15 +737,15 @@
                 <div class="details-grid">
                     <div class="detail-item">
                         <div class="detail-label">Full Name</div>
-                        <div class="detail-value" id="detail-name">Nazz</div>
+                        <div class="detail-value" id="detail-name">-</div>
                     </div>
                     <div class="detail-item">
                         <div class="detail-label">University Email</div>
-                        <div class="detail-value" id="detail-email">nazz@university.edu</div>
+                        <div class="detail-value" id="detail-email">-</div>
                     </div>
                     <div class="detail-item">
                         <div class="detail-label">Phone Number</div>
-                        <div class="detail-value">+60 1774 2000 </div>
+                        <div class="detail-value" id="detail-phone">Waiting to edit</div>
                     </div>
                     <div class="detail-item">
                         <div class="detail-label">Preferred Campus</div>
@@ -772,37 +771,7 @@
                             <th>Action</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        <tr>
-                            <td>
-                                <div class="facility-name">Room T06 (BK 01-02)</div>
-                                <div class="facility-ref">Ref: BK-99212</div>
-                            </td>
-                            <td>
-                                <div>Nov 25, 2026</div>
-                                <div style="color: var(--text-light);">14:00 - 17:00</div>
-                            </td>
-                            <td><span class="status-badge status-confirmed">Confirmed</span></td>
-                            <td><a href="#" class="action-link">Details</a></td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <div class="facility-name">Astana Hall KTC</div>
-                                <div class="facility-ref">Ref: BK-99054</div>
-                            </td>
-                            <td>
-                                <div>July 21, 2026</div>
-                                <div style="color: var(--text-light);">09:00 - 11:00</div>
-                            </td>
-                            <td><span class="status-badge status-completed">Completed</span></td>
-                            <td><a href="#" class="action-link">Rebook</a></td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <div class="facility-name">Lecture Room 2-5</div>
-                                <div class="facility-ref">Ref: BK-98821</div>
-                            </td>
-                            <td>
+@@ -806,72 +805,114 @@
                                 <div>Jan 05, 2026</div>
                                 <div style="color: var(--text-light);">13:00 - 15:00</div>
                             </td>
@@ -828,18 +797,33 @@
             if (!sessionResponse.ok) { window.location.href = 'login.html'; return; }
             const sessionData = await sessionResponse.json();
             if (!sessionData.authenticated) { window.location.href = 'login.html'; return; }
-            const userData = sessionData.user || {};
-            
-            
-            if (userData.full_name) {
-                const initials = userData.full_name.split(' ').map(n => n[0]).join('').toUpperCase();
-                document.getElementById('user-avatar-btn').textContent = initials;
-                document.getElementById('profile-avatar').textContent = initials;
-                document.getElementById('profile-name').textContent = userData.full_name;
-                document.getElementById('detail-name').textContent = userData.full_name;
-                document.getElementById('detail-email').textContent = userData.email || 'j.sterling@university.edu';
-            }
+            await loadProfileData();
         });
+
+        async function loadProfileData() {
+            const response = await fetch('profile_data.php', { credentials: 'same-origin' });
+            if (!response.ok) {
+                alert('Failed to load profile data.');
+                return;
+            }
+
+            const result = await response.json();
+            if (!result.success || !result.user) {
+                alert(result.message || 'Failed to load profile data.');
+                return;
+            }
+
+            const userData = result.user;
+            const initials = (userData.full_name || 'U').split(' ').map(n => n[0]).join('').toUpperCase();
+            document.getElementById('user-avatar-btn').textContent = initials;
+            document.getElementById('profile-avatar').textContent = initials;
+            document.getElementById('profile-name').textContent = userData.full_name || '-';
+            document.getElementById('detail-name').textContent = userData.full_name || '-';
+            document.getElementById('detail-email').textContent = userData.email || '-';
+            document.getElementById('profile-utm-id').textContent = userData.utm_id || '-';
+            document.getElementById('detail-phone').textContent = userData.phone_number || 'Waiting to edit';
+            document.getElementById('profile-department').textContent = 'Waiting to edit';
+        }
 
         function toggleUserMenu() {
             const menu = document.getElementById('user-menu');
@@ -861,8 +845,35 @@
             }
         }
 
-        function editProfile() {
-            alert('Edit profile feature coming soon!');
+        async function editProfile() {
+            const currentName = document.getElementById('detail-name').textContent.trim();
+            const currentPhone = document.getElementById('detail-phone').textContent.trim();
+
+            const fullName = prompt('Enter Full Name:', currentName === '-' ? '' : currentName);
+            if (fullName === null) return;
+
+            const phoneDefault = currentPhone === 'Waiting to edit' ? '' : currentPhone;
+            const phoneNumber = prompt('Enter Phone Number:', phoneDefault);
+            if (phoneNumber === null) return;
+
+            const response = await fetch('profile_data.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    full_name: fullName.trim(),
+                    phone_number: phoneNumber.trim()
+                })
+            });
+
+            const result = await response.json();
+            if (!response.ok || !result.success) {
+                alert(result.message || 'Failed to update profile.');
+                return;
+            }
+
+            await loadProfileData();
+            alert('Profile updated successfully.');
         }
 
         function navigateTo(page) {
