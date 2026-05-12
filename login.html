@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sign In - UNIRESERVE</title>
+    <title>Login - UNIRESERVE</title>
     <style>
         * {
             margin: 0;
@@ -449,24 +449,18 @@
 
             <!-- Auth Card -->
             <div class="auth-card">
-                <!-- Tabs -->
-                <div class="tabs">
-                    <button class="tab-button active" onclick="switchTab('signin')">Sign In</button>
-                    <button class="tab-button" onclick="switchTab('signup')">Sign Up</button>
-                </div>
-
                 <!-- Sign In Form -->
                 <div id="signin-tab" class="tab-content active">
                     <form id="signin-form" onsubmit="handleSignIn(event)">
                         <!-- Email Field -->
                         <div class="form-group">
-                            <label for="signin-email">University Email</label>
+                            <label for="signin-login-id">University Email / UTM ID</label>
                             <div class="input-wrapper">
                                 <span class="input-icon">✉️</span>
                                 <input 
-                                    type="email" 
-                                    id="signin-email" 
-                                    placeholder="student@graduate.utm.my"
+                                    type="text" 
+                                    id="signin-login-id" 
+                                    placeholder="student@graduate.utm.my or A22EC0000"
                                     required
                                 >
                             </div>
@@ -502,7 +496,7 @@
                         <!-- Sign In Button -->
                         <button type="submit" class="btn-primary">
                             Sign In to Dashboard
-                            <a href="homepage.html" class="dropdown-item"></a>
+                            <a href="homepage.php" class="dropdown-item"></a>
                             <span class="btn-arrow">→</span>
                         </button>
 
@@ -515,6 +509,8 @@
                     <!-- Divider -->
                     <div class="divider">OR LOGIN WITH</div>
 
+                    <p style="text-align:center;margin-bottom:16px;font-size:14px;">No account? <a href="register.html">Create one</a></p>
+
                     <!-- SSO Button -->
                     <button class="btn-sso" onclick="handleSSO()">
                         <span class="sso-icon">🏛️</span>
@@ -522,88 +518,6 @@
                     </button>
                 </div>
 
-                <!-- Sign Up Form -->
-                <div id="signup-tab" class="tab-content">
-                    <form id="signup-form" onsubmit="handleSignUp(event)">
-                        <!-- Full Name -->
-                        <div class="form-group">
-                            <label for="signup-name">Full Name</label>
-                            <div class="input-wrapper">
-                                <span class="input-icon">👤</span>
-                                <input 
-                                    type="text" 
-                                    id="signup-name" 
-                                    placeholder="John Doe"
-                                    required
-                                >
-                            </div>
-                        </div>
-
-                        <!-- Email -->
-                        <div class="form-group">
-                            <label for="signup-email">University Email</label>
-                            <div class="input-wrapper">
-                                <span class="input-icon">✉️</span>
-                                <input 
-                                    type="email" 
-                                    id="signup-email" 
-                                    placeholder="student@university.edu"
-                                    required
-                                >
-                            </div>
-                        </div>
-
-                        <!-- Password -->
-                        <div class="form-group">
-                            <label for="signup-password">Password</label>
-                            <div class="input-wrapper">
-                                <span class="input-icon">🔒</span>
-                                <input 
-                                    type="password" 
-                                    id="signup-password" 
-                                    placeholder="••••••••"
-                                    minlength="8"
-                                    required
-                                >
-                            </div>
-                            <small>Minimum 8 characters</small>
-                        </div>
-
-                        <!-- Confirm Password -->
-                        <div class="form-group">
-                            <label for="signup-confirm">Confirm Password</label>
-                            <div class="input-wrapper">
-                                <span class="input-icon">🔒</span>
-                                <input 
-                                    type="password" 
-                                    id="signup-confirm" 
-                                    placeholder="••••••••"
-                                    required
-                                >
-                            </div>
-                        </div>
-
-                        <!-- Terms -->
-                        <div class="checkbox-group">
-                            <input 
-                                type="checkbox" 
-                                id="agree-terms"
-                                required
-                            >
-                            <label for="agree-terms">
-                                I agree to the <a href="#">Terms of Service</a>
-                            </label>
-                        </div>
-
-                        <!-- Sign Up Button -->
-                        <button type="submit" class="btn-primary">
-                            Create Account
-                        </button>
-
-                        <!-- Error Message -->
-                        <div id="signup-error" class="error-message" style="display:none;"></div>
-                    </form>
-                </div>
             </div>
 
             <!-- Terms Notice -->
@@ -627,107 +541,53 @@
     </div>
 
     <script>
-        function switchTab(tabName) {
-            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
-            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
-            document.getElementById(tabName + '-tab').classList.add('active');
-            event.target.classList.add('active');
-            const errorEl = document.getElementById(tabName + '-error');
-            if (errorEl) errorEl.style.display = 'none';
-        }
 
-        function handleSignIn(event) {
+        async function handleSignIn(event) {
             event.preventDefault();
-            const email = document.getElementById('signin-email').value.trim();
+            const login_id = document.getElementById('signin-login-id').value.trim();
             const password = document.getElementById('signin-password').value;
-            
-            if (!email || !password) {
+
+            if (!login_id || !password) {
                 showError('signin', 'Please fill in all fields');
                 return;
             }
-            
-            if (!validateEmail(email)) {
-                showError('signin', 'Please enter a valid university email');
-                return;
-            }
-            
-            showLoading('signin', true);
-            
-            setTimeout(() => {
-                const userData = {
-                    email: email,
-                    fullname: email.split('@')[0].replace('.', ' ').toUpperCase(),
-                    userId: 'user_' + Date.now(),
-                    role: 'student'
-                };
-                
-                const authToken = 'token_' + Math.random().toString(36).substr(2, 9);
-                localStorage.setItem('authToken', authToken);
-                localStorage.setItem('userData', JSON.stringify(userData));
-                
-                showLoading('signin', false);
-                window.location.href = 'homepage.html';
-            }, 1000);
-        }
 
-        function handleSignUp(event) {
-            event.preventDefault();
-            const name = document.getElementById('signup-name').value.trim();
-            const email = document.getElementById('signup-email').value.trim();
-            const password = document.getElementById('signup-password').value;
-            const confirmPassword = document.getElementById('signup-confirm').value;
-            
-            if (!name || !email || !password || !confirmPassword) {
-                showError('signup', 'Please fill in all fields');
+            if (login_id.includes('@') && !validateEmail(login_id)) {
+                showError('signin', 'Please enter a valid university email or UTM ID');
                 return;
             }
-            
-            if (!validateEmail(email)) {
-                showError('signup', 'Please enter a valid university email');
-                return;
+
+            showLoading('signin', true);
+            try {
+                const response = await fetch('auth_login.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ login_id, password })
+                });
+                const result = await response.json();
+
+                if (!response.ok || !result.success) {
+                    throw new Error(result.message || 'Sign in failed');
+                }
+
+                const checkbox = document.getElementById('remember-me');
+                if (checkbox.checked) {
+                    localStorage.setItem('rememberLoginId', login_id);
+                } else {
+                    localStorage.removeItem('rememberLoginId');
+                }
+
+                window.location.href = 'homepage.php';
+            } catch (error) {
+                showError('signin', error.message || 'Unable to sign in.');
+            } finally {
+                showLoading('signin', false);
             }
-            
-            if (password.length < 8) {
-                showError('signup', 'Password must be at least 8 characters');
-                return;
-            }
-            
-            if (password !== confirmPassword) {
-                showError('signup', 'Passwords do not match');
-                return;
-            }
-            
-            showLoading('signup', true);
-            
-            setTimeout(() => {
-                const userData = {
-                    email: email,
-                    fullname: name,
-                    userId: 'user_' + Date.now(),
-                    role: 'student'
-                };
-                
-                const authToken = 'token_' + Math.random().toString(36).substr(2, 9);
-                localStorage.setItem('authToken', authToken);
-                localStorage.setItem('userData', JSON.stringify(userData));
-                
-                showLoading('signup', false);
-                window.location.href = 'homepage.html';
-            }, 1500);
         }
 
         function handleSSO() {
             window.location.href = '/Shibboleth.sso/Login?target=' + encodeURIComponent(window.location.href);
-        }
-
-        function toggleRememberMe() {
-            const checkbox = document.getElementById('remember-me');
-            const email = document.getElementById('signin-email').value;
-            if (checkbox.checked) {
-                localStorage.setItem('rememberEmail', email);
-            } else {
-                localStorage.removeItem('rememberEmail');
-            }
         }
 
         function validateEmail(email) {
@@ -740,9 +600,6 @@
             if (errorElement) {
                 errorElement.textContent = message;
                 errorElement.style.display = 'block';
-                setTimeout(() => {
-                    errorElement.style.display = 'none';
-                }, 5000);
             }
         }
 
@@ -758,27 +615,18 @@
             }
         }
 
-        document.addEventListener('DOMContentLoaded', function() {
-            const authToken = localStorage.getItem('authToken');
-            if (authToken) {
-                window.location.href = 'homepage.html';
-                return;
-            }
-            
-            const rememberedEmail = localStorage.getItem('rememberEmail');
-            if (rememberedEmail) {
-                document.getElementById('signin-email').value = rememberedEmail;
+        document.addEventListener('DOMContentLoaded', async function() {
+            const rememberedLoginId = localStorage.getItem('rememberLoginId');
+            if (rememberedLoginId) {
+                document.getElementById('signin-login-id').value = rememberedLoginId;
                 document.getElementById('remember-me').checked = true;
             }
-        });
 
-        document.addEventListener('keydown', function(event) {
-            if (event.key === 'Enter') {
-                const activeTab = document.querySelector('.tab-content.active');
-                if (activeTab.id === 'signin-tab') {
-                    document.getElementById('signin-form').dispatchEvent(new Event('submit'));
-                } else if (activeTab.id === 'signup-tab') {
-                    document.getElementById('signup-form').dispatchEvent(new Event('submit'));
+            const response = await fetch('auth_session.php', { credentials: 'same-origin' });
+            if (response.ok) {
+                const sessionData = await response.json();
+                if (sessionData.authenticated) {
+                    window.location.href = 'homepage.php';
                 }
             }
         });

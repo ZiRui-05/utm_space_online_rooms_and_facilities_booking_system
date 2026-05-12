@@ -377,28 +377,12 @@
     </style>
 </head>
 <body>
-    <!-- Navigation Bar -->
-    <nav class="navbar">
-        <div class="navbar-left">
-            <h1 class="navbar-logo">UNIRESERVE</h1>
-            <div class="nav-links">
-                <a href="homepage.html" class="nav-link">Home</a>
-                <a href="booking.html" class="nav-link">Rooms</a>
-                <a href="#" class="nav-link">Facilities</a>
-            </div>
-        </div>
-
-        <div class="navbar-right">
-            <button class="icon-button">🔔</button>
-            <button class="icon-button">⚙️</button>
-            <button class="btn-book-now" onclick="goToBooking()">Book Now</button>
-            <button class="user-avatar" onclick="goToProfile()">S</button>
-        </div>
-    </nav>
+<?php $currentPage = 'booking'; include "includes/header.php"; ?>
+    
 
     <!-- Breadcrumb -->
     <div class="breadcrumb">
-        <a href="homepage.html">Home</a>
+        <a href="homepage.php">Home</a>
         <span> > </span>
         <span>Book Facility</span>
     </div>

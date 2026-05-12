@@ -765,36 +765,8 @@
     </style>
 </head>
 <body>
-    <!-- Navigation Bar -->
-    <nav class="navbar">
-        <div class="navbar-left">
-            <h1 class="navbar-logo">UNIRESERVE</h1>
-            <div class="nav-links">
-                <a href="#" class="nav-link active">Home</a>
-                <a href="#" class="nav-link">Rooms</a>
-                <a href="#" class="nav-link">Facilities</a>
-            </div>
-        </div>
-
-        <div class="navbar-right">
-            <button class="icon-button" title="Notifications">🔔</button>
-            <button class="icon-button" title="Settings">⚙️</button>
-            <button class="btn-book-now"><a href="booking.html">Book Now</a></button>
-            <a href="booking.html"></a>
-
-            <div class="user-dropdown">
-                <button class="user-avatar" id="user-avatar-btn" onclick="toggleUserMenu()">S</button>
-                <div class="dropdown-menu" id="user-menu" style="display:none;">
-                    <a href="profile.html" class="dropdown-item">👤 My Profile</a>
-                    <a href="#" class="dropdown-item">📋 My Bookings</a>
-                    <a href="#" class="dropdown-item">⚙️ Settings</a>
-                    <a href="#" class="dropdown-item">❓ Help</a>
-                    <hr class="dropdown-divider">
-                    <a href="login.html" class="dropdown-item logout" onclick="handleLogout()">🚪 Logout</a>
-                </div>
-            </div>
-        </div>
-    </nav>
+<?php $currentPage = 'home'; include "includes/header.php"; ?>
+    
 
     <!-- Hero Section -->
     <section class="hero">
@@ -949,27 +921,20 @@
         </div>
     </section>
 
-    <!-- Footer -->
-    <footer class="footer">
-        <div class="footer-content">
-            <div class="footer-section">
-                <h5>UniReserve</h5>
-                <p>© 2024 University Facilities Management. All rights reserved.</p>
-            </div>
-            <div class="footer-section">
-                <a href="#">Terms of Service</a>
-                <a href="#">Privacy Policy</a>
-                <a href="#">Accessibility</a>
-                <a href="#">Contact Support</a>
-            </div>
-        </div>
-    </footer>
+    <?php include "includes/footer.php"; ?>
+
+
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-            if (userData.fullname) {
-                const initials = userData.fullname.split(' ').map(n => n[0]).join('').toUpperCase();
+        document.addEventListener('DOMContentLoaded', async function() {
+            const sessionResponse = await fetch('auth_session.php', { credentials: 'same-origin' });
+            if (!sessionResponse.ok) { window.location.href = 'login.html'; return; }
+            const sessionData = await sessionResponse.json();
+            if (!sessionData.authenticated) { window.location.href = 'login.html'; return; }
+            const userData = sessionData.user || {};
+            
+            if (userData.full_name) {
+                const initials = userData.full_name.split(' ').map(n => n[0]).join('').toUpperCase();
                 document.getElementById('user-avatar-btn').textContent = initials;
             }
         });
@@ -988,9 +953,9 @@
 
         function handleLogout() {
             if (confirm('Are you sure you want to logout?')) {
-                localStorage.removeItem('authToken');
-                localStorage.removeItem('userData');
-                alert('Logged out successfully!');
+                fetch('auth_logout.php', { method: 'POST', credentials: 'same-origin' }).finally(() => {
+                    window.location.href = 'login.html';
+                });
             }
         }
 
