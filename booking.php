@@ -105,7 +105,7 @@
 
         .btn-book-now:hover {
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3);
+            box-shadow: 0 4px 12px rgba(205, 198, 176, 0.3);
         }
 
         .user-avatar {
