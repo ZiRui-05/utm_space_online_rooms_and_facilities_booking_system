@@ -22,7 +22,7 @@ $stmt->execute(['email' => $email]);
 $user = $stmt->fetch();
 
 if (!$user) {
-    echo json_encode(['success' => true, 'message' => 'If this email exists, a reset link has been sent.']);
+    echo json_encode(['success' => true, 'message' => 'A reset link has been sent.']);
     exit;
 }
 
@@ -36,4 +36,4 @@ $headers = "From: no-reply@unireserve.local\r\n";
 
 @mail($email, $subject, $message, $headers);
 
-echo json_encode(['success' => true, 'message' => 'If this email exists, a reset link has been sent.']);
+echo json_encode(['success' => true, 'message' => 'A reset link has been sent.']);
