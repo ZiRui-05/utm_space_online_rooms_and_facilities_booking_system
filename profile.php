@@ -549,6 +549,16 @@
             font-weight: 600;
         }
 
+        .booking-empty {
+            min-height: 160px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            color: #b3b3b3;
+            font-size: 14px;
+        }
+
         /* Footer */
         .footer {
             background: var(--text-dark);
@@ -687,8 +697,8 @@
                         <div class="info-value" id="profile-utm-id">-</div>
                     </div>
                     <div class="info-item">
-                        <div class="info-label">Department</div>
-                        <div class="info-value" id="profile-department">Waiting to edit</div>
+                        <div class="info-label">Identity Number</div>
+                        <div class="info-value" id="profile-icno">-</div>
                     </div>
                 </div>
             </div>
@@ -728,7 +738,7 @@
                     <h2>Member Profile</h2>
                     <p>Manage your personal information and track your facility reservations.</p>
                 </div>
-                <button class="btn-edit" onclick="editProfile()">✏️ Edit Profile</button>
+                <button class="btn-edit" id="btn-edit-profile" onclick="toggleProfileEdit()">✏️ Edit Profile</button>
             </div>
 
             <!-- Personal Details Section -->
@@ -745,11 +755,11 @@
                     </div>
                     <div class="detail-item">
                         <div class="detail-label">Phone Number</div>
-                        <div class="detail-value" id="detail-phone">Waiting to edit</div>
+                        <div class="detail-value editable-field" id="detail-phone">Waiting to edit</div>
                     </div>
                     <div class="detail-item">
-                        <div class="detail-label">Preferred Campus</div>
-                        <div class="detail-value">North Campus Main</div>
+                        <div class="detail-label">Department</div>
+                        <div class="detail-value editable-field" id="detail-department">Waiting to edit</div>
                     </div>
                 </div>
             </div>
@@ -771,17 +781,12 @@
                             <th>Action</th>
                         </tr>
                     </thead>
-@@ -806,72 +805,114 @@
-                                <div>Jan 05, 2026</div>
-                                <div style="color: var(--text-light);">13:00 - 15:00</div>
-                            </td>
-                            <td><span class="status-badge status-cancelled">Cancelled</span></td>
-                            <td><a href="#" class="action-link action-cancel">Cancel</a></td>
-                        </tr>
-                    </tbody>
+                    <tbody id="booking-table-body"></tbody>
                 </table>
 
-                <div class="view-history" onclick="viewOlderHistory()">View Older History</div>
+                <div id="booking-empty" class="booking-empty" style="display: none;">You haven't booked any rooms and facilities yet.</div>
+
+                <div id="view-history" class="view-history" onclick="viewOlderHistory()">View Older History</div>
             </div>
         </div>
     </div>
@@ -791,6 +796,7 @@
 
 
     <script>
+        let isEditMode = false;
         // Load user data
         document.addEventListener('DOMContentLoaded', async function() {
             const sessionResponse = await fetch('auth_session.php', { credentials: 'same-origin' });
@@ -821,8 +827,54 @@
             document.getElementById('detail-name').textContent = userData.full_name || '-';
             document.getElementById('detail-email').textContent = userData.email || '-';
             document.getElementById('profile-utm-id').textContent = userData.utm_id || '-';
+            document.getElementById('profile-icno').textContent = userData.ic_no || '-';
             document.getElementById('detail-phone').textContent = userData.phone_number || 'Waiting to edit';
-            document.getElementById('profile-department').textContent = 'Waiting to edit';
+            document.getElementById('detail-department').textContent = userData.department || 'Waiting to edit';
+            renderBookings(result.bookings || []);
+        }
+
+        function renderBookings(bookings) {
+            const tbody = document.getElementById('booking-table-body');
+            const emptyMessage = document.getElementById('booking-empty');
+            const bookingTable = document.querySelector('.booking-table');
+            const viewHistory = document.getElementById('view-history');
+            tbody.innerHTML = '';
+
+            if (!bookings.length) {
+                bookingTable.style.display = 'none';
+                emptyMessage.style.display = 'flex';
+                viewHistory.style.display = 'none';
+                return;
+            }
+
+            bookingTable.style.display = 'table';
+            emptyMessage.style.display = 'none';
+            viewHistory.style.display = 'block';
+
+            bookings.forEach((booking) => {
+                const startDate = new Date(booking.booking_start);
+                const endDate = new Date(booking.booking_end);
+                const facilityName = booking.resource_type === 'room'
+                    ? (booking.room_name || 'Unknown Room')
+                    : (booking.facility_name || 'Unknown Facility');
+                const statusClass = `status-${booking.booking_status}`;
+                const statusLabel = booking.booking_status.charAt(0).toUpperCase() + booking.booking_status.slice(1);
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>
+                        <div class="facility-name">${facilityName}</div>
+                        <div class="facility-ref">Ref: BK-${booking.booking_id}</div>
+                    </td>
+                    <td>
+                        <div>${startDate.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })}</div>
+                        <div style="color: var(--text-light);">${startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })} - ${endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}</div>
+                    </td>
+                    <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
+                    <td><span class="action-link">-</span></td>
+                `;
+                tbody.appendChild(row);
+            });
         }
 
         function toggleUserMenu() {
@@ -845,24 +897,36 @@
             }
         }
 
-        async function editProfile() {
-            const currentName = document.getElementById('detail-name').textContent.trim();
-            const currentPhone = document.getElementById('detail-phone').textContent.trim();
+        function toggleProfileEdit() {
+            if (!isEditMode) {
+                enterEditMode();
+            } else {
+                saveProfileEdits();
+            }
+        }
 
-            const fullName = prompt('Enter Full Name:', currentName === '-' ? '' : currentName);
-            if (fullName === null) return;
+        function enterEditMode() {
+            isEditMode = true;
+            const editableIds = ['detail-phone', 'detail-department'];
+            editableIds.forEach(id => {
+                const element = document.getElementById(id);
+                const value = element.textContent.trim() === 'Waiting to edit' ? '' : element.textContent.trim();
+                element.innerHTML = `<input type="text" id="${id}-input" value="${value}" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">`;
+            });
+            document.getElementById('btn-edit-profile').textContent = '✅ Save';
+        }
 
-            const phoneDefault = currentPhone === 'Waiting to edit' ? '' : currentPhone;
-            const phoneNumber = prompt('Enter Phone Number:', phoneDefault);
-            if (phoneNumber === null) return;
+        async function saveProfileEdits() {
+            const phoneNumber = document.getElementById('detail-phone-input').value.trim();
+            const department = document.getElementById('detail-department-input').value.trim();
 
             const response = await fetch('profile_data.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'same-origin',
                 body: JSON.stringify({
-                    full_name: fullName.trim(),
-                    phone_number: phoneNumber.trim()
+                    phone_number: phoneNumber,
+                    department: department
                 })
             });
 
@@ -872,6 +936,8 @@
                 return;
             }
 
+            isEditMode = false;
+            document.getElementById('btn-edit-profile').textContent = '✏️ Edit Profile';
             await loadProfileData();
             alert('Profile updated successfully.');
         }

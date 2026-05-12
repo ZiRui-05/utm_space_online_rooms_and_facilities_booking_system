@@ -110,6 +110,7 @@ CREATE TABLE `users` (
   `email` varchar(100) NOT NULL,
   `password_hash` varchar(255) NOT NULL,
   `role` enum('student','staff','facility_manager','admin') NOT NULL,
+  `department` varchar(100) DEFAULT NULL,
   `phone_number` varchar(20) DEFAULT NULL,
   `profile_image_base64` longtext DEFAULT NULL,
   `profile_image_mime` varchar(50) DEFAULT NULL,
