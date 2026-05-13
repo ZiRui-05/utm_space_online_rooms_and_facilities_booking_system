@@ -318,4 +318,70 @@
                     <button type="submit" class="btn-submit">Submit Booking Request</button>
                 </div>
             </form>
-        
+        </div>
+    </div>
+
+    <?php include "includes/footer.php"; ?>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async function() {
+            const sessionResponse = await fetch('auth_session.php', { credentials: 'same-origin' });
+            if (!sessionResponse.ok) { window.location.href = 'login.html'; return; }
+
+            const sessionData = await sessionResponse.json();
+            if (!sessionData.authenticated) { window.location.href = 'login.html'; return; }
+
+            const userData = sessionData.user || {};
+            if (userData.full_name) {
+                const initials = userData.full_name
+                    .split(' ')
+                    .map(n => n[0])
+                    .join('')
+                    .toUpperCase();
+                document.getElementById('user-avatar-btn').textContent = initials;
+            }
+        });
+
+        function toggleUserMenu() {
+            const menu = document.getElementById('user-menu');
+            menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+        }
+
+        document.addEventListener('click', function(event) {
+            const userDropdown = document.querySelector('.user-dropdown');
+            if (!userDropdown.contains(event.target)) {
+                document.getElementById('user-menu').style.display = 'none';
+            }
+        });
+
+        function handleLogout() {
+            if (confirm('Are you sure you want to logout?')) {
+                fetch('auth_logout.php', { method: 'POST', credentials: 'same-origin' }).finally(() => {
+                    window.location.href = 'login.html';
+                });
+            }
+        }
+
+        function updateCost() {
+            const selected = document.querySelector('input[name="facility"]:checked');
+            const costMap = {
+                'lecture-hall': 50,
+                'study-pod': 0,
+                'lab': 85,
+                'meeting-room': 30
+            };
+            const value = selected ? costMap[selected.value] ?? 0 : 0;
+            document.getElementById('total-cost').textContent = `$${value}`;
+        }
+
+        function submitBooking(event) {
+            event.preventDefault();
+            alert('Booking request submitted successfully!');
+        }
+
+        function goHome() {
+            window.location.href = 'homepage.php';
+        }
+    </script>
+</body>
+</html>
