@@ -28,7 +28,7 @@
             color: var(--text-dark);
             background: var(--bg-light);
         }
-
+  /* Navigation Bar */
         .navbar {
             background: var(--primary-color);
             padding: 16px 30px;
@@ -105,7 +105,11 @@
 
         .btn-book-now:hover {
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(205, 198, 176, 0.3);
+            box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3);
+        }
+
+        .user-dropdown {
+            position: relative;
         }
 
         .user-avatar {
@@ -122,6 +126,46 @@
 
         .user-avatar:hover {
             transform: scale(1.1);
+        }
+
+        .dropdown-menu {
+            position: absolute;
+            top: 45px;
+            right: 0;
+            background: var(--white);
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            min-width: 200px;
+            padding: 8px 0;
+            z-index: 1000;
+        }
+
+        .dropdown-item {
+            display: block;
+            width: 100%;
+            padding: 12px 20px;
+            text-align: left;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--text-dark);
+            text-decoration: none;
+            transition: background 0.3s;
+        }
+
+        .dropdown-item:hover {
+            background: var(--bg-light);
+        }
+
+        .dropdown-item.logout {
+            color: var(--danger);
+        }
+
+        .dropdown-divider {
+            margin: 8px 0;
+            border: none;
+            border-top: 1px solid var(--border-light);
         }
 
         .breadcrumb {
