@@ -3,14 +3,7 @@
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 
-$conn = new mysqli("localhost", "root", "", "unireserve");
-
-if ($conn->connect_error) {
-    die(json_encode([
-        "success" => false,
-        "message" => "Database connection failed"
-    ]));
-}
+require __DIR__ . '/db.php';
 
 $user_id = $_GET['user_id'] ?? '';
 
@@ -28,10 +21,9 @@ $sql = "SELECT * FROM bookings
 WHERE user_id = ?
 ORDER BY created_at DESC";
 
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("i", $user_id);
-$stmt->execute();
+$stmt = $pdo->prepare($sql);
+$stmt->execute([intval($user_id)]);
 
-$result = $stmt->get_result();
+$result = $stmt->fetchAll();
 
 ?>
