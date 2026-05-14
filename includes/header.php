@@ -20,6 +20,33 @@ $currentPage = $currentPage ?? '';
         color: var(--white);
         text-decoration: none;
         font-size: 14px;
+<?php
+$currentPage = $currentPage ?? '';
+
+$scriptDir = trim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/')), '/');
+$depth = $scriptDir === '' ? 0 : substr_count($scriptDir, '/') + 1;
+$relativeRoot = str_repeat('../', $depth);
+$toRoot = static fn(string $path): string => $relativeRoot . ltrim($path, '/');
+?>
+<style>
+    .navbar {
+        background: var(--primary-color);
+        padding: 16px 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+    .navbar-left { display: flex; align-items: center; gap: 40px; }
+    .navbar-logo { font-size: 18px; font-weight: 700; color: var(--white); letter-spacing: 1px; margin: 0; }
+    .nav-links { display: flex; gap: 30px; }
+    .nav-link {
+        color: var(--white);
+        text-decoration: none;
+        font-size: 14px;
         font-weight: 500;
         transition: color 0.3s;
         position: relative;
@@ -77,26 +104,26 @@ $currentPage = $currentPage ?? '';
     <div class="navbar-left">
         <h1 class="navbar-logo">UNIRESERVE</h1>
         <div class="nav-links">
-            <a href="/homepage.php" class="nav-link<?= $currentPage === 'home' ? ' active' : '' ?>">Home</a>
-            <a href="/pages/app/booking.php" class="nav-link<?= $currentPage === 'booking' ? ' active' : '' ?>">Rooms</a>
-            <a href="#" class="nav-link">Facilities</a>
+            <a href="<?= htmlspecialchars($toRoot('homepage.php'), ENT_QUOTES, 'UTF-8') ?>" class="nav-link<?= $currentPage === 'home' ? ' active' : '' ?>">Home</a>
+            <a href="<?= htmlspecialchars($toRoot('pages/app/booking.php'), ENT_QUOTES, 'UTF-8') ?>" class="nav-link<?= $currentPage === 'booking' ? ' active' : '' ?>">Rooms</a>
+            <a href="<?= htmlspecialchars($toRoot('pages/app/facilities.html'), ENT_QUOTES, 'UTF-8') ?>" class="nav-link<?= $currentPage === 'facilities' ? ' active' : '' ?>">Facilities</a>
         </div>
     </div>
 
     <div class="navbar-right">
         <button class="icon-button" title="Notifications">🔔</button>
         <button class="icon-button" title="Settings">⚙️</button>
-        <button class="btn-book-now" onclick="window.location.href='/pages/app/booking.php'">Book Now</button>
+        <button class="btn-book-now" onclick="window.location.href='<?= htmlspecialchars($toRoot('pages/app/booking.php'), ENT_QUOTES, 'UTF-8') ?>'">Book Now</button>
 
         <div class="user-dropdown">
             <button class="user-avatar" id="user-avatar-btn" onclick="toggleUserMenu()">S</button>
             <div class="dropdown-menu" id="user-menu" style="display:none;">
-                <a href="/pages/app/profile.php" class="dropdown-item">👤 My Profile</a>
+                <a href="<?= htmlspecialchars($toRoot('pages/app/profile.php'), ENT_QUOTES, 'UTF-8') ?>" class="dropdown-item">👤 My Profile</a>
                 <a href="#" class="dropdown-item">📋 My Bookings</a>
                 <a href="#" class="dropdown-item">⚙️ Settings</a>
                 <a href="#" class="dropdown-item">❓ Help</a>
                 <hr class="dropdown-divider">
-                <a href="/pages/auth/login.html" class="dropdown-item logout" onclick="handleLogout()">🚪 Logout</a>
+                <a href="<?= htmlspecialchars($toRoot('pages/auth/login.html'), ENT_QUOTES, 'UTF-8') ?>" class="dropdown-item logout" onclick="handleLogout()">🚪 Logout</a>
             </div>
         </div>
     </div>

@@ -31,7 +31,6 @@
             background: var(--bg-light);
         }
 
-
         /* Breadcrumb */
         .breadcrumb {
             padding: 16px 30px;
@@ -550,36 +549,6 @@
             border-color: var(--primary-color);
         }
 
-        /* Footer */
-        .footer {
-            background: var(--white);
-            border-top: 1px solid var(--border-light);
-            padding: 30px;
-            text-align: center;
-            margin-top: 50px;
-        }
-
-        .footer-content {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 30px;
-            flex-wrap: wrap;
-        }
-
-        .footer-section a {
-            color: var(--text-light);
-            text-decoration: none;
-            font-size: 13px;
-            margin: 0 12px;
-        }
-
-        .footer-section a:hover {
-            color: var(--primary-color);
-        }
-
         /* Floating Action Button */
         .fab {
             position: fixed;
@@ -631,16 +600,6 @@
         }
 
         @media (max-width: 768px) {
-            .navbar {
-                flex-direction: column;
-                gap: 12px;
-            }
-
-            .navbar-left {
-                width: 100%;
-                gap: 12px;
-            }
-
             .room-grid {
                 grid-template-columns: 1fr;
             }
@@ -652,9 +611,12 @@
     </style>
 </head>
 <body>
+    <!-- Navigation Bar -->
+    <?php $currentPage = 'booking'; include '../../includes/header.php'; ?>
+
     <!-- Breadcrumb -->
     <div class="breadcrumb">
-        <a href="homepage.html">Home</a>
+        <a href="/homepage.php">Home</a>
         <span> > </span>
         <span>Room Availability</span>
     </div>
@@ -826,42 +788,10 @@
     <!-- Floating Action Button -->
     <button class="fab" onclick="goToBooking()" title="Quick Book">+</button>
 
-    <!-- Footer -->
-    <div class="footer">
-        <div class="footer-content">
-            <div class="footer-section">
-                <p><strong>UniReserve</strong> © 2024 University Facilities Management</p>
-            </div>
-            <div class="footer-section">
-                <a href="#">Terms of Service</a>
-                <a href="#">Privacy Policy</a>
-                <a href="#">Accessibility</a>
-                <a href="#">Contact Support</a>
-            </div>
-        </div>
-    </div>
+    <?php include '../../includes/footer.php'; ?>
 
     <script>
-    function toggleProfileMenu() {
 
-        const menu =
-        document.getElementById('profileDropdown');
-
-        menu.classList.toggle('show');
-    }
-
-window.addEventListener('click', function(e){
-
-    const menu =
-    document.querySelector('.profile-menu-container');
-
-    if(!menu.contains(e.target)){
-
-        document
-        .getElementById('profileDropdown')
-        .classList.remove('show');
-    }
-});
         // Room data with exact specifications
         const allRooms = [
             {

@@ -28,129 +28,6 @@
             background: var(--bg-light);
         }
 
-        /* Navigation */
-        .navbar {
-            background: #8b1538;
-            padding: 16px 30px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .navbar-left {
-            display: flex;
-            align-items: center;
-            gap: 40px;
-        }
-
-        .navbar-logo {
-            font-size: 18px;
-            font-weight: 700;
-            color: white;
-            text-decoration: none;
-        }
-
-        .nav-links {
-            display: flex;
-            gap: 30px;
-        }
-
-        .nav-link {
-            color: white;
-            text-decoration: none;
-            font-size: 14px;
-            font-weight: 500;
-        }
-
-        .nav-link:hover,
-        .nav-link.active {
-            color: #ffc107;
-        }
-
-        .navbar-right {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-        }
-
-        .icon-button {
-            background: none;
-            border: none;
-            font-size: 20px;
-            color: white;
-            cursor: pointer;
-        }
-
-        .btn-book-now {
-            background: #ffc107;
-            color: #333;
-            border: none;
-            padding: 8px 20px;
-            border-radius: 4px;
-            font-weight: 600;
-            cursor: pointer;
-        }
-
-        .user-avatar {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            border: none;
-            background: white;
-            color: #8b1538;
-            font-weight: bold;
-            cursor: pointer;
-        } 
-
-                .profile-menu-container {
-            position: relative;
-        }
-
-        .profile-dropdown {
-            position: absolute;
-            top: 45px;
-            right: 0;
-            background: var(--white);
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            min-width: 200px;
-            padding: 8px 0;
-            z-index: 1000;
-            display: none;
-        }
-
-        .profile-dropdown.show {
-            display: block;
-        }
-
-        .profile-dropdown a {
-            display: block;
-            width: 100%;
-            padding: 12px 20px;
-            text-align: left;
-            border: none;
-            background: none;
-            cursor: pointer;
-            font-size: 13px;
-            color: var(--text-dark);
-            text-decoration: none;
-            transition: background 0.3s;
-        }
-
-        .profile-dropdown a:hover {
-            background: var(--bg-light);
-        }
-
-        .profile-dropdown hr {
-            margin: 8px 0;
-            border: none;
-            border-top: 1px solid var(--border-light);
-        }
-
-        .logout-link {
-            color: #d32f2f !important;
-        }
-
         /* Breadcrumb */
         .breadcrumb {
             background: var(--white);
@@ -631,48 +508,6 @@
             transition: all 0.3s;
         }
 
-        /* Footer */
-        footer {
-            background: var(--white);
-            border-top: 1px solid var(--border);
-            padding: 30px;
-            text-align: center;
-            margin-top: 50px;
-        }
-
-        .footer-content {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 20px;
-        }
-
-        .footer-left {
-            text-align: left;
-        }
-
-        .footer-left strong {
-            color: var(--primary);
-        }
-
-        .footer-links {
-            display: flex;
-            gap: 24px;
-        }
-
-        .footer-links a {
-            color: var(--text-light);
-            text-decoration: none;
-            font-size: 13px;
-        }
-
-        .footer-links a:hover {
-            color: var(--primary);
-        }
-
         @media (max-width: 768px) {
             .featured-section {
                 grid-template-columns: 1fr;
@@ -687,55 +522,16 @@
                 grid-template-columns: 1fr;
             }
 
-            .footer-content {
-                flex-direction: column;
-                text-align: center;
-            }
-
-            .footer-left {
-                text-align: center;
-            }
         }
     </style>
 </head>
 <body>
     <!-- Header -->
-<nav class="navbar">
-
-    <div class="navbar-left">
-
-        <a href="homepage.html" class="navbar-logo">UNIRESERVE</a>
-
-        <div class="nav-links">
-            <a href="homepage.html" class="nav-link">Home</a>
-            <a href="room-availability.html" class="nav-link">Rooms</a>
-            <a href="facilities.html" class="nav-link active">Facilities</a>
-        </div>
-    </div>
-
-    <div class="navbar-right">
-        <button class="icon-button">🔔</button>
-        <button class="icon-button">⚙️</button>
-        <button class="btn-book-now"><a href="booking.html">BOOK NOW</a></button>
-      <div class="profile-menu-container">
-        <button class="user-avatar" onclick="toggleProfileMenu()">S</button>
-      <div class="profile-dropdown" id="profileDropdown">
-                <a href="profile.html">👤 My Profile</a>
-                <a href="my-bookings.html">📋 My Bookings</a>
-                <a href="settings.html">⚙️ Settings</a>
-                <a href="help.html">❓ Help</a>
-                <hr>
-                <a href="login.html" class="logout-link">
-                    🚪 Logout
-                </a>
-        </div>
-    </div>
-    </div>
-</nav>
+<?php $currentPage = 'facilities'; include '../../includes/header.php'; ?>
 
     <!-- Breadcrumb -->
     <div class="breadcrumb">
-        <a href="homepage.html">Home</a> > <a href="#">Facilities Explorer</a>
+        <a href="/homepage.php">Home</a> > <a href="#">Facilities Explorer</a>
     </div>
 
     <!-- Main -->
@@ -918,20 +714,7 @@
     </div>
 
     <!-- Footer -->
-    <footer>
-        <div class="footer-content">
-            <div class="footer-left">
-                <strong>UniReserve</strong>
-                <p>© 2024 University Facilities Management. All rights reserved.</p>
-            </div>
-            <div class="footer-links">
-                <a href="#">Terms of Service</a>
-                <a href="#">Privacy Policy</a>
-                <a href="#">Accessibility</a>
-                <a href="#">Contact Support</a>
-            </div>
-        </div>
-    </footer>
+    <?php include '../../includes/footer.php'; ?>
 
     <script>
         // Facilities Data - 4 facilities only
@@ -1051,27 +834,6 @@
 
         // Initialize
         document.addEventListener('DOMContentLoaded', displayFacilities);
-
-              function toggleProfileMenu() {
-
-          const menu =
-          document.getElementById('profileDropdown');
-
-          menu.classList.toggle('show');
-      }
-
-      window.addEventListener('click', function(e){
-
-          const profileMenu =
-          document.querySelector('.profile-menu-container');
-
-          if(!profileMenu.contains(e.target)) {
-
-              document
-              .getElementById('profileDropdown')
-              .classList.remove('show');
-          }
-      });
     </script>
 </body>
 </html>
