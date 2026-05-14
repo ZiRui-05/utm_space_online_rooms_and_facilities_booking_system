@@ -1,27 +1,5 @@
 <?php
 $currentPage = $currentPage ?? '';
-?>
-<style>
-    .navbar {
-        background: var(--primary-color);
-        padding: 16px 30px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        position: sticky;
-        top: 0;
-        z-index: 100;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    }
-    .navbar-left { display: flex; align-items: center; gap: 40px; }
-    .navbar-logo { font-size: 18px; font-weight: 700; color: var(--white); letter-spacing: 1px; margin: 0; }
-    .nav-links { display: flex; gap: 30px; }
-    .nav-link {
-        color: var(--white);
-        text-decoration: none;
-        font-size: 14px;
-<?php
-$currentPage = $currentPage ?? '';
 
 $scriptDir = trim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/')), '/');
 $depth = $scriptDir === '' ? 0 : substr_count($scriptDir, '/') + 1;
