@@ -80,19 +80,48 @@
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
         }
 
+        .profile-avatar-container {
+            width: 206px;
+            height: 296px;
+            margin: 0 auto 16px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 2px solid var(--accent-color);
+            border-radius: 8px;
+            overflow: hidden;
+            background: #f7f7f7;
+            cursor: pointer;
+        }
+
         .profile-avatar {
-            width: 100px;
-            height: 100px;
-            border-radius: 50%;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: none;
+        }
+
+        .profile-avatar-fallback {
+            width: 100%;
+            height: 100%;
             background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
             color: var(--white);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 40px;
-            margin: 0 auto 16px;
-            border: 4px solid var(--accent-color);
+            font-size: 64px;
             font-weight: 700;
+        }
+
+        .avatar-upload-btn {
+            margin-top: 8px;
+            border: 1px solid var(--primary-color);
+            color: var(--primary-color);
+            background: #fff;
+            border-radius: 4px;
+            font-size: 12px;
+            padding: 8px 10px;
+            cursor: pointer;
         }
 
         .profile-name {
@@ -478,7 +507,11 @@
         <div class="sidebar">
             <!-- Profile Card -->
             <div class="profile-card">
-                <div class="profile-avatar" id="profile-avatar">J</div>
+                <div class="profile-avatar-container" onclick="triggerAvatarUpload()" title="Click to change avatar">
+                    <img class="profile-avatar" id="profile-avatar" alt="Profile Avatar">
+                    <div class="profile-avatar-fallback" id="profile-avatar-fallback">J</div>
+                </div>
+                <input type="file" id="avatar-input" accept="image/*" style="display:none;">
                 <div class="profile-name" id="profile-name">-</div>
 
                 <div class="profile-info">
@@ -587,6 +620,7 @@
 
     <script>
         let isEditMode = false;
+        let pendingAvatarBase64 = "";
         // Load user data
         document.addEventListener('DOMContentLoaded', async function() {
             const sessionResponse = await fetch('../../api/auth/auth_session.php', { credentials: 'same-origin' });
@@ -611,7 +645,17 @@
 
             const userData = result.user;
             const initials = (userData.full_name || 'U').split(' ').map(n => n[0]).join('').toUpperCase();
-            document.getElementById('profile-avatar').textContent = initials;
+            const avatarImg = document.getElementById('profile-avatar');
+            const avatarFallback = document.getElementById('profile-avatar-fallback');
+            avatarFallback.textContent = initials;
+            if (userData.profile_image_base64 && userData.profile_image_mime) {
+                avatarImg.src = `data:${userData.profile_image_mime};base64,${userData.profile_image_base64}`;
+                avatarImg.style.display = 'block';
+                avatarFallback.style.display = 'none';
+            } else {
+                avatarImg.style.display = 'none';
+                avatarFallback.style.display = 'flex';
+            }
             document.getElementById('profile-name').textContent = userData.full_name || '-';
             document.getElementById('detail-name').textContent = userData.full_name || '-';
             document.getElementById('detail-email').textContent = userData.email || '-';
@@ -668,6 +712,10 @@
 
         function toggleProfileEdit() {
             if (!isEditMode) {
+                if (pendingAvatarBase64) {
+                    saveProfileEdits();
+                    return;
+                }
                 enterEditMode();
             } else {
                 saveProfileEdits();
@@ -686,8 +734,10 @@
         }
 
         async function saveProfileEdits() {
-            const phoneNumber = document.getElementById('detail-phone-input').value.trim();
-            const department = document.getElementById('detail-department-input').value.trim();
+            const phoneInput = document.getElementById('detail-phone-input');
+            const departmentInput = document.getElementById('detail-department-input');
+            const phoneNumber = phoneInput ? phoneInput.value.trim() : (document.getElementById('detail-phone').textContent.trim() === 'Waiting to edit' ? '' : document.getElementById('detail-phone').textContent.trim());
+            const department = departmentInput ? departmentInput.value.trim() : (document.getElementById('detail-department').textContent.trim() === 'Waiting to edit' ? '' : document.getElementById('detail-department').textContent.trim());
 
             const response = await fetch('../../api/user/profile_data.php', {
                 method: 'POST',
@@ -695,7 +745,8 @@
                 credentials: 'same-origin',
                 body: JSON.stringify({
                     phone_number: phoneNumber,
-                    department: department
+                    department: department,
+                    avatar_base64: pendingAvatarBase64
                 })
             });
 
@@ -708,7 +759,85 @@
             isEditMode = false;
             document.getElementById('btn-edit-profile').textContent = '✏️ Edit Profile';
             await loadProfileData();
+            pendingAvatarBase64 = '';
             alert('Profile updated successfully.');
+        }
+
+        
+
+        function triggerAvatarUpload() {
+            document.getElementById('avatar-input').click();
+        }
+
+        document.getElementById('avatar-input').addEventListener('change', async function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const processed = await processAvatarFile(file);
+            if (!processed) {
+                event.target.value = '';
+                return;
+            }
+
+            pendingAvatarBase64 = processed.base64;
+            const avatarImg = document.getElementById('profile-avatar');
+            document.getElementById('profile-avatar-fallback').style.display = 'none';
+            avatarImg.src = `data:image/jpeg;base64,${processed.base64}`;
+            avatarImg.style.display = 'block';
+            event.target.value = '';
+        });
+
+        async function processAvatarFile(file) {
+            const dataUrl = await fileToDataUrl(file);
+            const source = await loadImage(dataUrl);
+            const canvas = document.createElement('canvas');
+            canvas.width = 413;
+            canvas.height = 591;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(source, 0, 0, 413, 591);
+
+            for (let quality = 0.9; quality >= 0.45; quality -= 0.05) {
+                const blob = await canvasToBlob(canvas, quality);
+                if (blob.size < 100 * 1024) {
+                    return { base64: await blobToBase64(blob) };
+                }
+            }
+
+            alert('Image is too complex. Please choose another photo.');
+            return null;
+        }
+
+        function fileToDataUrl(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function loadImage(src) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.onerror = reject;
+                img.src = src;
+            });
+        }
+
+        function canvasToBlob(canvas, quality) {
+            return new Promise((resolve) => {
+                canvas.toBlob((blob) => resolve(blob), 'image/jpeg', quality);
+            });
+        }
+
+        function blobToBase64(blob) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
         }
 
         function navigateTo(page) {
