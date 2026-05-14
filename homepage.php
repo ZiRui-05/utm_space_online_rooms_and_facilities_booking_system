@@ -617,7 +617,7 @@
         <div class="featured-grid">
             <div class="featured-card">
                 <div class="card-badge">Priority Booking</div>
-                <img src="stadium.png" alt="Control Hall">
+                <img src="stadium.jpg" alt="Control Hall">
                 <div class="card-content">
                     <h4>Stadium</h4>
                     <p class="facility-name">Stadium Azman Hashim(UTM)</p>
@@ -629,25 +629,25 @@
                     </div>
                     <div class="card-footer">
                         <span class="price">RM 150 / hour</span>
-                        <button class="btn-check-availability" onclick="checkAvailability('Stadium')">Check Availability</button>
+                        <button class="btn-check-availability" onclick="checkAvailability('Stadium')">Reserve Stadium</button>
                     </div>
                 </div>
             </div>
 
             <div class="featured-card">
-                <img src="roomt05.png" alt="Study Pod">
+                <img src="T05.jpg" alt="Study Pod">
                 <div class="card-content">
                     <h4>Room T05</h4>
                     <p class="facility-description">Sound-isolated acoustic pod with whiteboards and collaborative display screens.</p>
                     <div class="facility-meta">
                         <span class="price-free">Free (Student)</span>
                     </div>
-                    <button class="btn-book-facility" onclick="bookFacility('Room T05')">Book Pod</button>
+                    <button class="btn-book-facility" onclick="bookFacility('Room T05')">Reserve Room</button>
                 </div>
             </div>
 
             <div class="featured-card">
-                <img src="astanahall.png" alt="Biotech Lab">
+                <img src="Dewan-Astana.jpg" alt="Biotech Lab">
                 <div class="card-content">
                     <h4>Astana Hall KTC</h4>
                     <p class="facility-description">A functional hall equipped with a sound system, stage area, and seating arrangements. Suitable for student activities, meetings, small events, and college functions.</p>
@@ -734,9 +734,9 @@
 
         function navigateTo(category) { alert('Navigating to ' + category); }
         function addNewFacility() { alert('Add new facility feature coming soon!'); }
-        function checkAvailability(facility) { alert('Checking availability for ' + facility); }
-        function bookFacility(facility) { alert('Booking ' + facility); }
-        function reserveFacility(facility) { alert('Reserving ' + facility); }
+        function checkAvailability(facility) { window.location.href = 'facility_details.php?type=facility&name=' + encodeURIComponent(facility); }
+        function bookFacility(facility) { window.location.href = 'facility_details.php?type=room&name=' + encodeURIComponent(facility); }
+        function reserveFacility(facility) { window.location.href = 'facility_details.php?type=facility&name=' + encodeURIComponent(facility); }
         function prevSlide() { alert('Previous slide'); }
         function nextSlide() { alert('Next slide'); }
     </script>
