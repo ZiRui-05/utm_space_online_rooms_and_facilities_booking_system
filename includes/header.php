@@ -58,6 +58,19 @@ $toRoot = static fn(string $path): string => $prefix . ltrim($path, '/');
         width: 36px; height: 36px; border-radius: 50%; background: var(--white);
         color: var(--primary-color); border: none; font-weight: 700; cursor: pointer; transition: all 0.3s;
         display: inline-flex; align-items: center; justify-content: center; line-height: 1;
+        overflow: hidden;
+    }
+    .user-avatar img {
+        width: 100%;
+        min-width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+    .user-avatar.has-image {
+        padding: 0;
+        background: var(--white);
+        color: transparent;
     }
     .user-avatar:hover { transform: scale(1.1); }
     .dropdown-menu {
@@ -116,13 +129,27 @@ $toRoot = static fn(string $path): string => $prefix . ltrim($path, '/');
     async function hydrateAvatar(){
         const avatar = document.getElementById('user-avatar-btn');
         if (!avatar) return;
+        const setInitialAvatar = function(fullName){
+            avatar.classList.remove('has-image');
+            avatar.innerHTML = '';
+            avatar.textContent = computeInitials(fullName);
+        };
+        const setImageAvatar = function(base64, mime){
+            if (!base64 || !mime) return false;
+            const image = document.createElement('img');
+            image.src = `data:${mime};base64,${base64}`;
+            image.alt = 'Profile picture';
+            avatar.classList.add('has-image');
+            avatar.innerHTML = '';
+            avatar.appendChild(image);
+            return true;
+        };
 
         try {
             const localUser = JSON.parse(localStorage.getItem('userData') || 'null');
             const fullName = localUser?.full_name || localUser?.name;
             if (fullName) {
-                avatar.textContent = computeInitials(fullName);
-                return;
+                setInitialAvatar(fullName);
             }
         } catch (error) {
             console.warn('Unable to parse local user data for avatar.', error);
@@ -141,8 +168,19 @@ $toRoot = static fn(string $path): string => $prefix . ltrim($path, '/');
             const fullName = sessionUser?.full_name || sessionUser?.name;
             if (!fullName) return;
 
-            avatar.textContent = computeInitials(fullName);
+            setInitialAvatar(fullName);
             localStorage.setItem('userData', JSON.stringify(sessionUser));
+
+            const profileResponse = await fetch('<?= htmlspecialchars($toRoot('api/user/profile_data.php'), ENT_QUOTES, 'UTF-8') ?>', {
+                credentials: 'same-origin'
+            });
+            if (!profileResponse.ok) return;
+
+            const profileData = await profileResponse.json();
+            if (!profileData?.success || !profileData?.user) return;
+
+            const profileUser = profileData.user;
+            setImageAvatar(profileUser.profile_image_base64, profileUser.profile_image_mime);
         } catch (error) {
             console.warn('Unable to load session user data for avatar.', error);
         }
