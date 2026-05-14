@@ -538,7 +538,7 @@
     </style>
 </head>
 <body>
-<?php $currentPage = 'home'; include __DIR__ . '/../../includes/header.php'; ?>
+<?php $currentPage = 'home'; include __DIR__ . '/includes/header.php'; ?>
 
 
 <!-- Hero Section -->
@@ -693,7 +693,7 @@
     </div>
 </section>
 
-<?php include __DIR__ . '/../../includes/footer.php'; ?>
+<?php include __DIR__ . '/includes/footer.php'; ?>
 
 
 
@@ -725,7 +725,7 @@
 
     function handleLogout() {
         if (confirm('Are you sure you want to logout?')) {
-            fetch('../../api/auth/auth_logout.php', { method: 'POST', credentials: 'same-origin' }).finally(() => {
+            fetch('api/auth/auth_logout.php', { method: 'POST', credentials: 'same-origin' }).finally(() => {
                 window.location.href = 'pages/auth/login.html';
             });
         }
