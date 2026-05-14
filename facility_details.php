@@ -18,7 +18,7 @@ $fallbacks = [
         'description' => 'A multi-purpose stadium equipped with a quality sound system, spectator seating, and sports facilities. Suitable for sporting events, university ceremonies, large gatherings, and outdoor activities.',
         'price_per_day' => 150.00,
         'price_label' => 'RM 150 / hour',
-        'image' => 'stadium.jpg',
+        'image' => 'stadium.png',
         'status' => 'available',
     ],
     'room:room t05' => [
@@ -30,7 +30,7 @@ $fallbacks = [
         'description' => 'Sound-isolated acoustic pod with whiteboards and collaborative display screens.',
         'price_per_day' => 0.00,
         'price_label' => 'Free (Student)',
-        'image' => 'T05.jpg',
+        'image' => 'roomt05.png',
         'status' => 'available',
     ],
     'facility:astana hall ktc' => [
@@ -42,7 +42,7 @@ $fallbacks = [
         'description' => 'A functional hall equipped with a sound system, stage area, and seating arrangements. Suitable for student activities, meetings, small events, and college functions.',
         'price_per_day' => 25.00,
         'price_label' => 'RM 25 / hour',
-        'image' => 'Dewan-Astana.jpg',
+        'image' => 'astanahall.png',
         'status' => 'available',
     ],
 ];
