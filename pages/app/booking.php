@@ -228,12 +228,12 @@
     </style>
 </head>
 <body>
-<?php $currentPage = 'booking'; include "includes/header.php"; ?>
+<?php $currentPage = 'booking'; include __DIR__ . '/../../includes/header.php'; ?>
     
 
     <!-- Breadcrumb -->
     <div class="breadcrumb">
-        <a href="homepage.php">Home</a>
+        <a href="../../homepage.php">Home</a>
         <span> > </span>
         <span>Book Facility</span>
     </div>
@@ -321,15 +321,15 @@
         </div>
     </div>
 
-    <?php include "includes/footer.php"; ?>
+    <?php include __DIR__ . '/../../includes/footer.php'; ?>
 
     <script>
         document.addEventListener('DOMContentLoaded', async function() {
-            const sessionResponse = await fetch('auth_session.php', { credentials: 'same-origin' });
-            if (!sessionResponse.ok) { window.location.href = 'login.html'; return; }
+            const sessionResponse = await fetch('../../api/auth/auth_session.php', { credentials: 'same-origin' });
+            if (!sessionResponse.ok) { window.location.href = '../auth/login.html'; return; }
 
             const sessionData = await sessionResponse.json();
-            if (!sessionData.authenticated) { window.location.href = 'login.html'; return; }
+            if (!sessionData.authenticated) { window.location.href = '../auth/login.html'; return; }
 
             const userData = sessionData.user || {};
             if (userData.full_name) {
@@ -356,8 +356,8 @@
 
         function handleLogout() {
             if (confirm('Are you sure you want to logout?')) {
-                fetch('auth_logout.php', { method: 'POST', credentials: 'same-origin' }).finally(() => {
-                    window.location.href = 'login.html';
+                fetch('../../api/auth/auth_logout.php', { method: 'POST', credentials: 'same-origin' }).finally(() => {
+                    window.location.href = '../auth/login.html';
                 });
             }
         }

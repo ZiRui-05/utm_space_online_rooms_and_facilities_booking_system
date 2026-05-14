@@ -3,7 +3,7 @@
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 
-require __DIR__ . '/db.php';
+require __DIR__ . '/../../config/db.php';
 
 $user_id = $_GET['user_id'] ?? '';
 

@@ -8,7 +8,7 @@ if (!isset($_SESSION['user']['user_id'])) {
     exit;
 }
 
-require __DIR__ . '/db.php';
+require __DIR__ . '/../../config/db.php';
 
 $userId = (int)$_SESSION['user']['user_id'];
 

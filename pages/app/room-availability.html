@@ -825,7 +825,7 @@
                 <a href="settings.html">⚙️ Settings</a>
                 <a href="help.html">❓ Help</a>
                 <hr>
-                <a href="login.html" class="logout-link">
+                <a href="../auth/login.html" class="logout-link">
                     🚪 Logout
                 </a>
         </div>
@@ -1406,7 +1406,7 @@ window.addEventListener('click', function(e){
             const userData = JSON.parse(localStorage.getItem('userData'));
             if (!userData) {
                 alert('Please login first');
-                window.location.href = 'login.html';
+                window.location.href = '../auth/login.html';
                 return;
             }
 
@@ -1419,7 +1419,7 @@ window.addEventListener('click', function(e){
             bookingData.append('total_cost', selectedRoomForBooking.cost);
             bookingData.append('comments', comments);
 
-            fetch('create_booking.php', {
+            fetch('../../api/booking/create_booking.php', {
                 method: 'POST',
                 body: bookingData
             })

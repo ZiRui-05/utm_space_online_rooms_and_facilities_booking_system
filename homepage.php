@@ -33,7 +33,7 @@
         /* Hero Section */
         .hero {
             background: linear-gradient(rgba(139, 21, 56, 0.5), rgba(139, 21, 56, 0.5)),
-                    url('utm-gate.png');
+            url('utm-gate.png');
             background-size: cover;
             background-position: center;
             padding: 60px 30px;
@@ -538,115 +538,115 @@
     </style>
 </head>
 <body>
-<?php $currentPage = 'home'; include "includes/header.php"; ?>
-    
+<?php $currentPage = 'home'; include __DIR__ . '/../../includes/header.php'; ?>
 
-    <!-- Hero Section -->
-    <section class="hero">
-        <div class="hero-overlay"></div>
-        <div class="hero-content">
-            <h2>RESERVE YOUR EXCELLENCE</h2>
-            <p>Streamlined Booking for Academic Success.</p>
-            <p class="hero-description">Access world-class lecture halls, focused study pods, and specialized research facilities across all university campuses with a single click.</p>
 
-            <div class="search-bar">
-                <div class="search-input-group">
-                    <span class="search-icon">🔍</span>
-                    <input type="text" placeholder="Search facilities...">
+<!-- Hero Section -->
+<section class="hero">
+    <div class="hero-overlay"></div>
+    <div class="hero-content">
+        <h2>RESERVE YOUR EXCELLENCE</h2>
+        <p>Streamlined Booking for Academic Success.</p>
+        <p class="hero-description">Access world-class lecture halls, focused study pods, and specialized research facilities across all university campuses with a single click.</p>
+
+        <div class="search-bar">
+            <div class="search-input-group">
+                <span class="search-icon">🔍</span>
+                <input type="text" placeholder="Search facilities...">
+            </div>
+            <div class="location-selector">
+                <span class="location-icon">📍</span>
+                <select>
+                    <option>All Locations</option>
+                    <option>Campus A</option>
+                    <option>Campus B</option>
+                    <option>Campus C</option>
+                </select>
+            </div>
+            <div class="date-picker">
+                <span class="calendar-icon">📅</span>
+                <input type="date">
+            </div>
+            <button class="btn-find-spaces">Find Available Spaces</button>
+        </div>
+    </div>
+</section>
+
+<!-- Categories Section -->
+<section class="categories-section">
+    <div class="section-header">
+        <h3>Browse by Category</h3>
+        <p>Find the perfect space for your specific academic needs.</p>
+        <a href="#" class="view-all">View All Categories →</a>
+    </div>
+
+    <div class="categories-grid">
+        <div class="category-card" onclick="navigateTo('lecture-halls')">
+            <div class="category-icon">🎤</div>
+            <p>Lecture Halls</p>
+        </div>
+        <div class="category-card" onclick="navigateTo('study-pods')">
+            <div class="category-icon">📚</div>
+            <p>Study Pods</p>
+        </div>
+        <div class="category-card" onclick="navigateTo('labs')">
+            <div class="category-icon">🔬</div>
+            <p>Labs</p>
+        </div>
+        <div class="category-card" onclick="navigateTo('meeting-rooms')">
+            <div class="category-icon">👥</div>
+            <p>Meeting Rooms</p>
+        </div>
+        <div class="category-card" onclick="navigateTo('sports')">
+            <div class="category-icon">⚽</div>
+            <p>Sports</p>
+        </div>
+        <div class="category-card" onclick="navigateTo('theatres')">
+            <div class="category-icon">🎭</div>
+            <p>Theatres</p>
+        </div>
+    </div>
+</section>
+
+<!-- Featured Spaces Section -->
+<section class="featured-section">
+    <div class="section-header">
+        <h3>Featured Spaces</h3>
+    </div>
+
+    <div class="featured-grid">
+        <div class="featured-card">
+            <div class="card-badge">Priority Booking</div>
+            <img src="/assets/images/stadium.jpg" alt="Control Hall">
+            <div class="card-content">
+                <h4>Stadium</h4>
+                <p class="facility-name">Stadium Azman Hashim(UTM)</p>
+                <p class="facility-description">A multi-purpose stadium equipped with a quality sound system, spectator seating, and sports facilities. Suitable for sporting events, university ceremonies, large gatherings, and outdoor activities.</p>
+                <div class="facility-features">
+                    <span class="feature">👥 500 Seats</span>
+                    <span class="feature">📶 Free Internet</span>
+                    <span class="feature">🔌 Power Outlets</span>
                 </div>
-                <div class="location-selector">
-                    <span class="location-icon">📍</span>
-                    <select>
-                        <option>All Locations</option>
-                        <option>Campus A</option>
-                        <option>Campus B</option>
-                        <option>Campus C</option>
-                    </select>
+                <div class="card-footer">
+                    <span class="price">RM 150 / hour</span>
+                    <button class="btn-check-availability" onclick="checkAvailability('Stadium')">Reserve Stadium</button>
                 </div>
-                <div class="date-picker">
-                    <span class="calendar-icon">📅</span>
-                    <input type="date">
+            </div>
+        </div>
+
+        <div class="featured-card">
+            <img src="/assets/images/T05.jpg" alt="Study Pod">
+            <div class="card-content">
+                <h4>Room T05</h4>
+                <p class="facility-description">Sound-isolated acoustic pod with whiteboards and collaborative display screens.</p>
+                <div class="facility-meta">
+                    <span class="price-free">Free (Student)</span>
                 </div>
-                <button class="btn-find-spaces">Find Available Spaces</button>
+                <button class="btn-book-facility" onclick="bookFacility('Room T05')">Reserve Room</button>
             </div>
-        </div>
-    </section>
 
-    <!-- Categories Section -->
-    <section class="categories-section">
-        <div class="section-header">
-            <h3>Browse by Category</h3>
-            <p>Find the perfect space for your specific academic needs.</p>
-            <a href="#" class="view-all">View All Categories →</a>
-        </div>
-
-        <div class="categories-grid">
-            <div class="category-card" onclick="navigateTo('lecture-halls')">
-                <div class="category-icon">🎤</div>
-                <p>Lecture Halls</p>
-            </div>
-            <div class="category-card" onclick="navigateTo('study-pods')">
-                <div class="category-icon">📚</div>
-                <p>Study Pods</p>
-            </div>
-            <div class="category-card" onclick="navigateTo('labs')">
-                <div class="category-icon">🔬</div>
-                <p>Labs</p>
-            </div>
-            <div class="category-card" onclick="navigateTo('meeting-rooms')">
-                <div class="category-icon">👥</div>
-                <p>Meeting Rooms</p>
-            </div>
-            <div class="category-card" onclick="navigateTo('sports')">
-                <div class="category-icon">⚽</div>
-                <p>Sports</p>
-            </div>
-            <div class="category-card" onclick="navigateTo('theatres')">
-                <div class="category-icon">🎭</div>
-                <p>Theatres</p>
-            </div>
-        </div>
-    </section>
-
-    <!-- Featured Spaces Section -->
-    <section class="featured-section">
-        <div class="section-header">
-            <h3>Featured Spaces</h3>
-        </div>
-
-        <div class="featured-grid">
             <div class="featured-card">
-                <div class="card-badge">Priority Booking</div>
-                <img src="res\stadium.jpg" alt="Control Hall">
-                <div class="card-content">
-                    <h4>Stadium</h4>
-                    <p class="facility-name">Stadium Azman Hashim(UTM)</p>
-                    <p class="facility-description">A multi-purpose stadium equipped with a quality sound system, spectator seating, and sports facilities. Suitable for sporting events, university ceremonies, large gatherings, and outdoor activities.</p>
-                    <div class="facility-features">
-                        <span class="feature">👥 500 Seats</span>   
-                        <span class="feature">📶 Free Internet</span>
-                        <span class="feature">🔌 Power Outlets</span>
-                    </div>
-                    <div class="card-footer">
-                        <span class="price">RM 150 / hour</span>
-                        <button class="btn-check-availability" onclick="checkAvailability('Stadium')">Reserve Stadium</button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="featured-card">
-                <img src="res\T05.jpg" alt="Study Pod">
-                <div class="card-content">
-                    <h4>Room T05</h4>
-                    <p class="facility-description">Sound-isolated acoustic pod with whiteboards and collaborative display screens.</p>
-                    <div class="facility-meta">
-                        <span class="price-free">Free (Student)</span>
-                    </div>
-                    <button class="btn-book-facility" onclick="bookFacility('Room T05')">Reserve Room</button>
-                </div>
-
-            <div class="featured-card">
-                <img src="res\Dewan-Astana.jpg" alt="Biotech Lab">
+                <img src="/assets/images/Dewan-Astana.jpg" alt="Biotech Lab">
                 <div class="card-content">
                     <h4>Astana Hall KTC</h4>
                     <p class="facility-description">A functional hall equipped with a sound system, stage area, and seating arrangements. Suitable for student activities, meetings, small events, and college functions.</p>
@@ -665,79 +665,79 @@
             <button class="nav-arrow prev" onclick="prevSlide()">◀</button>
             <button class="nav-arrow next" onclick="nextSlide()">▶</button>
         </div>
-    </section>
+</section>
 
-    <!-- Why Book Section -->
-    <section class="why-book-section">
-        <h3>Why Book With UniReserve?</h3>
-        <p class="section-subtitle">The official platform for all University of Toronto Mississauga campus facilities, ensuring fairness and efficiency.</p>
+<!-- Why Book Section -->
+<section class="why-book-section">
+    <h3>Why Book With UniReserve?</h3>
+    <p class="section-subtitle">The official platform for all University of Toronto Mississauga campus facilities, ensuring fairness and efficiency.</p>
 
-        <div class="benefits-grid">
-            <div class="benefit-card">
-                <div class="benefit-icon">⚡</div>
-                <h4>Instant Confirmation</h4>
-                <p>Get immediate booking confirmation for most study spaces and meeting rooms without manual approval wait times.</p>
-            </div>
-
-            <div class="benefit-card">
-                <div class="benefit-icon">💳</div>
-                <h4>Seamless Billing</h4>
-                <p>Faculty and students can use university IDs for internal charging, while external visitors can use secure credit card processing.</p>
-            </div>
-
-            <div class="benefit-card">
-                <div class="benefit-icon">🔐</div>
-                <h4>24/7 Facility Access</h4>
-                <p>Manage your bookings on the go and gain smart-lock access to designated areas during approved reservation windows.</p>
-            </div>
+    <div class="benefits-grid">
+        <div class="benefit-card">
+            <div class="benefit-icon">⚡</div>
+            <h4>Instant Confirmation</h4>
+            <p>Get immediate booking confirmation for most study spaces and meeting rooms without manual approval wait times.</p>
         </div>
-    </section>
 
-    <?php include "includes/footer.php"; ?>
+        <div class="benefit-card">
+            <div class="benefit-icon">💳</div>
+            <h4>Seamless Billing</h4>
+            <p>Faculty and students can use university IDs for internal charging, while external visitors can use secure credit card processing.</p>
+        </div>
+
+        <div class="benefit-card">
+            <div class="benefit-icon">🔐</div>
+            <h4>24/7 Facility Access</h4>
+            <p>Manage your bookings on the go and gain smart-lock access to designated areas during approved reservation windows.</p>
+        </div>
+    </div>
+</section>
+
+<?php include __DIR__ . '/../../includes/footer.php'; ?>
 
 
 
-    <script>
-        document.addEventListener('DOMContentLoaded', async function() {
-            const sessionResponse = await fetch('auth_session.php', { credentials: 'same-origin' });
-            if (!sessionResponse.ok) { window.location.href = 'login.html'; return; }
-            const sessionData = await sessionResponse.json();
-            if (!sessionData.authenticated) { window.location.href = 'login.html'; return; }
-            const userData = sessionData.user || {};
-            
-            if (userData.full_name) {
-                const initials = userData.full_name.split(' ').map(n => n[0]).join('').toUpperCase();
-                document.getElementById('user-avatar-btn').textContent = initials;
-            }
-        });
+<script>
+    document.addEventListener('DOMContentLoaded', async function() {
+        const sessionResponse = await fetch('../../api/auth/auth_session.php', { credentials: 'same-origin' });
+        if (!sessionResponse.ok) { window.location.href = 'pages/auth/login.html'; return; }
+        const sessionData = await sessionResponse.json();
+        if (!sessionData.authenticated) { window.location.href = 'pages/auth/login.html'; return; }
+        const userData = sessionData.user || {};
 
-        function toggleUserMenu() {
-            const menu = document.getElementById('user-menu');
-            menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+        if (userData.full_name) {
+            const initials = userData.full_name.split(' ').map(n => n[0]).join('').toUpperCase();
+            document.getElementById('user-avatar-btn').textContent = initials;
         }
+    });
 
-        document.addEventListener('click', function(event) {
-            const userDropdown = document.querySelector('.user-dropdown');
-            if (!userDropdown.contains(event.target)) {
-                document.getElementById('user-menu').style.display = 'none';
-            }
-        });
+    function toggleUserMenu() {
+        const menu = document.getElementById('user-menu');
+        menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+    }
 
-        function handleLogout() {
-            if (confirm('Are you sure you want to logout?')) {
-                fetch('auth_logout.php', { method: 'POST', credentials: 'same-origin' }).finally(() => {
-                    window.location.href = 'login.html';
-                });
-            }
+    document.addEventListener('click', function(event) {
+        const userDropdown = document.querySelector('.user-dropdown');
+        if (!userDropdown.contains(event.target)) {
+            document.getElementById('user-menu').style.display = 'none';
         }
+    });
 
-        function navigateTo(category) { alert('Navigating to ' + category); }
-        function addNewFacility() { alert('Add new facility feature coming soon!'); }
-        function checkAvailability(facility) { window.location.href = 'facility_details.php?type=facility&name=' + encodeURIComponent(facility); }
-        function bookFacility(facility) { window.location.href = 'facility_details.php?type=room&name=' + encodeURIComponent(facility); }
-        function reserveFacility(facility) { window.location.href = 'facility_details.php?type=facility&name=' + encodeURIComponent(facility); }
-        function prevSlide() { alert('Previous slide'); }
-        function nextSlide() { alert('Next slide'); }
-    </script>
+    function handleLogout() {
+        if (confirm('Are you sure you want to logout?')) {
+            fetch('../../api/auth/auth_logout.php', { method: 'POST', credentials: 'same-origin' }).finally(() => {
+                window.location.href = 'pages/auth/login.html';
+            });
+        }
+    }
+
+    function navigateTo(category) { alert('Navigating to ' + category); }
+    function addNewFacility() { alert('Add new facility feature coming soon!'); }
+    function checkAvailability(facility) { window.location.href = 'facility_details.php?type=facility&name=' + encodeURIComponent(facility); }
+    function bookFacility(facility) { window.location.href = 'facility_details.php?type=room&name=' + encodeURIComponent(facility); }
+    function reserveFacility(facility) { window.location.href = 'facility_details.php?type=facility&name=' + encodeURIComponent(facility); }
+    function prevSlide() { alert('Previous slide'); }
+    function nextSlide() { alert('Next slide'); }
+</script>
 </body>
 </html>
