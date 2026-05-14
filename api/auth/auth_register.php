@@ -32,7 +32,7 @@ if (strlen($password) < 8) {
     exit;
 }
 
-require __DIR__ . '/db.php';
+require __DIR__ . '/../../config/db.php';
 
 $checkStmt = $pdo->prepare('SELECT user_id, email, utm_id, ic_no FROM users WHERE email = :email OR utm_id = :utm_id OR ic_no = :ic_no LIMIT 1');
 $checkStmt->execute([

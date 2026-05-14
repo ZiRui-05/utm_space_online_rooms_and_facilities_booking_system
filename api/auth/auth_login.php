@@ -18,7 +18,7 @@ if ($loginId === '' || $password === '') {
     exit;
 }
 
-require __DIR__ . '/db.php';
+require __DIR__ . '/../../config/db.php';
 
 $loginField = str_contains($loginId, '@') ? 'email' : 'utm_id';
 $stmt = $pdo->prepare("SELECT user_id, full_name, email, utm_id, password_hash, role, account_status FROM users WHERE {$loginField} = :login_id LIMIT 1");

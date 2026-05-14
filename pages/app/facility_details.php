@@ -68,7 +68,7 @@ $availabilityMessage = 'Available for booking request.';
 $availabilityClass = 'available';
 
 try {
-    require_once __DIR__ . '/db.php';
+    require_once __DIR__ . '/../../config/db.php';
     $dbLoaded = isset($pdo) && $pdo instanceof PDO;
 } catch (Throwable $e) {
     $dbLoaded = false;
@@ -196,10 +196,10 @@ $bookingUrl .= '&resource_name=' . urlencode($details['name']);
     </style>
 </head>
 <body>
-<?php include __DIR__ . '/includes/header.php'; ?>
+<?php include __DIR__ . '/../../includes/header.php'; ?>
 
 <div class="breadcrumb">
-    <a href="homepage.php">Home</a>
+    <a href="../../homepage.php">Home</a>
     <span> &gt; </span>
     <span><?= h($details['name']) ?></span>
 </div>
@@ -239,7 +239,7 @@ $bookingUrl .= '&resource_name=' . urlencode($details['name']);
 
             <div class="button-row">
                 <a class="btn-primary" href="<?= h($bookingUrl) ?>">Continue to Booking</a>
-                <a class="btn-secondary" href="homepage.php">Back to Home</a>
+                <a class="btn-secondary" href="../../homepage.php">Back to Home</a>
             </div>
         </div>
     </section>
@@ -281,13 +281,13 @@ $bookingUrl .= '&resource_name=' . urlencode($details['name']);
     </section>
 </div>
 
-<?php include __DIR__ . '/includes/footer.php'; ?>
+<?php include __DIR__ . '/../../includes/footer.php'; ?>
 <script>
     document.addEventListener('DOMContentLoaded', async function() {
-        const sessionResponse = await fetch('auth_session.php', { credentials: 'same-origin' });
-        if (!sessionResponse.ok) { window.location.href = 'login.html'; return; }
+        const sessionResponse = await fetch('../../api/auth/auth_session.php', { credentials: 'same-origin' });
+        if (!sessionResponse.ok) { window.location.href = '../auth/login.html'; return; }
         const sessionData = await sessionResponse.json();
-        if (!sessionData.authenticated) { window.location.href = 'login.html'; return; }
+        if (!sessionData.authenticated) { window.location.href = '../auth/login.html'; return; }
         const userData = sessionData.user || {};
         if (userData.full_name && document.getElementById('user-avatar-btn')) {
             document.getElementById('user-avatar-btn').textContent = userData.full_name.split(' ').map(n => n[0]).join('').toUpperCase();
@@ -309,8 +309,8 @@ $bookingUrl .= '&resource_name=' . urlencode($details['name']);
 
     function handleLogout() {
         if (confirm('Are you sure you want to logout?')) {
-            fetch('auth_logout.php', { method: 'POST', credentials: 'same-origin' }).finally(() => {
-                window.location.href = 'login.html';
+            fetch('../../api/auth/auth_logout.php', { method: 'POST', credentials: 'same-origin' }).finally(() => {
+                window.location.href = '../auth/login.html';
             });
         }
     }

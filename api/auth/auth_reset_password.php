@@ -17,7 +17,7 @@ if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($passw
     exit;
 }
 
-require __DIR__ . '/db.php';
+require __DIR__ . '/../../config/db.php';
 $stmt = $pdo->prepare('SELECT user_id FROM users WHERE email = :email LIMIT 1');
 $stmt->execute(['email' => $email]);
 $user = $stmt->fetch();

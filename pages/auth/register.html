@@ -94,7 +94,7 @@
             }
 
             hideMessages();
-            const response = await fetch('auth_register.php', {
+            const response = await fetch('../../api/auth/auth_register.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ full_name, utm_id, ic_no, email, password })
