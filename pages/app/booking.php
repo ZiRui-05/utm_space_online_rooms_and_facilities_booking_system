@@ -332,35 +332,7 @@
             if (!sessionData.authenticated) { window.location.href = '../auth/login.html'; return; }
 
             const userData = sessionData.user || {};
-            if (userData.full_name) {
-                const initials = userData.full_name
-                    .split(' ')
-                    .map(n => n[0])
-                    .join('')
-                    .toUpperCase();
-                document.getElementById('user-avatar-btn').textContent = initials;
-            }
         });
-
-        function toggleUserMenu() {
-            const menu = document.getElementById('user-menu');
-            menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
-        }
-
-        document.addEventListener('click', function(event) {
-            const userDropdown = document.querySelector('.user-dropdown');
-            if (!userDropdown.contains(event.target)) {
-                document.getElementById('user-menu').style.display = 'none';
-            }
-        });
-
-        function handleLogout() {
-            if (confirm('Are you sure you want to logout?')) {
-                fetch('../../api/auth/auth_logout.php', { method: 'POST', credentials: 'same-origin' }).finally(() => {
-                    window.location.href = '../auth/login.html';
-                });
-            }
-        }
 
         function updateCost() {
             const selected = document.querySelector('input[name="facility"]:checked');

@@ -611,7 +611,6 @@
 
             const userData = result.user;
             const initials = (userData.full_name || 'U').split(' ').map(n => n[0]).join('').toUpperCase();
-            document.getElementById('user-avatar-btn').textContent = initials;
             document.getElementById('profile-avatar').textContent = initials;
             document.getElementById('profile-name').textContent = userData.full_name || '-';
             document.getElementById('detail-name').textContent = userData.full_name || '-';
@@ -665,26 +664,6 @@
                 `;
                 tbody.appendChild(row);
             });
-        }
-
-        function toggleUserMenu() {
-            const menu = document.getElementById('user-menu');
-            menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
-        }
-
-        document.addEventListener('click', function(event) {
-            const userDropdown = document.querySelector('.user-dropdown');
-            if (!userDropdown.contains(event.target)) {
-                document.getElementById('user-menu').style.display = 'none';
-            }
-        });
-
-        function handleLogout() {
-            if (confirm('Are you sure you want to logout?')) {
-                fetch('../../api/auth/auth_logout.php', { method: 'POST', credentials: 'same-origin' }).finally(() => {
-                    window.location.href = '../auth/login.html';
-                });
-            }
         }
 
         function toggleProfileEdit() {

@@ -1,10 +1,9 @@
 <?php
 $currentPage = $currentPage ?? '';
 
-$scriptDir = trim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/')), '/');
-$depth = $scriptDir === '' ? 0 : substr_count($scriptDir, '/') + 1;
-$relativeRoot = str_repeat('../', $depth);
-$toRoot = static fn(string $path): string => $relativeRoot . ltrim($path, '/');
+$scriptName = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '');
+$prefix = strpos($scriptName, '/pages/') !== false ? '../../' : '';
+$toRoot = static fn(string $path): string => $prefix . ltrim($path, '/');
 ?>
 <style>
     .navbar {
@@ -58,6 +57,7 @@ $toRoot = static fn(string $path): string => $relativeRoot . ltrim($path, '/');
     .user-avatar {
         width: 36px; height: 36px; border-radius: 50%; background: var(--white);
         color: var(--primary-color); border: none; font-weight: 700; cursor: pointer; transition: all 0.3s;
+        display: inline-flex; align-items: center; justify-content: center; line-height: 1;
     }
     .user-avatar:hover { transform: scale(1.1); }
     .dropdown-menu {
@@ -69,7 +69,7 @@ $toRoot = static fn(string $path): string => $relativeRoot . ltrim($path, '/');
         background: none; cursor: pointer; font-size: 13px; color: var(--text-dark); text-decoration: none; transition: background 0.3s;
     }
     .dropdown-item:hover { background: var(--bg-light); }
-    .dropdown-item.logout { color: var(--error); }
+    .dropdown-item.logout { color: var(--danger); }
     .dropdown-divider { margin: 8px 0; border: none; border-top: 1px solid var(--border-light); }
     @media (max-width: 768px) {
         .navbar { flex-direction: column; gap: 12px; padding: 12px 16px; }
@@ -83,8 +83,8 @@ $toRoot = static fn(string $path): string => $relativeRoot . ltrim($path, '/');
         <h1 class="navbar-logo">UNIRESERVE</h1>
         <div class="nav-links">
             <a href="<?= htmlspecialchars($toRoot('homepage.php'), ENT_QUOTES, 'UTF-8') ?>" class="nav-link<?= $currentPage === 'home' ? ' active' : '' ?>">Home</a>
-            <a href="<?= htmlspecialchars($toRoot('pages/app/booking.php'), ENT_QUOTES, 'UTF-8') ?>" class="nav-link<?= $currentPage === 'booking' ? ' active' : '' ?>">Rooms</a>
-            <a href="<?= htmlspecialchars($toRoot('pages/app/facilities.html'), ENT_QUOTES, 'UTF-8') ?>" class="nav-link<?= $currentPage === 'facilities' ? ' active' : '' ?>">Facilities</a>
+            <a href="<?= htmlspecialchars($toRoot('pages/app/room-availability.php'), ENT_QUOTES, 'UTF-8') ?>" class="nav-link<?= $currentPage === 'room' ? ' active' : '' ?>">Rooms</a>
+            <a href="<?= htmlspecialchars($toRoot('pages/app/facilities.php'), ENT_QUOTES, 'UTF-8') ?>" class="nav-link<?= $currentPage === 'facilities' ? ' active' : '' ?>">Facilities</a>
         </div>
     </div>
 
@@ -94,7 +94,7 @@ $toRoot = static fn(string $path): string => $relativeRoot . ltrim($path, '/');
         <button class="btn-book-now" onclick="window.location.href='<?= htmlspecialchars($toRoot('pages/app/booking.php'), ENT_QUOTES, 'UTF-8') ?>'">Book Now</button>
 
         <div class="user-dropdown">
-            <button class="user-avatar" id="user-avatar-btn" onclick="toggleUserMenu()">S</button>
+            <button class="user-avatar" id="user-avatar-btn" onclick="toggleUserMenu()">U</button>
             <div class="dropdown-menu" id="user-menu" style="display:none;">
                 <a href="<?= htmlspecialchars($toRoot('pages/app/profile.php'), ENT_QUOTES, 'UTF-8') ?>" class="dropdown-item">👤 My Profile</a>
                 <a href="#" class="dropdown-item">📋 My Bookings</a>
@@ -106,3 +106,71 @@ $toRoot = static fn(string $path): string => $relativeRoot . ltrim($path, '/');
         </div>
     </div>
 </nav>
+<script>
+(function(){
+    function computeInitials(fullName){
+        const normalized = (fullName || '').trim();
+        return (normalized.charAt(0) || 'U').toUpperCase();
+    }
+
+    async function hydrateAvatar(){
+        const avatar = document.getElementById('user-avatar-btn');
+        if (!avatar) return;
+
+        try {
+            const localUser = JSON.parse(localStorage.getItem('userData') || 'null');
+            const fullName = localUser?.full_name || localUser?.name;
+            if (fullName) {
+                avatar.textContent = computeInitials(fullName);
+                return;
+            }
+        } catch (error) {
+            console.warn('Unable to parse local user data for avatar.', error);
+        }
+
+        try {
+            const sessionResponse = await fetch('<?= htmlspecialchars($toRoot('api/auth/auth_session.php'), ENT_QUOTES, 'UTF-8') ?>', {
+                credentials: 'same-origin'
+            });
+            if (!sessionResponse.ok) return;
+
+            const sessionData = await sessionResponse.json();
+            if (!sessionData?.authenticated) return;
+
+            const sessionUser = sessionData.user || null;
+            const fullName = sessionUser?.full_name || sessionUser?.name;
+            if (!fullName) return;
+
+            avatar.textContent = computeInitials(fullName);
+            localStorage.setItem('userData', JSON.stringify(sessionUser));
+        } catch (error) {
+            console.warn('Unable to load session user data for avatar.', error);
+        }
+    }
+
+    window.toggleUserMenu = function toggleUserMenu(){
+        const menu = document.getElementById('user-menu');
+        if (!menu) return;
+        menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+    };
+
+    window.handleLogout = function handleLogout(){
+        localStorage.removeItem('userData');
+        fetch('<?= htmlspecialchars($toRoot('api/auth/auth_logout.php'), ENT_QUOTES, 'UTF-8') ?>', {
+            method: 'POST',
+            credentials: 'same-origin'
+        }).finally(() => {
+            window.location.href = '<?= htmlspecialchars($toRoot('pages/auth/login.html'), ENT_QUOTES, 'UTF-8') ?>';
+        });
+    };
+
+    document.addEventListener('click', function(event){
+        const dropdown = document.querySelector('.user-dropdown');
+        if (!dropdown || dropdown.contains(event.target)) return;
+        const menu = document.getElementById('user-menu');
+        if (menu) menu.style.display = 'none';
+    });
+
+    document.addEventListener('DOMContentLoaded', hydrateAvatar);
+})();
+</script>

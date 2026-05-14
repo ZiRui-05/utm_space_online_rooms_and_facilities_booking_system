@@ -264,7 +264,7 @@
 
         .featured-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 30px;
             margin-bottom: 30px;
             position: relative;
@@ -597,14 +597,6 @@
             <div class="category-icon">👥</div>
             <p>Meeting Rooms</p>
         </div>
-        <div class="category-card" onclick="navigateTo('sports')">
-            <div class="category-icon">⚽</div>
-            <p>Sports</p>
-        </div>
-        <div class="category-card" onclick="navigateTo('theatres')">
-            <div class="category-icon">🎭</div>
-            <p>Theatres</p>
-        </div>
     </div>
 </section>
 
@@ -616,25 +608,6 @@
 
     <div class="featured-grid">
         <div class="featured-card">
-            <div class="card-badge">Priority Booking</div>
-            <img src="/assets/images/stadium.jpg" alt="Control Hall">
-            <div class="card-content">
-                <h4>Stadium</h4>
-                <p class="facility-name">Stadium Azman Hashim(UTM)</p>
-                <p class="facility-description">A multi-purpose stadium equipped with a quality sound system, spectator seating, and sports facilities. Suitable for sporting events, university ceremonies, large gatherings, and outdoor activities.</p>
-                <div class="facility-features">
-                    <span class="feature">👥 500 Seats</span>
-                    <span class="feature">📶 Free Internet</span>
-                    <span class="feature">🔌 Power Outlets</span>
-                </div>
-                <div class="card-footer">
-                    <span class="price">RM 150 / hour</span>
-                    <button class="btn-check-availability" onclick="checkAvailability('Stadium')">Reserve Stadium</button>
-                </div>
-            </div>
-        </div>
-
-        <div class="featured-card">
             <img src="/assets/images/T05.jpg" alt="Study Pod">
             <div class="card-content">
                 <h4>Room T05</h4>
@@ -644,27 +617,14 @@
                 </div>
                 <button class="btn-book-facility" onclick="bookFacility('Room T05')">Reserve Room</button>
             </div>
-
-            <div class="featured-card">
-                <img src="/assets/images/Dewan-Astana.jpg" alt="Biotech Lab">
-                <div class="card-content">
-                    <h4>Astana Hall KTC</h4>
-                    <p class="facility-description">A functional hall equipped with a sound system, stage area, and seating arrangements. Suitable for student activities, meetings, small events, and college functions.</p>
-                    <div class="facility-meta">
-                        <span class="limited-availability">Limited Availability</span>
-                    </div>
-                    <div class="card-footer">
-                        <span class="price">RM 25 / hour</span>
-                        <button class="btn-reserve" onclick="reserveFacility('Astana Hall KTC')">Reserve Hall</button>
-                    </div>
-                </div>
-            </div>
         </div>
 
-        <div class="carousel-nav">
-            <button class="nav-arrow prev" onclick="prevSlide()">◀</button>
-            <button class="nav-arrow next" onclick="nextSlide()">▶</button>
-        </div>
+    </div>
+
+    <div class="carousel-nav">
+        <button class="nav-arrow prev" onclick="prevSlide()">◀</button>
+        <button class="nav-arrow next" onclick="nextSlide()">▶</button>
+    </div>
 </section>
 
 <!-- Why Book Section -->
@@ -705,31 +665,7 @@
         if (!sessionData.authenticated) { window.location.href = 'pages/auth/login.html'; return; }
         const userData = sessionData.user || {};
 
-        if (userData.full_name) {
-            const initials = userData.full_name.split(' ').map(n => n[0]).join('').toUpperCase();
-            document.getElementById('user-avatar-btn').textContent = initials;
-        }
     });
-
-    function toggleUserMenu() {
-        const menu = document.getElementById('user-menu');
-        menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
-    }
-
-    document.addEventListener('click', function(event) {
-        const userDropdown = document.querySelector('.user-dropdown');
-        if (!userDropdown.contains(event.target)) {
-            document.getElementById('user-menu').style.display = 'none';
-        }
-    });
-
-    function handleLogout() {
-        if (confirm('Are you sure you want to logout?')) {
-            fetch('api/auth/auth_logout.php', { method: 'POST', credentials: 'same-origin' }).finally(() => {
-                window.location.href = 'pages/auth/login.html';
-            });
-        }
-    }
 
     function navigateTo(category) { alert('Navigating to ' + category); }
     function addNewFacility() { alert('Add new facility feature coming soon!'); }

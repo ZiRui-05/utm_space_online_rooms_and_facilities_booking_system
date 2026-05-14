@@ -289,31 +289,8 @@ $bookingUrl .= '&resource_name=' . urlencode($details['name']);
         const sessionData = await sessionResponse.json();
         if (!sessionData.authenticated) { window.location.href = '../auth/login.html'; return; }
         const userData = sessionData.user || {};
-        if (userData.full_name && document.getElementById('user-avatar-btn')) {
-            document.getElementById('user-avatar-btn').textContent = userData.full_name.split(' ').map(n => n[0]).join('').toUpperCase();
-        }
     });
 
-    function toggleUserMenu() {
-        const menu = document.getElementById('user-menu');
-        menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
-    }
-
-    document.addEventListener('click', function(event) {
-        const userDropdown = document.querySelector('.user-dropdown');
-        const menu = document.getElementById('user-menu');
-        if (userDropdown && menu && !userDropdown.contains(event.target)) {
-            menu.style.display = 'none';
-        }
-    });
-
-    function handleLogout() {
-        if (confirm('Are you sure you want to logout?')) {
-            fetch('../../api/auth/auth_logout.php', { method: 'POST', credentials: 'same-origin' }).finally(() => {
-                window.location.href = '../auth/login.html';
-            });
-        }
-    }
 </script>
 </body>
 </html>

@@ -625,29 +625,6 @@
     <div class="main-container">
         <!-- Sidebar -->
         <div class="sidebar">
-            <!-- Campus Filter -->
-            <div class="filter-section">
-                <div class="filter-title">Campus</div>
-                <div class="filter-options">
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="space-campus">
-                        <label for="space-campus">SPACE</label>
-                    </div>
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="main-campus" checked>
-                        <label for="main-campus">Main Campus</label>
-                    </div>
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="east-campus">
-                        <label for="east-campus">East Campus</label>
-                    </div>
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="library-campus">
-                        <label for="library-campus">Library</label>
-                    </div>
-                </div>
-            </div>
-
             <!-- Room Type Filter -->
             <div class="filter-section">
                 <div class="filter-title">Room Type</div>
@@ -732,8 +709,7 @@
                         <option value="price-low">Price (Low to High)</option>
                         <option value="price-high">Price (High to Low)</option>
                         <option value="capacity">Capacity</option>
-                        <option value="rating">Highest Rated</option>
-                    </select>
+                                            </select>
                 </div>
             </div>
 
@@ -788,7 +764,7 @@
     <!-- Floating Action Button -->
     <button class="fab" onclick="goToBooking()" title="Quick Book">+</button>
 
-    <?php include '../../includes/footer.php'; ?>
+    <?php $currentPage = 'room' ;include '../../includes/footer.php'; ?>
 
     <script>
 
@@ -968,8 +944,8 @@
                         <span class="room-badge ${room.available ? 'available' : 'unavailable'}">${room.available ? 'Available' : 'Booked'}</span>
                     </div>
                     <div class="room-content">
-                        <h3 class="room-name">${room.name} ⭐ ${room.rating}</h3>
-                        <div class="room-capacity">👥 ${room.capacity} people · ${room.campus}</div>
+                        <h3 class="room-name">${room.name}</h3>
+                        <div class="room-capacity">👥 ${room.capacity} people</div>
                         <p class="room-description">${room.description}</p>
                         <div class="room-tags">
                             ${room.amenities.map(amenity => `<span class="room-tag">${getAmenityIcon(amenity)} ${amenity}</span>`).join('')}
@@ -1029,14 +1005,9 @@
 
         function applyFilters() {
             currentPage = 1;
-            const campuses = [];
             const capacities = [];
             const amenities = [];
 
-            if (document.getElementById('space-campus').checked) campuses.push('SPACE');
-            if (document.getElementById('main-campus').checked) campuses.push('Main Campus');
-            if (document.getElementById('east-campus').checked) campuses.push('East Campus');
-            if (document.getElementById('library-campus').checked) campuses.push('Library');
 
             if (document.getElementById('capacity-1-5').checked) capacities.push('1-5');
             if (document.getElementById('capacity-6-15').checked) capacities.push('6-15');
@@ -1050,12 +1021,11 @@
             const roomType = document.getElementById('room-type-filter').value;
 
             filteredRooms = allRooms.filter(room => {
-                const campusMatch = campuses.length === 0 || campuses.includes(room.campus);
                 const capacityMatch = capacities.length === 0 || checkCapacity(room.capacity, capacities);
                 const typeMatch = roomType === '' || room.category === roomType;
                 const amenityMatch = amenities.length === 0 || amenities.every(a => room.amenities.includes(a));
 
-                return campusMatch && capacityMatch && typeMatch && amenityMatch;
+                return capacityMatch && typeMatch && amenityMatch;
             });
 
             displayRooms();
@@ -1072,10 +1042,6 @@
         }
 
         function resetFilters() {
-            document.getElementById('space-campus').checked = false;
-            document.getElementById('main-campus').checked = true;
-            document.getElementById('east-campus').checked = false;
-            document.getElementById('library-campus').checked = false;
             document.getElementById('capacity-1-5').checked = false;
             document.getElementById('capacity-6-15').checked = true;
             document.getElementById('capacity-16-50').checked = false;
@@ -1100,9 +1066,6 @@
                     break;
                 case 'capacity':
                     filteredRooms.sort((a, b) => a.capacity - b.capacity);
-                    break;
-                case 'rating':
-                    filteredRooms.sort((a, b) => b.rating - a.rating);
                     break;
                 default:
                     filteredRooms = [...allRooms];
