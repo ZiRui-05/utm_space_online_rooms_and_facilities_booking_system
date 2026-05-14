@@ -18,7 +18,7 @@ $fallbacks = [
         'description' => 'A multi-purpose stadium equipped with a quality sound system, spectator seating, and sports facilities. Suitable for sporting events, university ceremonies, large gatherings, and outdoor activities.',
         'price_per_day' => 150.00,
         'price_label' => 'RM 150 / hour',
-        'image' => 'stadium.png',
+        'image' => 'stadium.jpg',
         'status' => 'available',
     ],
     'room:room t05' => [
@@ -30,7 +30,7 @@ $fallbacks = [
         'description' => 'Sound-isolated acoustic pod with whiteboards and collaborative display screens.',
         'price_per_day' => 0.00,
         'price_label' => 'Free (Student)',
-        'image' => 'roomt05.png',
+        'image' => 'T05.jpg',
         'status' => 'available',
     ],
     'facility:astana hall ktc' => [
@@ -42,7 +42,7 @@ $fallbacks = [
         'description' => 'A functional hall equipped with a sound system, stage area, and seating arrangements. Suitable for student activities, meetings, small events, and college functions.',
         'price_per_day' => 25.00,
         'price_label' => 'RM 25 / hour',
-        'image' => 'astanahall.png',
+        'image' => 'Dewan-Astana.jpg',
         'status' => 'available',
     ],
 ];
@@ -223,10 +223,12 @@ $bookingUrl .= '&resource_name=' . urlencode($details['name']);
                     <div class="info-label">Location</div>
                     <div class="info-value"><?= h($details['location']) ?></div>
                 </div>
+                <?php if ($type === 'room'): ?>
                 <div class="info-box">
                     <div class="info-label">Capacity</div>
                     <div class="info-value"><?= $details['capacity'] ? h($details['capacity']) . ' people' : 'Not specified' ?></div>
                 </div>
+                <?php endif; ?>
                 <div class="info-box">
                     <div class="info-label">Price</div>
                     <div class="info-value"><?= h($details['price_label']) ?></div>
