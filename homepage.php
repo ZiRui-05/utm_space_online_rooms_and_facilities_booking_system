@@ -617,7 +617,7 @@
         <div class="featured-grid">
             <div class="featured-card">
                 <div class="card-badge">Priority Booking</div>
-                <img src="stadium.jpg" alt="Control Hall">
+                <img src="res\stadium.jpg" alt="Control Hall">
                 <div class="card-content">
                     <h4>Stadium</h4>
                     <p class="facility-name">Stadium Azman Hashim(UTM)</p>
@@ -635,7 +635,7 @@
             </div>
 
             <div class="featured-card">
-                <img src="T05.jpg" alt="Study Pod">
+                <img src="res\T05.jpg" alt="Study Pod">
                 <div class="card-content">
                     <h4>Room T05</h4>
                     <p class="facility-description">Sound-isolated acoustic pod with whiteboards and collaborative display screens.</p>
@@ -644,10 +644,9 @@
                     </div>
                     <button class="btn-book-facility" onclick="bookFacility('Room T05')">Reserve Room</button>
                 </div>
-            </div>
 
             <div class="featured-card">
-                <img src="Dewan-Astana.jpg" alt="Biotech Lab">
+                <img src="res\Dewan-Astana.jpg" alt="Biotech Lab">
                 <div class="card-content">
                     <h4>Astana Hall KTC</h4>
                     <p class="facility-description">A functional hall equipped with a sound system, stage area, and seating arrangements. Suitable for student activities, meetings, small events, and college functions.</p>
