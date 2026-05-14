@@ -699,7 +699,7 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', async function() {
-        const sessionResponse = await fetch('../../api/auth/auth_session.php', { credentials: 'same-origin' });
+        const sessionResponse = await fetch('api/auth/auth_session.php', { credentials: 'same-origin' });
         if (!sessionResponse.ok) { window.location.href = 'pages/auth/login.html'; return; }
         const sessionData = await sessionResponse.json();
         if (!sessionData.authenticated) { window.location.href = 'pages/auth/login.html'; return; }
