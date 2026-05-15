@@ -1,2 +1,6 @@
 IDE: CHANZIRUI
+<<<<<<< HEAD
 IDE: Bryan
+=======
+IDE: ANGELTEYTIANXIN
+>>>>>>> e2674b2c8d1d2917edd62238df6eb8e92bb0b124
