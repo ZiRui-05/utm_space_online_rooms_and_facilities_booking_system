@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Home - UNIRESERVE</title>
+    <title>Home - SPACEBOOK </title>
     <style>
         * {
             margin: 0;
@@ -40,6 +40,8 @@
             position: relative;
             color: var(--white);
         }
+
+        
         .hero-overlay {
             position: absolute;
             top: 0;
@@ -264,19 +266,19 @@
 
         .featured-grid {
             display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
+            grid-template-columns: repeat(2, 1fr);
             gap: 30px;
-            margin-bottom: 30px;
-            position: relative;
+            margin-top: 20px;
+
         }
 
         .featured-card {
             background: var(--white);
-            border-radius: 8px;
+            border-radius: 12px;
             overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-            transition: all 0.3s;
-            position: relative;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
         }
 
         .featured-card:hover {
@@ -299,7 +301,7 @@
 
         .featured-card img {
             width: 100%;
-            height: 180px;
+            height: 200px;
             object-fit: cover;
         }
 
@@ -541,7 +543,7 @@
 <?php $currentPage = 'home'; include __DIR__ . '/includes/header.php'; ?>
 
 
-<!-- Hero Section -->
+<!-- Header -->
 <section class="hero">
     <div class="hero-overlay"></div>
     <div class="hero-content">
@@ -549,25 +551,6 @@
         <p>Streamlined Booking for Academic Success.</p>
         <p class="hero-description">Access world-class lecture halls, focused study pods, and specialized research facilities across all university campuses with a single click.</p>
 
-        <div class="search-bar">
-            <div class="search-input-group">
-                <span class="search-icon">🔍</span>
-                <input type="text" placeholder="Search facilities...">
-            </div>
-            <div class="location-selector">
-                <span class="location-icon">📍</span>
-                <select>
-                    <option>All Locations</option>
-                    <option>Campus A</option>
-                    <option>Campus B</option>
-                    <option>Campus C</option>
-                </select>
-            </div>
-            <div class="date-picker">
-                <span class="calendar-icon">📅</span>
-                <input type="date">
-            </div>
-            <button class="btn-find-spaces">Find Available Spaces</button>
         </div>
     </div>
 </section>
@@ -608,7 +591,7 @@
 
     <div class="featured-grid">
         <div class="featured-card">
-            <img src="/assets/images/T05.jpg" alt="Study Pod">
+            <img src="/assets/images/T05.jpg" alt="Room T05">
             <div class="card-content">
                 <h4>Room T05</h4>
                 <p class="facility-description">Sound-isolated acoustic pod with whiteboards and collaborative display screens.</p>
@@ -619,9 +602,17 @@
             </div>
         </div>
 
+        <div class="featured-card">
+            <img src="/assets/images/T06.jpg" alt="Room T06"> <div class="card-content">
+                <h4>Room T06</h4>
+                <p class="facility-description">Sound-isolated acoustic pod with whiteboards and collaborative display screens.</p>
+                <div class="facility-meta"></div>
+                <button class="btn-book-facility" onclick="bookFacility('Room T06')">Reserve Room</button>
+            </div>
+        </div>
     </div>
 
-    <div class="carousel-nav">
+    <div class="carousel-nav" style="margin-top: 30px;">
         <button class="nav-arrow prev" onclick="prevSlide()">◀</button>
         <button class="nav-arrow next" onclick="nextSlide()">▶</button>
     </div>
@@ -629,8 +620,8 @@
 
 <!-- Why Book Section -->
 <section class="why-book-section">
-    <h3>Why Book With UniReserve?</h3>
-    <p class="section-subtitle">The official platform for all University of Toronto Mississauga campus facilities, ensuring fairness and efficiency.</p>
+    <h3>Why Book With SPACEBOOK?</h3>
+    <p class="section-subtitle">The official platform for all University of Technology Malaysia campus facilities, ensuring fairness and efficiency.</p>
 
     <div class="benefits-grid">
         <div class="benefit-card">
