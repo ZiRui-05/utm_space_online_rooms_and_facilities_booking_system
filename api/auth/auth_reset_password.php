@@ -8,12 +8,13 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $input = json_decode(file_get_contents('php://input'), true);
-$email = trim($input['email'] ?? '');
-$password = $input['password'] ?? '';
+$email = trim((string)($input['email'] ?? ''));
+$password = (string)($input['password'] ?? '');
+$otp = trim((string)($input['otp'] ?? ''));
 
-if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($password) < 8) {
+if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($password) < 8 || !preg_match('/^\d{6}$/', $otp)) {
     http_response_code(422);
-    echo json_encode(['success' => false, 'message' => 'Email and valid password are required']);
+    echo json_encode(['success' => false, 'message' => 'Email, 6-digit OTP and valid password are required']);
     exit;
 }
 
@@ -28,8 +29,41 @@ if (!$user) {
     exit;
 }
 
+$otpStmt = $pdo->prepare('SELECT id, otp_hash, expires_at, attempts FROM password_reset_otps WHERE user_id = :user_id ORDER BY id DESC LIMIT 1');
+$otpStmt->execute(['user_id' => $user['user_id']]);
+$otpRow = $otpStmt->fetch();
+
+if (!$otpRow) {
+    http_response_code(400);
+    echo json_encode(['success' => false, 'message' => 'No OTP request found']);
+    exit;
+}
+
+if (strtotime((string)$otpRow['expires_at']) < time()) {
+    http_response_code(400);
+    echo json_encode(['success' => false, 'message' => 'OTP expired']);
+    exit;
+}
+
+if ((int)$otpRow['attempts'] >= 5) {
+    http_response_code(429);
+    echo json_encode(['success' => false, 'message' => 'Too many attempts. Request a new OTP']);
+    exit;
+}
+
+if (!password_verify($otp, (string)$otpRow['otp_hash'])) {
+    $incStmt = $pdo->prepare('UPDATE password_reset_otps SET attempts = attempts + 1 WHERE id = :id');
+    $incStmt->execute(['id' => $otpRow['id']]);
+    http_response_code(400);
+    echo json_encode(['success' => false, 'message' => 'Invalid OTP']);
+    exit;
+}
+
 $passwordHash = password_hash($password, PASSWORD_DEFAULT);
 $updateStmt = $pdo->prepare('UPDATE users SET password_hash = :password_hash WHERE user_id = :user_id');
 $updateStmt->execute(['password_hash' => $passwordHash, 'user_id' => $user['user_id']]);
+
+$deleteStmt = $pdo->prepare('DELETE FROM password_reset_otps WHERE user_id = :user_id');
+$deleteStmt->execute(['user_id' => $user['user_id']]);
 
 echo json_encode(['success' => true, 'message' => 'Password updated successfully']);

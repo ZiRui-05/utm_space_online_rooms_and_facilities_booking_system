@@ -120,95 +120,95 @@ $toRoot = static fn(string $path): string => $prefix . ltrim($path, '/');
     </div>
 </nav>
 <script>
-(function(){
-    function computeInitials(fullName){
-        const normalized = (fullName || '').trim();
-        return (normalized.charAt(0) || 'U').toUpperCase();
-    }
+    (function(){
+        function computeInitials(fullName){
+            const normalized = (fullName || '').trim();
+            return (normalized.charAt(0) || 'U').toUpperCase();
+        }
 
-    async function hydrateAvatar(){
-        const avatar = document.getElementById('user-avatar-btn');
-        if (!avatar) return;
-        const setInitialAvatar = function(fullName){
-            avatar.classList.remove('has-image');
-            avatar.innerHTML = '';
-            avatar.textContent = computeInitials(fullName);
-        };
-        const setImageAvatar = function(base64, mime){
-            if (!base64 || !mime) return false;
-            const image = document.createElement('img');
-            image.src = `data:${mime};base64,${base64}`;
-            image.alt = 'Profile picture';
-            avatar.classList.add('has-image');
-            avatar.innerHTML = '';
-            avatar.appendChild(image);
-            return true;
-        };
+        async function hydrateAvatar(){
+            const avatar = document.getElementById('user-avatar-btn');
+            if (!avatar) return;
+            const setInitialAvatar = function(fullName){
+                avatar.classList.remove('has-image');
+                avatar.innerHTML = '';
+                avatar.textContent = computeInitials(fullName);
+            };
+            const setImageAvatar = function(base64, mime){
+                if (!base64 || !mime) return false;
+                const image = document.createElement('img');
+                image.src = `data:${mime};base64,${base64}`;
+                image.alt = 'Profile picture';
+                avatar.classList.add('has-image');
+                avatar.innerHTML = '';
+                avatar.appendChild(image);
+                return true;
+            };
 
-        try {
-            const localUser = JSON.parse(localStorage.getItem('userData') || 'null');
-            const fullName = localUser?.full_name || localUser?.name;
-            if (fullName) {
-                setInitialAvatar(fullName);
+            try {
+                const localUser = JSON.parse(localStorage.getItem('userData') || 'null');
+                const fullName = localUser?.full_name || localUser?.name;
+                if (fullName) {
+                    setInitialAvatar(fullName);
+                }
+            } catch (error) {
+                console.warn('Unable to parse local user data for avatar.', error);
             }
-        } catch (error) {
-            console.warn('Unable to parse local user data for avatar.', error);
+
+            try {
+                const sessionResponse = await fetch('<?= htmlspecialchars($toRoot('api/auth/auth_session.php'), ENT_QUOTES, 'UTF-8') ?>', {
+                    credentials: 'same-origin'
+                });
+                if (!sessionResponse.ok) return;
+
+                const sessionData = await sessionResponse.json();
+                if (!sessionData?.authenticated) return;
+
+                const sessionUser = sessionData.user || null;
+                const fullName = sessionUser?.full_name || sessionUser?.name;
+                if (!fullName) return;
+
+                setInitialAvatar(fullName);
+                localStorage.setItem('userData', JSON.stringify(sessionUser));
+
+                const profileResponse = await fetch('<?= htmlspecialchars($toRoot('api/user/profile_data.php'), ENT_QUOTES, 'UTF-8') ?>', {
+                    credentials: 'same-origin'
+                });
+                if (!profileResponse.ok) return;
+
+                const profileData = await profileResponse.json();
+                if (!profileData?.success || !profileData?.user) return;
+
+                const profileUser = profileData.user;
+                setImageAvatar(profileUser.profile_image_base64, profileUser.profile_image_mime);
+            } catch (error) {
+                console.warn('Unable to load session user data for avatar.', error);
+            }
         }
 
-        try {
-            const sessionResponse = await fetch('<?= htmlspecialchars($toRoot('api/auth/auth_session.php'), ENT_QUOTES, 'UTF-8') ?>', {
+        window.toggleUserMenu = function toggleUserMenu(){
+            const menu = document.getElementById('user-menu');
+            if (!menu) return;
+            menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+        };
+
+        window.handleLogout = function handleLogout(){
+            localStorage.removeItem('userData');
+            fetch('<?= htmlspecialchars($toRoot('api/auth/auth_logout.php'), ENT_QUOTES, 'UTF-8') ?>', {
+                method: 'POST',
                 credentials: 'same-origin'
+            }).finally(() => {
+                window.location.href = '<?= htmlspecialchars($toRoot('pages/auth/login.html'), ENT_QUOTES, 'UTF-8') ?>';
             });
-            if (!sessionResponse.ok) return;
+        };
 
-            const sessionData = await sessionResponse.json();
-            if (!sessionData?.authenticated) return;
-
-            const sessionUser = sessionData.user || null;
-            const fullName = sessionUser?.full_name || sessionUser?.name;
-            if (!fullName) return;
-
-            setInitialAvatar(fullName);
-            localStorage.setItem('userData', JSON.stringify(sessionUser));
-
-            const profileResponse = await fetch('<?= htmlspecialchars($toRoot('api/user/profile_data.php'), ENT_QUOTES, 'UTF-8') ?>', {
-                credentials: 'same-origin'
-            });
-            if (!profileResponse.ok) return;
-
-            const profileData = await profileResponse.json();
-            if (!profileData?.success || !profileData?.user) return;
-
-            const profileUser = profileData.user;
-            setImageAvatar(profileUser.profile_image_base64, profileUser.profile_image_mime);
-        } catch (error) {
-            console.warn('Unable to load session user data for avatar.', error);
-        }
-    }
-
-    window.toggleUserMenu = function toggleUserMenu(){
-        const menu = document.getElementById('user-menu');
-        if (!menu) return;
-        menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
-    };
-
-    window.handleLogout = function handleLogout(){
-        localStorage.removeItem('userData');
-        fetch('<?= htmlspecialchars($toRoot('api/auth/auth_logout.php'), ENT_QUOTES, 'UTF-8') ?>', {
-            method: 'POST',
-            credentials: 'same-origin'
-        }).finally(() => {
-            window.location.href = '<?= htmlspecialchars($toRoot('pages/auth/login.html'), ENT_QUOTES, 'UTF-8') ?>';
+        document.addEventListener('click', function(event){
+            const dropdown = document.querySelector('.user-dropdown');
+            if (!dropdown || dropdown.contains(event.target)) return;
+            const menu = document.getElementById('user-menu');
+            if (menu) menu.style.display = 'none';
         });
-    };
 
-    document.addEventListener('click', function(event){
-        const dropdown = document.querySelector('.user-dropdown');
-        if (!dropdown || dropdown.contains(event.target)) return;
-        const menu = document.getElementById('user-menu');
-        if (menu) menu.style.display = 'none';
-    });
-
-    document.addEventListener('DOMContentLoaded', hydrateAvatar);
-})();
+        document.addEventListener('DOMContentLoaded', hydrateAvatar);
+    })();
 </script>

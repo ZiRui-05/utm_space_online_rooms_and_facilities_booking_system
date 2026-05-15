@@ -1,0 +1,9 @@
+{
+  "name": "unireserve/project",
+  "description": "UTM Space Booking System",
+  "type": "project",
+  "require": {
+    "php": ">=8.0",
+    "phpmailer/phpmailer": "^6.9"
+  }
+}
