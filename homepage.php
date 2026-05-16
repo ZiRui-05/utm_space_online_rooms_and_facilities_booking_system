@@ -31,32 +31,38 @@
         }
 
         /* Hero Section */
-        .hero {
-            background: linear-gradient(rgba(139, 21, 56, 0.5), rgba(139, 21, 56, 0.5)),
-            url('utm-gate.png');
-            background-size: cover;
-            background-position: center;
-            padding: 60px 30px;
-            position: relative;
-            color: var(--white);
-        }
+/* Hero Section */
+.hero {
+    /* Replace 'utm-gate.png' with your correct image path if it's in a different folder */
+    background: linear-gradient(rgba(139, 21, 56, 0.65), rgba(139, 21, 56, 0.65)),
+                url('assets/images/utm-gate.jpg') no-repeat center center;
+    background-size: cover;
+    padding: 100px 30px; /* Increased vertical padding to make room for the background */
+    position: relative;
+    color: var(--white);
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    min-height: 350px; /* Forces the section to be tall enough to show the image */
+}
 
-        
-        .hero-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.2);
-        }
+.hero-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.3); /* Darkens the image slightly so white text stays readable */
+    z-index: 1;
+}
 
-        .hero-content {
-            position: relative;
-            z-index: 2;
-            max-width: 1200px;
-            margin: 0 auto;
-        }
+.hero-content {
+    position: relative;
+    z-index: 2; /* Ensures text stays in front of the background image and overlay */
+    max-width: 1200px;
+    margin: 0 auto;
+    width: 100%;
+}
 
         .hero-content h2 {
             font-size: 32px;

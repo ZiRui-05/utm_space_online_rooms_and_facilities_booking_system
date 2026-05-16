@@ -93,7 +93,7 @@ $toRoot = static fn(string $path): string => $prefix . ltrim($path, '/');
 </style>
 <nav class="navbar">
     <div class="navbar-left">
-        <h1 class="navbar-logo">UNIRESERVE</h1>
+        <h1 class="navbar-logo">SPACEBOOK</h1>
         <div class="nav-links">
             <a href="<?= htmlspecialchars($toRoot('homepage.php'), ENT_QUOTES, 'UTF-8') ?>" class="nav-link<?= $currentPage === 'home' ? ' active' : '' ?>">Home</a>
             <a href="<?= htmlspecialchars($toRoot('pages/app/room-availability.php'), ENT_QUOTES, 'UTF-8') ?>" class="nav-link<?= $currentPage === 'room' ? ' active' : '' ?>">Rooms</a>
@@ -102,8 +102,7 @@ $toRoot = static fn(string $path): string => $prefix . ltrim($path, '/');
     </div>
 
     <div class="navbar-right">
-        <button class="icon-button" title="Notifications">🔔</button>
-        <button class="icon-button" title="Settings">⚙️</button>
+        <button class="icon-button" title="Notification">🔔</button>
         <button class="btn-book-now" onclick="window.location.href='<?= htmlspecialchars($toRoot('pages/app/booking.php'), ENT_QUOTES, 'UTF-8') ?>'">Book Now</button>
 
         <div class="user-dropdown">
@@ -112,7 +111,7 @@ $toRoot = static fn(string $path): string => $prefix . ltrim($path, '/');
                 <a href="<?= htmlspecialchars($toRoot('pages/app/profile.php'), ENT_QUOTES, 'UTF-8') ?>" class="dropdown-item">👤 My Profile</a>
                 <a href="#" class="dropdown-item">📋 My Bookings</a>
                 <a href="#" class="dropdown-item">⚙️ Settings</a>
-                <a href="#" class="dropdown-item">❓ Help</a>
+                <a href="#" class="dropdown-item">❓ About</a>
                 <hr class="dropdown-divider">
                 <a href="<?= htmlspecialchars($toRoot('pages/auth/login.html'), ENT_QUOTES, 'UTF-8') ?>" class="dropdown-item logout" onclick="handleLogout()">🚪 Logout</a>
             </div>
