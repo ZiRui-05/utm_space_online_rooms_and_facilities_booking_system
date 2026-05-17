@@ -26,6 +26,23 @@ if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
     exit;
 }
 
+$emailDomain = strtolower(substr(strrchr($email, '@') ?: '', 1));
+$staffDomains = ['utm.my', 'utm.edu.my', 'utmspace.edu.my', 'utmspace.my'];
+
+if ($emailDomain === 'graduate.utm.my') {
+    $role = 'student';
+} elseif (in_array($emailDomain, $staffDomains, true)) {
+    $role = 'staff';
+} else {
+    http_response_code(422);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Use @graduate.utm.my for student or UTM/UTMSpace staff domains.'
+    ]);
+    exit;
+}
+
+
 if (strlen($password) < 8) {
     http_response_code(422);
     echo json_encode(['success' => false, 'message' => 'Password must be at least 8 characters']);
@@ -61,7 +78,7 @@ $insertStmt->execute([
     'ic_no' => $icNo,
     'email' => $email,
     'password_hash' => $passwordHash,
-    'role' => 'student',
+    'role' => $role,
     'account_status' => 'active'
 ]);
 
