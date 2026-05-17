@@ -1,0 +1,130 @@
+<?php
+$currentPage = '';
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - UNIRESERVE</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --primary-color: #8b1538;
+            --primary-hover: #a01d48;
+            --border-color: #e0e0e0;
+            --text-color: #333;
+            --text-light: #666;
+            --white: #fff;
+            --error-color: #d32f2f;
+            --success-color: #388e3c;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #f5f5f5 0%, #ebebeb 100%);
+            min-height: 100vh; display:flex; flex-direction:column; padding:0;
+        }
+        .auth-card { background: var(--white); border:1px solid var(--border-color); border-radius:8px; width:100%; max-width:450px; box-shadow:0 2px 16px rgba(0,0,0,.08); padding:30px; }
+        h1 { color: var(--primary-color); margin-bottom: 6px; }
+        .subtitle { color: var(--text-light); margin-bottom: 24px; }
+        .form-group { margin-bottom: 16px; }
+        label { display:block; margin-bottom: 8px; font-size:14px; font-weight:600; }
+        input:not([type="checkbox"]) { width:100%; padding:12px; border:1px solid var(--border-color); border-radius:4px; }
+        input:not([type="checkbox"]):focus { outline:none; border-color:var(--primary-color); box-shadow:0 0 0 3px rgba(139,21,56,.1); }
+        .checkbox-group { display:flex; gap:8px; align-items:center; margin:16px 0; font-size:14px; }
+        .checkbox-group input[type="checkbox"] { width:16px; height:16px; accent-color: var(--primary-color); }
+        .checkbox-group label { display:inline; margin:0; font-weight:500; line-height:1.4; }
+        .btn-primary { width:100%; padding:12px; border:0; border-radius:4px; background:var(--primary-color); color:#fff; font-weight:600; cursor:pointer; }
+        .btn-primary:hover { background:var(--primary-hover); }
+        .error-message,.success-message { display:none; margin-top:14px; padding:10px; border-radius:4px; font-size:13px; }
+        .error-message { background:#ffebee; color:var(--error-color); }
+        .success-message { background:#e8f5e9; color:var(--success-color); }
+        .redirect { margin-top:16px; text-align:center; font-size:14px; }
+    </style>
+</head>
+<body>
+    <?php include __DIR__ . '/../../includes/header.php'; ?>
+    <div style="flex:1; display:flex; align-items:center; justify-content:center; width:100%; padding:20px;">
+    <div class="auth-card">
+        <h1>Create Account</h1>
+        <p class="subtitle">Register for UNIRESERVE</p>
+        <form id="signup-form" onsubmit="handleSignUp(event)">
+            <div class="form-group">
+                <label for="signup-name">Full Name</label>
+                <input type="text" id="signup-name" placeholder="John Doe" required>
+            </div>
+            <div class="form-group">
+                <label for="signup-utm-id">UTM ID</label>
+                <input type="text" id="signup-utm-id" placeholder="A22EC0000" required>
+            </div>
+            <div class="form-group">
+                <label for="signup-ic-no">Identification Card Number (IC No.)</label>
+                <input type="text" id="signup-ic-no" placeholder="901010-10-1010" required>
+            </div>
+            <div class="form-group">
+                <label for="signup-email">University Email</label>
+                <input type="email" id="signup-email" placeholder="student@graduate.utm.my" required>
+            </div>
+            <div class="form-group">
+                <label for="signup-password">Password</label>
+                <input type="password" id="signup-password" placeholder="••••••••" minlength="8" required>
+            </div>
+            <div class="form-group">
+                <label for="signup-confirm">Confirm Password</label>
+                <input type="password" id="signup-confirm" placeholder="••••••••" required>
+            </div>
+            <div class="checkbox-group">
+                <input type="checkbox" id="agree-terms" required>
+                <label for="agree-terms">I agree to the Terms of Service</label>
+            </div>
+            <button type="submit" class="btn-primary">Create Account</button>
+            <div id="signup-error" class="error-message"></div>
+            <div id="signup-success" class="success-message"></div>
+        </form>
+        <p class="redirect">Already have an account? <a href="login.php">Sign in</a></p>
+    </div>
+    </div>
+
+    <script>
+        async function handleSignUp(event) {
+            event.preventDefault();
+            const full_name = document.getElementById('signup-name').value.trim();
+            const utm_id = document.getElementById('signup-utm-id').value.trim();
+            const ic_no = document.getElementById('signup-ic-no').value.trim();
+            const email = document.getElementById('signup-email').value.trim();
+            const password = document.getElementById('signup-password').value;
+            const confirmPassword = document.getElementById('signup-confirm').value;
+
+            if (password !== confirmPassword) {
+                return showMessage('signup-error', 'Passwords do not match');
+            }
+
+            hideMessages();
+            const response = await fetch('../../api/auth/auth_register.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ full_name, utm_id, ic_no, email, password })
+            });
+            const result = await response.json();
+
+            if (!response.ok || !result.success) {
+                return showMessage('signup-error', result.message || 'Registration failed');
+            }
+
+            showMessage('signup-success', 'Registration successful. Redirecting to login...');
+            setTimeout(() => window.location.href = 'login.php', 1000);
+        }
+
+        function showMessage(id, message) {
+            const el = document.getElementById(id);
+            el.textContent = message;
+            el.style.display = 'block';
+        }
+
+        function hideMessages() {
+            document.getElementById('signup-error').style.display = 'none';
+            document.getElementById('signup-success').style.display = 'none';
+        }
+    </script>
+</body>
+</html>

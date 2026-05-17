@@ -5,8 +5,8 @@ function getMailerConfig(): array
     return [
         'host' => getenv('MAIL_HOST') ?: 'smtp-relay.brevo.com',
         'port' => (int)(getenv('MAIL_PORT') ?: 587),
-        'username' => getenv('MAIL_USERNAME') ?: '',
-        'password' => getenv('MAIL_PASSWORD') ?: '',
+        'username' => getenv('MAIL_USERNAME') ?: 'ab42e3001@smtp-brevo.com',
+        'password' => getenv('MAIL_PASSWORD') ?: 'wECz2v5mdbJR7FDW',
         'encryption' => getenv('MAIL_ENCRYPTION') ?: 'tls',
         'from_email' => getenv('MAIL_FROM_EMAIL') ?: 'no-reply@projectutmspacebooking.com',
         'from_name' => getenv('MAIL_FROM_NAME') ?: 'UTM Space Booking',

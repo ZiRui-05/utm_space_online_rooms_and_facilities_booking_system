@@ -188,17 +188,17 @@ $toRoot = static fn(string $path): string => $prefix . ltrim($path, '/');
             </div>
         </div>
 
-        <button class="btn-book-now" onclick="window.location.href='<?= htmlspecialchars($toRoot('pages/app/booking.php'), ENT_QUOTES, 'UTF-8') ?>'">Book Now</button><a id="signin-btn" class="nav-link" href="<?= htmlspecialchars($toRoot('pages/auth/login.html'), ENT_QUOTES, 'UTF-8') ?>" style="display:none;">Sign In</a><a id="signup-btn" class="nav-link" href="<?= htmlspecialchars($toRoot('pages/auth/register.html'), ENT_QUOTES, 'UTF-8') ?>" style="display:none;">Sign Up</a>
+        <button id="book-now-btn" class="btn-book-now" onclick="window.location.href='<?= htmlspecialchars($toRoot('pages/app/booking.php'), ENT_QUOTES, 'UTF-8') ?>'">Book Now</button><a id="signin-btn" class="nav-link" href="<?= htmlspecialchars($toRoot('pages/auth/login.php'), ENT_QUOTES, 'UTF-8') ?>" style="display:none;">Sign In</a><a id="signup-btn" class="nav-link" href="<?= htmlspecialchars($toRoot('pages/auth/register.php'), ENT_QUOTES, 'UTF-8') ?>" style="display:none;">Sign Up</a>
 
         <div class="user-dropdown" id="user-dropdown">
             <button class="user-avatar" id="user-avatar-btn" onclick="toggleUserMenu(event)">U</button>
             <div class="dropdown-menu" id="user-menu" style="display:none;">
                 <a href="<?= htmlspecialchars($toRoot('pages/app/profile.php'), ENT_QUOTES, 'UTF-8') ?>" class="dropdown-item">👤 My Profile</a>
-                <a href="#" class="dropdown-item">📋 My Bookings</a>
+                <a href="<?= htmlspecialchars($toRoot('pages/app/booking-history.php'), ENT_QUOTES, 'UTF-8') ?>" class="dropdown-item">📋 My Bookings</a>
                 <a href="#" class="dropdown-item">⚙️ Settings</a>
                 <a href="#" class="dropdown-item">❓ About</a>
                 <hr class="dropdown-divider">
-                <a href="<?= htmlspecialchars($toRoot('pages/auth/login.html'), ENT_QUOTES, 'UTF-8') ?>" class="dropdown-item logout" onclick="handleLogout()">🚪 Logout</a>
+                <a href="<?= htmlspecialchars($toRoot('pages/auth/login.php'), ENT_QUOTES, 'UTF-8') ?>" class="dropdown-item logout" onclick="handleLogout()">🚪 Logout</a>
             </div>
         </div>
     </div>
@@ -240,6 +240,30 @@ $toRoot = static fn(string $path): string => $prefix . ltrim($path, '/');
                 console.warn('Unable to parse local user data for avatar.', error);
             }
 
+            const noti = document.getElementById('noti-container');
+            const signinBtn = document.getElementById('signin-btn');
+            const signupBtn = document.getElementById('signup-btn');
+            const avatarBtn = document.getElementById('user-avatar-btn');
+            const bookNowBtn = document.getElementById('book-now-btn');
+
+            const setGuestView = function() {
+                if (noti) noti.style.display = 'none';
+                if (bookNowBtn) bookNowBtn.style.display = 'none';
+                if (signinBtn) signinBtn.style.display = 'inline-block';
+                if (signupBtn) signupBtn.style.display = 'inline-block';
+                if (avatarBtn) avatarBtn.onclick = () => window.location.href = '<?= htmlspecialchars($toRoot('pages/auth/login.php'), ENT_QUOTES, 'UTF-8') ?>';
+            };
+
+            const setAuthenticatedView = function() {
+                if (noti) noti.style.display = 'inline-block';
+                if (bookNowBtn) bookNowBtn.style.display = 'inline-block';
+                if (signinBtn) signinBtn.style.display = 'none';
+                if (signupBtn) signupBtn.style.display = 'none';
+                if (avatarBtn) avatarBtn.onclick = (event) => toggleUserMenu(event);
+            };
+
+            setGuestView();
+
             try {
                 const sessionResponse = await fetch('<?= htmlspecialchars($toRoot('api/auth/auth_session.php'), ENT_QUOTES, 'UTF-8') ?>', {
                     credentials: 'same-origin'
@@ -247,17 +271,11 @@ $toRoot = static fn(string $path): string => $prefix . ltrim($path, '/');
                 if (!sessionResponse.ok) return;
 
                 const sessionData = await sessionResponse.json();
-                const noti = document.getElementById('noti-container');
-                const signinBtn = document.getElementById('signin-btn');
-                const signupBtn = document.getElementById('signup-btn');
-                const avatarBtn = document.getElementById('user-avatar-btn');
                 if (!sessionData?.authenticated) {
-                    if (noti) noti.style.display = 'none';
-                    if (signinBtn) signinBtn.style.display = 'inline-block';
-                    if (signupBtn) signupBtn.style.display = 'inline-block';
-                    if (avatarBtn) avatarBtn.onclick = () => window.location.href = '<?= htmlspecialchars($toRoot('pages/auth/login.html'), ENT_QUOTES, 'UTF-8') ?>';
                     return;
                 }
+
+                setAuthenticatedView();
 
                 const sessionUser = sessionData.user || null;
                 const fullName = sessionUser?.full_name || sessionUser?.name;
@@ -277,6 +295,7 @@ $toRoot = static fn(string $path): string => $prefix . ltrim($path, '/');
                 const profileUser = profileData.user;
                 setImageAvatar(profileUser.profile_image_base64, profileUser.profile_image_mime);
             } catch (error) {
+                setGuestView();
                 console.warn('Unable to load session user data for avatar.', error);
             }
         }
@@ -318,7 +337,7 @@ $toRoot = static fn(string $path): string => $prefix . ltrim($path, '/');
                 method: 'POST',
                 credentials: 'same-origin'
             }).finally(() => {
-                window.location.href = '<?= htmlspecialchars($toRoot('pages/auth/login.html'), ENT_QUOTES, 'UTF-8') ?>';
+                window.location.href = '<?= htmlspecialchars($toRoot('pages/auth/login.php'), ENT_QUOTES, 'UTF-8') ?>';
             });
         };
 

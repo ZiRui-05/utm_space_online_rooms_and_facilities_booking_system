@@ -457,6 +457,16 @@
             color: var(--success);
         }
 
+        .status-approved {
+            background: #e8f5e9;
+            color: var(--success);
+        }
+
+        .status-pending {
+            background: #fff8e1;
+            color: var(--warning);
+        }
+
         .status-completed {
             background: #fff3cd;
             color: #856404;
@@ -664,7 +674,7 @@
             <div class="booking-section">
                 <div class="booking-header">
                     <h3>Booking Status & History</h3>
-                    <button class="btn-all-requests">All Requests</button>
+                    <button class="btn-all-requests" onclick="window.location.href='booking-history.php'">All Requests</button>
                 </div>
                 <p style="font-size: 13px; color: var(--text-light); margin-bottom: 16px;">Manage your current and previous facility reservations.</p>
 
@@ -700,9 +710,9 @@
         // Load user data
         document.addEventListener('DOMContentLoaded', async function() {
             const sessionResponse = await fetch('../../api/auth/auth_session.php', { credentials: 'same-origin' });
-            if (!sessionResponse.ok) { window.location.href = '../auth/login.html'; return; }
+            if (!sessionResponse.ok) { window.location.href = '../auth/login.php'; return; }
             const sessionData = await sessionResponse.json();
-            if (!sessionData.authenticated) { window.location.href = '../auth/login.html'; return; }
+            if (!sessionData.authenticated) { window.location.href = '../auth/login.php'; return; }
             await loadProfileData();
         });
 
@@ -782,8 +792,13 @@
                 const facilityName = booking.resource_type === 'room'
                     ? (booking.room_name || 'Unknown Room')
                     : (booking.facility_name || 'Unknown Facility');
-                const statusClass = `status-${booking.booking_status}`;
-                const statusLabel = booking.booking_status.charAt(0).toUpperCase() + booking.booking_status.slice(1);
+                const normalizedStatus = (booking.booking_status || '').toLowerCase();
+                const statusClass = `status-${normalizedStatus}`;
+                const statusLabel = normalizedStatus.charAt(0).toUpperCase() + normalizedStatus.slice(1);
+                const canCancel = normalizedStatus === 'pending' || normalizedStatus === 'approved';
+                const actionHTML = canCancel
+                    ? `<button type="button" class="action-link action-cancel" onclick="cancelBooking(${Number(booking.booking_id)})">Cancel Booking</button>`
+                    : '<span class="action-link">-</span>';
 
                 const row = document.createElement('tr');
                 row.innerHTML = `
@@ -796,10 +811,35 @@
                         <div style="color: var(--text-light);">${startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })} - ${endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}</div>
                     </td>
                     <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
-                    <td><span class="action-link">-</span></td>
+                    <td>${actionHTML}</td>
                 `;
                 tbody.appendChild(row);
             });
+        }
+
+        async function cancelBooking(bookingId) {
+            const shouldCancel = window.confirm('Are you sure you want to cancel this booking request?');
+            if (!shouldCancel) {
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('id', bookingId);
+
+            const response = await fetch('../../api/booking/cancel_booking.php', {
+                method: 'POST',
+                credentials: 'same-origin',
+                body: formData
+            });
+
+            const result = await response.json();
+            if (!response.ok || !result.success) {
+                alert(result.message || 'Failed to cancel booking request.');
+                return;
+            }
+
+            alert(result.message || 'Booking request cancelled successfully.');
+            await loadProfileData();
         }
 
         function toggleProfileEdit() {
@@ -996,7 +1036,7 @@
         }
 
         function viewOlderHistory() {
-            alert('Loading older booking history...');
+            window.location.href = 'booking-history.php';
         }
     </script>
 </body>

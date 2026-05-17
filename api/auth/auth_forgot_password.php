@@ -53,7 +53,7 @@ $insertStmt->execute([
 
 require_once __DIR__ . '/../../config/mailer.php';
 
-$subject = 'UNIRESERVE Password Reset Code';
+$subject = 'SPACEBOOK Password Reset Code';
 $message = "Hello,\n\nYour password reset code is: {$otpCode}\n\nThis code expires in 15 minutes.\nIf you did not request this, please ignore this email.";
 $htmlMessage = '<p>Hello,</p><p>Your password reset code is:</p><p style="font-size:24px;font-weight:bold;letter-spacing:3px;">' . htmlspecialchars($otpCode, ENT_QUOTES, 'UTF-8') . '</p><p>This code expires in 15 minutes.</p><p>If you did not request this, please ignore this email.</p>';
 $sendResult = sendMail($email, (string)($user['full_name'] ?? ''), $subject, $message, $htmlMessage);
