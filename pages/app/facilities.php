@@ -52,8 +52,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Roboto','Oxygen','
 .content-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}
 .content-title{font-size:28px;font-weight:700;color:var(--text-dark)}
 .content-subtitle{font-size:14px;color:var(--text-light);margin-bottom:8px}
-.sort-container{display:flex;align-items:center;gap:12px}
+
+/* New Split Sort Controls Styling */
+.sort-container{display:flex;align-items:center;gap:8px}
 .sort-label{font-size:14px;color:var(--text-light);font-weight:600}
+.sort-select{width:160px;padding:10px;border:1px solid var(--border-light);border-radius:4px;font-size:14px;background:var(--white)}
+.btn-sort-dir{display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;padding:0;background:var(--white);border:1px solid var(--border-light);border-radius:4px;cursor:pointer;color:var(--text-dark);font-size:16px;transition:all .2s ease}
+.btn-sort-dir:hover{border-color:var(--primary-color);color:var(--primary-color);background:#fcfcfc}
+
 .room-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:24px}
 .room-card{background:var(--white);border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08);transition:all .3s ease}
 .room-card:hover{transform:translateY(-4px);box-shadow:0 8px 16px rgba(0,0,0,.12)}
@@ -84,7 +90,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Roboto','Oxygen','
 <button class="btn-apply" onclick="applyFilters()">Apply Filters</button><button class="btn-reset" onclick="resetFilters()">Reset All</button>
 </div>
 <div class="content-area"><div class="content-header"><div><h2 class="content-title">Available Facilities</h2><p class="content-subtitle">Showing <span id="facility-count">0</span> facilities</p></div>
-<div class="sort-container"><label class="sort-label">Sort by:</label><select class="sort-select" onchange="sortFacilities(this.value)"><option value="relevance">Relevance</option><option value="price-low">Price (Low to High)</option><option value="price-high">Price (High to Low)</option><option value="capacity">Capacity</option></select></div></div>
+
+
+<div class="sort-container">
+    <label class="sort-label">Sort by:</label>
+    <select class="sort-select" id="sort-criteria" onchange="sortFacilities()">
+        <option value="name">Name</option>
+        <option value="price">Price</option>
+        <option value="capacity">Capacity</option>
+    </select>
+    <button class="btn-sort-dir" id="sort-direction-btn" onclick="toggleSortDirection()" title="Toggle Sorting Order">
+        ▲
+    </button>
+</div>
+
+</div>
 <div class="room-grid" id="facility-grid"></div>
 <div class="no-results" id="no-results" style="display:none;"><div class="no-results-icon">🏢</div><div style="font-size:20px;font-weight:700;color:var(--text-dark);margin-bottom:8px;">No facilities found</div></div>
 </div></div>
@@ -92,6 +112,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Roboto','Oxygen','
 <script>
 const allFacilities = <?php echo json_encode($facilities, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES); ?>;
 let filteredFacilities = [...allFacilities];
+let currentSortDirection = 'asc'; // Tracking state: 'asc' or 'desc'
 
 function renderTypeOptions(){
   const s=document.getElementById('facility-type-filter');
@@ -104,9 +125,44 @@ function displayFacilities(){
  grid.innerHTML=filteredFacilities.map(f=>`<div class="room-card"><div class="room-image">${f.image?`<img src="${f.image}" alt="${f.name}" loading="lazy" decoding="async">`:`<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:64px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;">🏢</div>`}<span class="room-label">${(f.type||'facility').toUpperCase()}</span><span class="room-badge ${f.available?'available':'unavailable'}">${f.available?'Available':'Unavailable'}</span></div><div class="room-content"><h3 class="room-name">${f.name}</h3><div class="room-capacity">📍 ${f.location}</div><p class="room-description">${f.description}</p><div class="room-footer"><a class="btn-view-details" href="facilities_detail.php?type=facility&id=${f.id}&name=${encodeURIComponent(f.name)}">View Details</a><button class="btn-book" ${!f.available?'disabled':''} onclick="window.location.href='booking.php?resource_type=facility&facility_id=${f.id}&resource_name='+encodeURIComponent(f.name)">${f.available?'Book Facility':'Unavailable'}</button></div></div></div>`).join('');
  document.getElementById('facility-count').textContent=filteredFacilities.length;
 }
-function applyFilters(){const t=document.getElementById('facility-type-filter').value;filteredFacilities=allFacilities.filter(f=>!t||f.type===t);displayFacilities();}
-function resetFilters(){document.getElementById('facility-type-filter').value='';filteredFacilities=[...allFacilities];displayFacilities();}
-function sortFacilities(s){if(s==='price-low')filteredFacilities.sort((a,b)=>a.cost-b.cost);else if(s==='price-high')filteredFacilities.sort((a,b)=>b.cost-a.cost);else if(s==='capacity')filteredFacilities.sort((a,b)=>a.capacity-b.capacity);else filteredFacilities=[...allFacilities];displayFacilities();}
-document.addEventListener('DOMContentLoaded',()=>{renderTypeOptions();displayFacilities();});
+function applyFilters(){const t=document.getElementById('facility-type-filter').value;filteredFacilities=allFacilities.filter(f=>!t||f.type===t);sortFacilities();}
+function resetFilters(){document.getElementById('facility-type-filter').value='';filteredFacilities=[...allFacilities];sortFacilities();}
+
+// Handles the unified sorting processing
+function sortFacilities() {
+    const criteria = document.getElementById('sort-criteria').value;
+    
+    filteredFacilities.sort((a, b) => {
+        let comparison = 0;
+        
+        if (criteria === 'name') {
+            comparison = a.name.localeCompare(b.name);
+        } else if (criteria === 'price') {
+            comparison = a.cost - b.cost;
+        } else if (criteria === 'capacity') {
+            comparison = a.capacity - b.capacity;
+        }
+        
+        // Reverse if sorting order direction is set to descending
+        return currentSortDirection === 'asc' ? comparison : -comparison;
+    });
+    
+    displayFacilities();
+}
+
+// Inverts sort tracking and dynamically replaces layout indicators text
+function toggleSortDirection() {
+    const btn = document.getElementById('sort-direction-btn');
+    if (currentSortDirection === 'asc') {
+        currentSortDirection = 'desc';
+        btn.textContent = '▼';
+    } else {
+        currentSortDirection = 'asc';
+        btn.textContent = '▲';
+    }
+    sortFacilities();
+}
+
+document.addEventListener('DOMContentLoaded',()=>{renderTypeOptions();sortFacilities();});
 </script>
 </body></html>
