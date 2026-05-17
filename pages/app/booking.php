@@ -596,6 +596,4 @@ async function checkTimeSlots() {
     el.innerHTML = `<strong>Booked Slots</strong><ul>${data.slots.map(x => `<li>${x.start} - ${x.end}</li>`).join('')}</ul>`;
 }
 
-// Rest of your functions (formatCost, renderResources, updateCost, submitBooking, etc.)
-// ...
 </script></body></html>

@@ -70,5 +70,26 @@ function displayRooms(){const g=document.getElementById('room-grid'),e=document.
 function applyFilters(){const t=document.getElementById('room-type-filter').value,l=document.getElementById('location-filter').value,c=document.getElementById('capacity-filter').value; filteredRooms=allRooms.filter(r=>(!t||r.type===t)&&(!l||r.location===l)&&capacityMatch(r.capacity,c));displayRooms();}
 function resetFilters(){document.getElementById('room-type-filter').value='';document.getElementById('location-filter').value='';document.getElementById('capacity-filter').value='';filteredRooms=[...allRooms];displayRooms();}
 function sortRooms(s){if(s==='price-low')filteredRooms.sort((a,b)=>a.cost-b.cost); else if(s==='price-high')filteredRooms.sort((a,b)=>b.cost-a.cost); else if(s==='capacity')filteredRooms.sort((a,b)=>a.capacity-b.capacity); else filteredRooms=[...allRooms];displayRooms();}
-document.addEventListener('DOMContentLoaded',()=>{renderOptions();displayRooms();});
+function normalizeType(v){return (v||'').toLowerCase().replace(/[-_]+/g,' ').replace(/\s+/g,' ').trim();}
+function findMatchingType(raw){
+ const target=normalizeType(raw);
+ if(!target) return '';
+ const types=[...new Set(allRooms.map(r=>r.type).filter(Boolean))];
+ const exact=types.find(t=>normalizeType(t)===target);
+ if(exact) return exact;
+ const partial=types.find(t=>normalizeType(t).includes(target)||target.includes(normalizeType(t)));
+ return partial||'';
+}
+function initFromQuery(){
+ const params=new URLSearchParams(window.location.search);
+ const queryType=params.get('roomType')||params.get('category')||'';
+ const matchedType=findMatchingType(queryType);
+ if(matchedType){
+   document.getElementById('room-type-filter').value=matchedType;
+   applyFilters();
+   return;
+ }
+ displayRooms();
+}
+document.addEventListener('DOMContentLoaded',()=>{renderOptions();initFromQuery();});
 </script></body></html>
