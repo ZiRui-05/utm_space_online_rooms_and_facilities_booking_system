@@ -156,7 +156,7 @@ $toRoot = static fn(string $path): string => $prefix . ltrim($path, '/');
     </div>
 
     <div class="navbar-right">
-        <div class="noti-dropdown-container">
+        <div class="noti-dropdown-container" id="noti-container">
             <button class="icon-button" id="noti-btn" onclick="toggleNotiMenu(event)" title="Notification">
                 🔔<span class="noti-badge">2</span>
             </button>
@@ -188,9 +188,9 @@ $toRoot = static fn(string $path): string => $prefix . ltrim($path, '/');
             </div>
         </div>
 
-        <button class="btn-book-now" onclick="window.location.href='<?= htmlspecialchars($toRoot('pages/app/booking.php'), ENT_QUOTES, 'UTF-8') ?>'">Book Now</button>
+        <button class="btn-book-now" onclick="window.location.href='<?= htmlspecialchars($toRoot('pages/app/booking.php'), ENT_QUOTES, 'UTF-8') ?>'">Book Now</button><a id="signin-btn" class="nav-link" href="<?= htmlspecialchars($toRoot('pages/auth/login.html'), ENT_QUOTES, 'UTF-8') ?>" style="display:none;">Sign In</a><a id="signup-btn" class="nav-link" href="<?= htmlspecialchars($toRoot('pages/auth/register.html'), ENT_QUOTES, 'UTF-8') ?>" style="display:none;">Sign Up</a>
 
-        <div class="user-dropdown">
+        <div class="user-dropdown" id="user-dropdown">
             <button class="user-avatar" id="user-avatar-btn" onclick="toggleUserMenu(event)">U</button>
             <div class="dropdown-menu" id="user-menu" style="display:none;">
                 <a href="<?= htmlspecialchars($toRoot('pages/app/profile.php'), ENT_QUOTES, 'UTF-8') ?>" class="dropdown-item">👤 My Profile</a>
@@ -247,7 +247,17 @@ $toRoot = static fn(string $path): string => $prefix . ltrim($path, '/');
                 if (!sessionResponse.ok) return;
 
                 const sessionData = await sessionResponse.json();
-                if (!sessionData?.authenticated) return;
+                const noti = document.getElementById('noti-container');
+                const signinBtn = document.getElementById('signin-btn');
+                const signupBtn = document.getElementById('signup-btn');
+                const avatarBtn = document.getElementById('user-avatar-btn');
+                if (!sessionData?.authenticated) {
+                    if (noti) noti.style.display = 'none';
+                    if (signinBtn) signinBtn.style.display = 'inline-block';
+                    if (signupBtn) signupBtn.style.display = 'inline-block';
+                    if (avatarBtn) avatarBtn.onclick = () => window.location.href = '<?= htmlspecialchars($toRoot('pages/auth/login.html'), ENT_QUOTES, 'UTF-8') ?>';
+                    return;
+                }
 
                 const sessionUser = sessionData.user || null;
                 const fullName = sessionUser?.full_name || sessionUser?.name;

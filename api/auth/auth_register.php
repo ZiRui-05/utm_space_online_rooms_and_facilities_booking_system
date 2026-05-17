@@ -43,6 +43,16 @@ if ($emailDomain === 'graduate.utm.my') {
 }
 
 
+
+$icDigits = preg_replace('/\D+/', '', $icNo);
+if ($icDigits === '') {
+    http_response_code(422);
+    echo json_encode(['success' => false, 'message' => 'Invalid IC number']);
+    exit;
+}
+$lastDigit = (int)substr($icDigits, -1);
+$gender = ($lastDigit % 2 === 0) ? 'Female' : 'Male';
+
 if (strlen($password) < 8) {
     http_response_code(422);
     echo json_encode(['success' => false, 'message' => 'Password must be at least 8 characters']);
@@ -71,7 +81,7 @@ if ($existingUser) {
 }
 
 $passwordHash = password_hash($password, PASSWORD_DEFAULT);
-$insertStmt = $pdo->prepare('INSERT INTO users (full_name, utm_id, ic_no, email, password_hash, role, account_status) VALUES (:full_name, :utm_id, :ic_no, :email, :password_hash, :role, :account_status)');
+$insertStmt = $pdo->prepare('INSERT INTO users (full_name, utm_id, ic_no, email, password_hash, role, gender, account_status) VALUES (:full_name, :utm_id, :ic_no, :email, :password_hash, :role, :gender, :account_status)');
 $insertStmt->execute([
     'full_name' => $fullName,
     'utm_id' => $utmId,
@@ -79,6 +89,7 @@ $insertStmt->execute([
     'email' => $email,
     'password_hash' => $passwordHash,
     'role' => $role,
+    'gender' => $gender,
     'account_status' => 'active'
 ]);
 

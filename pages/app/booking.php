@@ -668,8 +668,8 @@ function updateCost() {
     const isFree = freeRoles.includes(String(role || '').toLowerCase());
     originalPrice.textContent = rawPrice > 0 ? `Standard price: RM ${rawPrice.toFixed(2)}` : 'Standard price: RM 0.00';
     discountNote.textContent = isFree ? 'Student discount: 100% off. Your booking is free.' : '';
-    totalCost.textContent = `RM ${(isFree ? 0 : rawPrice).toFixed(2)}`;
-}
+    totalCost.textContent = isFree ? 'Free' : `RM ${rawPrice.toFixed(2)}`;
+}}
 
 function validateBookingSelection(showMessage = true) {
     const selected = selectedOption();
