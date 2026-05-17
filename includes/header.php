@@ -39,20 +39,71 @@ $toRoot = static fn(string $path): string => $prefix . ltrim($path, '/');
         background: var(--accent-color);
     }
     .navbar-right { display: flex; align-items: center; gap: 20px; }
-    .icon-button { background: none; border: none; font-size: 20px; cursor: pointer; transition: transform 0.3s; color: var(--white); }
+    .icon-button { background: none; border: none; font-size: 20px; cursor: pointer; transition: transform 0.3s; color: var(--white); display: block; }
     .icon-button:hover { transform: scale(1.1); }
     .btn-book-now {
-        background: var(--accent-color);
-        color: var(--text-dark);
+        background-color: #FFC107 !important; /* Forces your golden yellow color */
+        color: #1A202C !important;            /* Ensures text is dark and legible */
         border: none;
         padding: 8px 20px;
         border-radius: 4px;
         font-weight: 600;
         font-size: 13px;
         cursor: pointer;
-        transition: all 0.3s;
+        transition: all 0.3s ease;
     }
-    .btn-book-now:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3); }
+
+    .btn-book-now:hover {
+        background-color: #E0A800 !important; /* Darker gold shift on hover */
+        transform: translateY(-2px); 
+        box-shadow: 0 4px 12px rgba(255, 193, 7, 0.4); 
+    }
+    /* Notification Wrap & Badge Configurations */
+    .noti-dropdown-container { position: relative; display: inline-block; }
+    .noti-badge {
+        position: absolute;
+        top: -2px;
+        right: -2px;
+        background-color: var(--danger, #dc3545);
+        color: var(--white, #fff);
+        font-size: 10px;
+        font-weight: bold;
+        padding: 2px 6px;
+        border-radius: 10px;
+        line-height: 1;
+    }
+
+    /* Professional Notification Pop-out Frame */
+    .noti-menu {
+        position: absolute; top: 45px; right: -50px; background: var(--white); border-radius: 8px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15); width: 340px; z-index: 1000; overflow: hidden;
+        border: 1px solid var(--border-light, #edf2f7);
+    }
+    .noti-header {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 12px 16px; border-bottom: 1px solid var(--border-light, #edf2f7);
+        background: var(--bg-light, #f8f9fa);
+    }
+    .noti-header h3 { margin: 0; font-size: 14px; font-weight: 600; color: var(--text-dark); }
+    .noti-clear-btn { background: none; border: none; color: #3182ce; font-size: 11px; cursor: pointer; padding: 0; }
+    .noti-clear-btn:hover { text-decoration: underline; }
+    
+    .noti-body { max-height: 280px; overflow-y: auto; }
+    .noti-item {
+        display: flex; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border-light, #f7fafc);
+        cursor: pointer; transition: background 0.2s; text-decoration: none; align-items: flex-start;
+    }
+    .noti-item:hover { background: var(--bg-light, #f8f9fa); }
+    .noti-item.unread { background: #f0f7ff; }
+    .noti-item-icon { font-size: 16px; margin-top: 2px; }
+    .noti-item-content p { margin: 0 0 4px 0; font-size: 12px; color: var(--text-dark); line-height: 1.4; text-align: left; }
+    .noti-item-time { font-size: 10px; color: #a0aec0; display: block; }
+    
+    .noti-footer { padding: 10px; text-align: center; background: var(--bg-light, #f8f9fa); border-top: 1px solid var(--border-light, #edf2f7); }
+    .noti-footer a { color: #3182ce; text-decoration: none; font-size: 12px; font-weight: 500; }
+    .noti-footer a:hover { text-decoration: underline; }
+
+    /* Existing User Dropdown Layout Rules */
     .user-dropdown { position: relative; }
     .user-avatar {
         width: 36px; height: 36px; border-radius: 50%; background: var(--white);
@@ -84,13 +135,16 @@ $toRoot = static fn(string $path): string => $prefix . ltrim($path, '/');
     .dropdown-item:hover { background: var(--bg-light); }
     .dropdown-item.logout { color: var(--danger); }
     .dropdown-divider { margin: 8px 0; border: none; border-top: 1px solid var(--border-light); }
+    
     @media (max-width: 768px) {
         .navbar { flex-direction: column; gap: 12px; padding: 12px 16px; }
         .navbar-left { width: 100%; flex-direction: column; gap: 12px; align-items: flex-start; }
         .navbar-right { width: 100%; justify-content: space-between; }
         .nav-links { flex-direction: column; gap: 8px; }
+        .noti-menu { right: auto; left: 0; width: calc(100vw - 32px); }
     }
 </style>
+
 <nav class="navbar">
     <div class="navbar-left">
         <h1 class="navbar-logo">SPACEBOOK</h1>
@@ -102,11 +156,42 @@ $toRoot = static fn(string $path): string => $prefix . ltrim($path, '/');
     </div>
 
     <div class="navbar-right">
-        <button class="icon-button" title="Notification">🔔</button>
+        <div class="noti-dropdown-container">
+            <button class="icon-button" id="noti-btn" onclick="toggleNotiMenu(event)" title="Notification">
+                🔔<span class="noti-badge">2</span>
+            </button>
+            
+            <div class="noti-menu" id="noti-menu" style="display:none;">
+                <div class="noti-header">
+                    <h3>Notifications</h3>
+                    <button class="noti-clear-btn" onclick="markAllNotificationsAsRead()">Mark all as read</button>
+                </div>
+                <div class="noti-body">
+                    <div class="noti-item unread">
+                        <span class="noti-item-icon">✨</span>
+                        <div class="noti-item-content">
+                            <p>Your reservation structural request for <strong>Room T05</strong> has been successfully booked.</p>
+                            <span class="noti-item-time">Just now</span>
+                        </div>
+                    </div>
+                    <div class="noti-item">
+                        <span class="noti-item-icon">📅</span>
+                        <div class="noti-item-content">
+                            <p>System maintenance scheduled for this weekend. Some facility selectors may experience structural updates.</p>
+                            <span class="noti-item-time">2 hours ago</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="noti-footer">
+                    <a href="#">View All System Activity</a>
+                </div>
+            </div>
+        </div>
+
         <button class="btn-book-now" onclick="window.location.href='<?= htmlspecialchars($toRoot('pages/app/booking.php'), ENT_QUOTES, 'UTF-8') ?>'">Book Now</button>
 
         <div class="user-dropdown">
-            <button class="user-avatar" id="user-avatar-btn" onclick="toggleUserMenu()">U</button>
+            <button class="user-avatar" id="user-avatar-btn" onclick="toggleUserMenu(event)">U</button>
             <div class="dropdown-menu" id="user-menu" style="display:none;">
                 <a href="<?= htmlspecialchars($toRoot('pages/app/profile.php'), ENT_QUOTES, 'UTF-8') ?>" class="dropdown-item">👤 My Profile</a>
                 <a href="#" class="dropdown-item">📋 My Bookings</a>
@@ -118,6 +203,7 @@ $toRoot = static fn(string $path): string => $prefix . ltrim($path, '/');
         </div>
     </div>
 </nav>
+
 <script>
     (function(){
         function computeInitials(fullName){
@@ -185,10 +271,35 @@ $toRoot = static fn(string $path): string => $prefix . ltrim($path, '/');
             }
         }
 
-        window.toggleUserMenu = function toggleUserMenu(){
-            const menu = document.getElementById('user-menu');
-            if (!menu) return;
-            menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+        // Dropdown controls with event.stopPropagation to prevent conflicting click captures
+        window.toggleUserMenu = function toggleUserMenu(e){
+            if(e) e.stopPropagation();
+            const userMenu = document.getElementById('user-menu');
+            const notiMenu = document.getElementById('noti-menu');
+            
+            if (notiMenu) notiMenu.style.display = 'none';
+            if (userMenu) {
+                userMenu.style.display = userMenu.style.display === 'block' ? 'none' : 'block';
+            }
+        };
+
+        window.toggleNotiMenu = function toggleNotiMenu(e){
+            if(e) e.stopPropagation();
+            const userMenu = document.getElementById('user-menu');
+            const notiMenu = document.getElementById('noti-menu');
+            
+            if (userMenu) userMenu.style.display = 'none';
+            if (notiMenu) {
+                notiMenu.style.display = notiMenu.style.display === 'block' ? 'none' : 'block';
+            }
+        };
+
+        window.markAllNotificationsAsRead = function markAllNotificationsAsRead() {
+            document.querySelectorAll('.noti-item.unread').forEach(item => {
+                item.classList.remove('unread');
+            });
+            const badge = document.querySelector('.noti-badge');
+            if (badge) badge.style.display = 'none';
         };
 
         window.handleLogout = function handleLogout(){
@@ -201,11 +312,19 @@ $toRoot = static fn(string $path): string => $prefix . ltrim($path, '/');
             });
         };
 
+        // Universal close catcher for clicking outside either active menu structure
         document.addEventListener('click', function(event){
-            const dropdown = document.querySelector('.user-dropdown');
-            if (!dropdown || dropdown.contains(event.target)) return;
-            const menu = document.getElementById('user-menu');
-            if (menu) menu.style.display = 'none';
+            const userDropdown = document.querySelector('.user-dropdown');
+            const notiDropdown = document.querySelector('.noti-dropdown-container');
+            
+            if (userDropdown && !userDropdown.contains(event.target)) {
+                const userMenu = document.getElementById('user-menu');
+                if (userMenu) userMenu.style.display = 'none';
+            }
+            if (notiDropdown && !notiDropdown.contains(event.target)) {
+                const notiMenu = document.getElementById('noti-menu');
+                if (notiMenu) notiMenu.style.display = 'none';
+            }
         });
 
         document.addEventListener('DOMContentLoaded', hydrateAvatar);

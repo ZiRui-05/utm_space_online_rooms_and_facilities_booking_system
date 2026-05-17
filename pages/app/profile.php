@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>User Profile - UNIRESERVE</title>
+    <title>User Profile - SPACEBOOK</title>
     <style>
         * {
             margin: 0;
@@ -293,6 +293,11 @@
             gap: 20px;
         }
 
+        /* Added special rule to allow address field to occupy full row space */
+        .full-width-field {
+            grid-column: span 2;
+        }
+
         .detail-item {
             display: flex;
             flex-direction: column;
@@ -459,6 +464,10 @@
                 grid-template-columns: 1fr;
             }
 
+            .full-width-field {
+                grid-column: span 1;
+            }
+
             .content-header {
                 flex-direction: column;
                 gap: 16px;
@@ -494,18 +503,14 @@
 <?php $currentPage = 'profile'; include __DIR__ . '/../../includes/header.php'; ?>
     
 
-    <!-- Breadcrumb -->
     <div class="breadcrumb">
         <a href="../../homepage.php">Campus</a>
-        <span>></span>
+        <span>&gt;</span>
         <span>User Profile</span>
     </div>
 
-    <!-- Main Container -->
     <div class="container">
-        <!-- Left Sidebar -->
         <div class="sidebar">
-            <!-- Profile Card -->
             <div class="profile-card">
                 <div class="profile-avatar-container" onclick="triggerAvatarUpload()" title="Click to change avatar">
                     <img class="profile-avatar" id="profile-avatar" alt="Profile Avatar">
@@ -526,7 +531,6 @@
                 </div>
             </div>
 
-            <!-- Settings Card -->
             <div class="settings-card">
                 <h3>Profile Settings</h3>
                 <div class="settings-item" onclick="navigateTo('notifications')">
@@ -553,9 +557,7 @@
             </div>
         </div>
 
-        <!-- Right Content -->
         <div class="content">
-            <!-- Header Section -->
             <div class="content-header">
                 <div class="header-text">
                     <h2>Member Profile</h2>
@@ -564,7 +566,6 @@
                 <button class="btn-edit" id="btn-edit-profile" onclick="toggleProfileEdit()">✏️ Edit Profile</button>
             </div>
 
-            <!-- Personal Details Section -->
             <div class="details-section">
                 <div class="section-title">Personal Details</div>
                 <div class="details-grid">
@@ -584,10 +585,17 @@
                         <div class="detail-label">Department</div>
                         <div class="detail-value editable-field" id="detail-department">Waiting to edit</div>
                     </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Gender</div>
+                        <div class="detail-value editable-field" id="detail-gender">Waiting to edit</div>
+                    </div>
+                    <div class="detail-item full-width-field">
+                        <div class="detail-label">Address</div>
+                        <div class="detail-value editable-field" id="detail-address">Waiting to edit</div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Booking History Section -->
             <div class="booking-section">
                 <div class="booking-header">
                     <h3>Booking Status & History</h3>
@@ -621,6 +629,7 @@
     <script>
         let isEditMode = false;
         let pendingAvatarBase64 = "";
+        
         // Load user data
         document.addEventListener('DOMContentLoaded', async function() {
             const sessionResponse = await fetch('../../api/auth/auth_session.php', { credentials: 'same-origin' });
@@ -648,6 +657,7 @@
             const avatarImg = document.getElementById('profile-avatar');
             const avatarFallback = document.getElementById('profile-avatar-fallback');
             avatarFallback.textContent = initials;
+            
             if (userData.profile_image_base64 && userData.profile_image_mime) {
                 avatarImg.src = `data:${userData.profile_image_mime};base64,${userData.profile_image_base64}`;
                 avatarImg.style.display = 'block';
@@ -656,13 +666,20 @@
                 avatarImg.style.display = 'none';
                 avatarFallback.style.display = 'flex';
             }
+            
             document.getElementById('profile-name').textContent = userData.full_name || '-';
             document.getElementById('detail-name').textContent = userData.full_name || '-';
             document.getElementById('detail-email').textContent = userData.email || '-';
             document.getElementById('profile-utm-id').textContent = userData.utm_id || '-';
             document.getElementById('profile-icno').textContent = userData.ic_no || '-';
+            
             document.getElementById('detail-phone').textContent = userData.phone_number || 'Waiting to edit';
             document.getElementById('detail-department').textContent = userData.department || 'Waiting to edit';
+            
+            // Render Gender and Address values
+            document.getElementById('detail-gender').textContent = userData.gender || 'Waiting to edit';
+            document.getElementById('detail-address').textContent = userData.address || 'Waiting to edit';
+            
             renderBookings(result.bookings || []);
         }
 
@@ -724,20 +741,45 @@
 
         function enterEditMode() {
             isEditMode = true;
-            const editableIds = ['detail-phone', 'detail-department'];
-            editableIds.forEach(id => {
+            
+            // Standard text elements (Phone, Department)
+            const textFields = ['detail-phone', 'detail-department'];
+            textFields.forEach(id => {
                 const element = document.getElementById(id);
                 const value = element.textContent.trim() === 'Waiting to edit' ? '' : element.textContent.trim();
                 element.innerHTML = `<input type="text" id="${id}-input" value="${value}" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">`;
             });
+
+            // Gender drop-down element
+            const genderElement = document.getElementById('detail-gender');
+            const currentGender = genderElement.textContent.trim();
+            genderElement.innerHTML = `
+                <select id="detail-gender-input" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;background:#fff;">
+                    <option value="" ${currentGender === 'Waiting to edit' || currentGender === '' ? 'selected' : ''}>Select Gender</option>
+                    <option value="Male" ${currentGender === 'Male' ? 'selected' : ''}>Male</option>
+                    <option value="Female" ${currentGender === 'Female' ? 'selected' : ''}>Female</option>
+                </select>
+            `;
+
+            // Address text area element
+            const addressElement = document.getElementById('detail-address');
+            const currentAddress = addressElement.textContent.trim() === 'Waiting to edit' ? '' : addressElement.textContent.trim();
+            addressElement.innerHTML = `<textarea id="detail-address-input" rows="3" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;font-family:inherit;resize:vertical;">${currentAddress}</textarea>`;
+
             document.getElementById('btn-edit-profile').textContent = '✅ Save';
         }
 
         async function saveProfileEdits() {
             const phoneInput = document.getElementById('detail-phone-input');
             const departmentInput = document.getElementById('detail-department-input');
+            const genderInput = document.getElementById('detail-gender-input');
+            const addressInput = document.getElementById('detail-address-input');
+
+            // Fallbacks gather values if inputs aren't generated yet
             const phoneNumber = phoneInput ? phoneInput.value.trim() : (document.getElementById('detail-phone').textContent.trim() === 'Waiting to edit' ? '' : document.getElementById('detail-phone').textContent.trim());
             const department = departmentInput ? departmentInput.value.trim() : (document.getElementById('detail-department').textContent.trim() === 'Waiting to edit' ? '' : document.getElementById('detail-department').textContent.trim());
+            const gender = genderInput ? genderInput.value : (document.getElementById('detail-gender').textContent.trim() === 'Waiting to edit' ? '' : document.getElementById('detail-gender').textContent.trim());
+            const address = addressInput ? addressInput.value.trim() : (document.getElementById('detail-address').textContent.trim() === 'Waiting to edit' ? '' : document.getElementById('detail-address').textContent.trim());
 
             const response = await fetch('../../api/user/profile_data.php', {
                 method: 'POST',
@@ -746,6 +788,8 @@
                 body: JSON.stringify({
                     phone_number: phoneNumber,
                     department: department,
+                    gender: gender,
+                    address: address,
                     avatar_base64: pendingAvatarBase64
                 })
             });
@@ -762,8 +806,6 @@
             pendingAvatarBase64 = '';
             alert('Profile updated successfully.');
         }
-
-        
 
         function triggerAvatarUpload() {
             document.getElementById('avatar-input').click();
@@ -810,6 +852,7 @@
         function fileToDataUrl(file) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
+                reader.pointer = () => resolve(reader.result);
                 reader.onload = () => resolve(reader.result);
                 reader.onerror = reject;
                 reader.readAsDataURL(file);
