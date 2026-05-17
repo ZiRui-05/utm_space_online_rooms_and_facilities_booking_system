@@ -570,19 +570,19 @@
     </div>
 
     <div class="categories-grid">
-        <div class="category-card" onclick="navigateTo('lecture-halls')">
+        <div class="category-card" onclick="navigateToCategory('lecture halls')">
             <div class="category-icon">🎤</div>
             <p>Lecture Halls</p>
         </div>
-        <div class="category-card" onclick="navigateTo('study-pods')">
+        <div class="category-card" onclick="navigateToCategory('study pods')">
             <div class="category-icon">📚</div>
             <p>Study Pods</p>
         </div>
-        <div class="category-card" onclick="navigateTo('labs')">
+        <div class="category-card" onclick="navigateToCategory('labs')">
             <div class="category-icon">🔬</div>
             <p>Labs</p>
         </div>
-        <div class="category-card" onclick="navigateTo('meeting-rooms')">
+        <div class="category-card" onclick="navigateToCategory('meeting rooms')">
             <div class="category-icon">👥</div>
             <p>Meeting Rooms</p>
         </div>
@@ -604,7 +604,7 @@
                 <div class="facility-meta">
                     <span class="price-free">Free (Student)</span>
                 </div>
-                <button class="btn-book-facility" onclick="bookFacility('Room T05')">Reserve Room</button>
+                <button class="btn-book-facility" onclick="navigateToCategory('study pods')">Reserve Room</button>
             </div>
         </div>
 
@@ -664,7 +664,10 @@
 
     });
 
-    function navigateTo(category) { alert('Navigating to ' + category); }
+    function navigateToCategory(category) {
+        const params = new URLSearchParams({ roomType: category });
+        window.location.href = '/pages/app/room-availability.php?' + params.toString();
+    }
     function addNewFacility() { alert('Add new facility feature coming soon!'); }
     function checkAvailability(facility) { window.location.href = 'facility_details.php?type=facility&name=' + encodeURIComponent(facility); }
     function bookFacility(facility) { window.location.href = 'facility_details.php?type=room&name=' + encodeURIComponent(facility); }
