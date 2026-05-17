@@ -5,7 +5,7 @@ $facilities = [];
 try {
     require_once __DIR__ . '/../../config/db.php';
     if (isset($pdo) && $pdo instanceof PDO) {
-        $stmt = $pdo->query("SELECT facility_id, facility_name, facility_type, location, capacity, description, price_per_day, resource_status FROM facilities ORDER BY facility_name ASC");
+        $stmt = $pdo->query("SELECT facility_id, facility_name, facility_type, location, capacity, description, price_per_day, resource_status FROM facilities WHERE LOWER(TRIM(facility_name)) <> 't06' ORDER BY facility_name ASC");
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
         foreach ($rows as $row) {

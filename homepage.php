@@ -570,19 +570,19 @@
     </div>
 
     <div class="categories-grid">
-        <div class="category-card" onclick="navigateToCategory('room', 'lecture-hall')">
+        <div class="category-card" onclick="navigateToCategory('lecture halls')">
             <div class="category-icon">🎤</div>
             <p>Lecture Halls</p>
         </div>
-        <div class="category-card" onclick="navigateToCategory('room', 'study-pod')">
+        <div class="category-card" onclick="navigateToCategory('study pods')">
             <div class="category-icon">📚</div>
             <p>Study Pods</p>
         </div>
-        <div class="category-card" onclick="navigateToCategory('facility', 'lab')">
+        <div class="category-card" onclick="navigateToCategory('labs')">
             <div class="category-icon">🔬</div>
             <p>Labs</p>
         </div>
-        <div class="category-card" onclick="navigateToCategory('room', 'meeting-room')">
+        <div class="category-card" onclick="navigateToCategory('meeting rooms')">
             <div class="category-icon">👥</div>
             <p>Meeting Rooms</p>
         </div>
@@ -601,28 +601,22 @@
 
     <div class="featured-grid">
         <div class="featured-card">
-            <img src="/assets/images/T05.jpg" alt="Room T05">
+            <img src="T05.jpg" alt="Room T05">
             <div class="card-content">
                 <h4>Room T05</h4>
                 <p class="facility-description">Sound-isolated acoustic pod with whiteboards and collaborative display screens.</p>
                 <div class="facility-meta">
                     <span class="price-free">Free (Student)</span>
                 </div>
-                <button class="btn-book-facility" onclick="bookFacility('Room T05')">Reserve Room</button>
+                <button class="btn-book-facility" onclick="navigateToT05Rooms()">View T05 Rooms</button>
             </div>
         </div>
 
         <div class="featured-card">
-            <img src="/assets/images/T06.jpg" alt="T06 Facility">
+            <img src="T06.jpg" alt="T06 Facility">
             <div class="card-content">
                 <h4>T06 Facility</h4>
-                <p class="facility-name">6 rooms available</p>
                 <p class="facility-description">T06 facility contains 6 bookable rooms for discussion, study, meetings, and academic activities.</p>
-                <div class="facility-features">
-                    <span class="feature">6 Rooms</span>
-                    <span class="feature">08:00 - 17:00</span>
-                    <span class="feature">Student Booking</span>
-                </div>
                 <div class="facility-meta">
                     <span class="price-free">Free (Student)</span>
                 </div>
@@ -677,11 +671,17 @@
 
     });
 
-    function navigateToCategory(resourceType, category) {
-        const target = resourceType === 'facility'
+    function navigateToCategory(category) {
+        const normalized = String(category || '').toLowerCase();
+        const facilityCategories = ['labs', 'laboratory', 'laboratories'];
+        const target = facilityCategories.includes(normalized)
             ? 'pages/app/facilities.php?facility_type=' + encodeURIComponent(category)
             : 'pages/app/room-availability.php?room_type=' + encodeURIComponent(category);
         window.location.href = target;
+    }
+
+    function navigateToT05Rooms() {
+        window.location.href = 'pages/app/room-availability.php?facility=T05&location=T05';
     }
 
     function navigateToT06Rooms() {

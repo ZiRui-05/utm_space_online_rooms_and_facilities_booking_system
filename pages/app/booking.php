@@ -50,6 +50,10 @@ if (!in_array($resourceType, ['room', 'facility'], true)) {
 }
 $resourceId = $resourceType === 'room' ? (int)($_GET['room_id'] ?? 0) : (int)($_GET['facility_id'] ?? 0);
 $resourceName = trim($_GET['resource_name'] ?? '');
+$bookingLabel = $resourceType === 'room' ? 'Book Room' : 'Book Facility';
+$selectedDateParam = trim($_GET['booking_date'] ?? '');
+$selectedStartParam = trim($_GET['start_time'] ?? '');
+$selectedEndParam = trim($_GET['end_time'] ?? '');
 $currentRole = 'guest';
 $resourceOptions = [];
 $selectedResource = null;
@@ -115,7 +119,7 @@ if (!$selectedResource && $resourceName !== '') {
 content="width=device-width, initial-scale=1.0">
 
 <title>
-    Book Facility - UNIRESERVE
+    <?= htmlspecialchars($bookingLabel, ENT_QUOTES, 'UTF-8') ?> - UNIRESERVE
 </title>
 
 <style>
@@ -365,7 +369,7 @@ include __DIR__ . '/../../includes/header.php';
     <span> > </span>
 
     <span>
-        Book Facility
+        <?= htmlspecialchars($bookingLabel, ENT_QUOTES, 'UTF-8') ?>
     </span>
 
 </div>
@@ -377,12 +381,12 @@ include __DIR__ . '/../../includes/header.php';
     <div class="booking-form">
 
         <h2>
-            Book a Facility
+            <?= htmlspecialchars($bookingLabel, ENT_QUOTES, 'UTF-8') ?>
         </h2>
 
 <form id="booking-form" onsubmit="submitBooking(event)">
     <div class="form-group">
-        <label>Selected Facility</label>
+        <label>Selected <?= $resourceType === 'room' ? 'Room' : 'Facility' ?></label>
         <div class="facility-list" id="resource-list"></div>
     </div>
 
@@ -415,8 +419,7 @@ include __DIR__ . '/../../includes/header.php';
         <label>Time Slot Check</label>
         <div id="slot-check" class="slot-status">Select date/time to check slot availability.</div>
     </div>
-    
-    </form>
+
 
             <!-- TOTAL -->
 
@@ -475,127 +478,326 @@ include __DIR__ . '/../../includes/header.php';
         </form>
     </div>
 </div>
-</body>
-</html>
-
 <?php include __DIR__ . '/../../includes/footer.php'; ?>
 <script>
 const resourceType = <?= json_encode($resourceType) ?>;
-const options = <?= json_encode($resourceOptions, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES) ?>;
+const resourceLabel = resourceType === 'room' ? 'room' : 'facility';
+const options = <?= json_encode($resourceOptions, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 const initialSelectedId = <?= (int)($selectedResource['id'] ?? 0) ?>;
 const role = <?= json_encode($currentRole) ?>;
-const freeRoles = ['student','staff','admin','facility_manager'];
+const freeRoles = ['student', 'staff', 'admin', 'facility_manager'];
+const initialBookingDate = <?= json_encode($selectedDateParam) ?>;
+const initialStartTime = <?= json_encode($selectedStartParam) ?>;
+const initialEndTime = <?= json_encode($selectedEndParam) ?>;
 
-// Initialize Constraints on Page Load
 document.addEventListener('DOMContentLoaded', () => {
     setupDateConstraints();
-    setupTimeConstraints();
+    populateTimeDropdowns();
     renderResources();
+    applyIncomingBookingSelection();
     updateCost();
+    checkTimeSlots();
 });
+
+function formatLocalDate(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function minutesFromTime(time) {
+    const [hours, minutes] = String(time || '').split(':').map(Number);
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return NaN;
+    return hours * 60 + minutes;
+}
+
+function formatTime(totalMinutes) {
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+}
 
 function setupDateConstraints() {
     const dateInput = document.getElementById('booking-date');
+    if (!dateInput) return;
+
     const today = new Date();
-    
-    // Student/User range: Current date + 2 days (Total 3 days)
-    const maxDate = new Date();
+    const maxDate = new Date(today);
     maxDate.setDate(today.getDate() + 2);
 
-    // Format to YYYY-MM-DD
-    const formatDate = (d) => d.toISOString().split('T')[0];
+    dateInput.min = formatLocalDate(today);
+    dateInput.max = formatLocalDate(maxDate);
 
-    dateInput.min = formatDate(today);
-    dateInput.max = formatDate(maxDate);
-
-    // Block Weekends (Saturday/Sunday)
-    dateInput.addEventListener('input', (e) => {
-        const day = new Date(e.target.value).getUTCDay();
-        if ([0, 6].includes(day)) {
-            alert('Bookings are only available from Monday to Friday.');
-            e.target.value = '';
+    dateInput.addEventListener('change', () => {
+        if (!dateInput.value) return;
+        if (dateInput.value < dateInput.min || dateInput.value > dateInput.max) {
+            alert('Booking date must be within 3 days including today.');
+            dateInput.value = '';
         }
+        checkTimeSlots();
     });
 }
 
 function populateTimeDropdowns() {
     const startSelect = document.getElementById('booking-time');
     const endSelect = document.getElementById('booking-end-time');
-    let options = '<option value="">--:--</option>';
+    if (!startSelect || !endSelect) return;
 
-    // Loop from 8 to 17 (5 PM)
-    for (let h = 8; h <= 17; h++) {
-        for (let m = 0; m < 60; m += 15) {
-            // Stop exactly at 17:00
-            if (h === 17 && m > 0) break; 
-            
-            let hh = h.toString().padStart(2, '0');
-            let mm = m.toString().padStart(2, '0');
-            let time = `${hh}:${mm}`;
-            options += `<option value="${time}">${time}</option>`;
-        }
+    let startOptions = '<option value="">--:--</option>';
+    let endOptions = '<option value="">--:--</option>';
+
+    for (let minute = 8 * 60; minute <= 16 * 60; minute += 15) {
+        const value = formatTime(minute);
+        startOptions += `<option value="${value}">${value}</option>`;
     }
-    startSelect.innerHTML = options;
-    endSelect.innerHTML = options;
+
+    for (let minute = 9 * 60; minute <= 17 * 60; minute += 15) {
+        const value = formatTime(minute);
+        endOptions += `<option value="${value}">${value}</option>`;
+    }
+
+    startSelect.innerHTML = startOptions;
+    endSelect.innerHTML = endOptions;
+    startSelect.addEventListener('change', () => {
+        syncEndTimeOptions();
+        checkTimeSlots();
+    });
+    endSelect.addEventListener('change', checkTimeSlots);
+    syncEndTimeOptions();
 }
 
-// Call this in your DOMContentLoaded
-document.addEventListener('DOMContentLoaded', () => {
-    populateTimeDropdowns();
-    setupDateConstraints();
-    // ... rest of your init code
-});
+function applyIncomingBookingSelection() {
+    const dateInput = document.getElementById('booking-date');
+    const startSelect = document.getElementById('booking-time');
+    const endSelect = document.getElementById('booking-end-time');
 
-function validateDuration() {
-    const start = document.getElementById('booking-time').value;
-    const end = document.getElementById('booking-end-time').value;
+    if (dateInput && initialBookingDate && initialBookingDate >= dateInput.min && initialBookingDate <= dateInput.max) {
+        dateInput.value = initialBookingDate;
+    }
+    if (startSelect && initialStartTime && [...startSelect.options].some(option => option.value === initialStartTime)) {
+        startSelect.value = initialStartTime;
+    }
+    syncEndTimeOptions();
+    if (endSelect && initialEndTime && [...endSelect.options].some(option => option.value === initialEndTime && !option.disabled)) {
+        endSelect.value = initialEndTime;
+    }
+}
+
+function syncEndTimeOptions() {
+    const startSelect = document.getElementById('booking-time');
+    const endSelect = document.getElementById('booking-end-time');
+    if (!startSelect || !endSelect) return;
+
+    const startMinutes = minutesFromTime(startSelect.value);
+    const minimumEnd = Number.isFinite(startMinutes) ? startMinutes + 60 : NaN;
+
+    [...endSelect.options].forEach(option => {
+        if (!option.value) {
+            option.disabled = false;
+            return;
+        }
+        const endMinutes = minutesFromTime(option.value);
+        option.disabled = Number.isFinite(minimumEnd) && endMinutes < minimumEnd;
+    });
+
+    if (endSelect.value && endSelect.selectedOptions[0]?.disabled) {
+        endSelect.value = '';
+    }
+}
+
+function renderResources() {
+    const container = document.getElementById('resource-list');
+    if (!container) return;
+
+    if (!options.length) {
+        container.innerHTML = `<div class="facility-item">No ${resourceLabel}s are available.</div>`;
+        return;
+    }
+
+    container.innerHTML = options.map(option => {
+        const checked = Number(option.id) === Number(initialSelectedId) ? 'checked' : '';
+        return `
+            <label class="facility-item">
+                <input type="radio" name="resource-option" value="${Number(option.id)}" ${checked}>
+                <div>
+                    <strong>${escapeHtml(option.name)}</strong>
+                    <div style="font-size:13px;color:var(--text-light);">
+                        ${escapeHtml(option.type || resourceLabel)} · Capacity ${Number(option.capacity || 0)}
+                    </div>
+                </div>
+            </label>
+        `;
+    }).join('');
+
+    if (!document.querySelector('input[name="resource-option"]:checked')) {
+        const first = document.querySelector('input[name="resource-option"]');
+        if (first) first.checked = true;
+    }
+
+    container.querySelectorAll('input[name="resource-option"]').forEach(input => {
+        input.addEventListener('change', () => {
+            updateCost();
+            checkTimeSlots();
+        });
+    });
+}
+
+function selectedOption() {
+    const checked = document.querySelector('input[name="resource-option"]:checked');
+    if (!checked) return null;
+    return options.find(option => Number(option.id) === Number(checked.value)) || null;
+}
+
+function updateCost() {
+    const selected = selectedOption();
+    const totalCost = document.getElementById('total-cost');
+    const originalPrice = document.getElementById('original-price');
+    const discountNote = document.getElementById('discount-note');
+
+    if (!totalCost || !originalPrice || !discountNote) return;
+
+    if (!selected) {
+        totalCost.textContent = 'RM 0';
+        originalPrice.textContent = '';
+        discountNote.textContent = '';
+        return;
+    }
+
+    const rawPrice = Number(selected.price || 0);
+    const isFree = freeRoles.includes(String(role || '').toLowerCase());
+    originalPrice.textContent = rawPrice > 0 ? `Standard price: RM ${rawPrice.toFixed(2)}` : 'Standard price: RM 0.00';
+    discountNote.textContent = isFree ? 'Eligible role: booking cost is waived.' : '';
+    totalCost.textContent = `RM ${(isFree ? 0 : rawPrice).toFixed(2)}`;
+}
+
+function validateBookingSelection(showMessage = true) {
+    const selected = selectedOption();
+    const dateInput = document.getElementById('booking-date');
+    const startSelect = document.getElementById('booking-time');
+    const endSelect = document.getElementById('booking-end-time');
     const el = document.getElementById('slot-check');
 
-    if (start && end) {
-        const startTime = new Date(`1970-01-01T${start}:00`);
-        const endTime = new Date(`1970-01-01T${end}:00`);
-        const diffInMinutes = (endTime - startTime) / (1000 * 60);
+    const date = dateInput?.value || '';
+    const start = startSelect?.value || '';
+    const end = endSelect?.value || '';
+    const startMinutes = minutesFromTime(start);
+    const endMinutes = minutesFromTime(end);
 
-        if (diffInMinutes < 60) {
-            el.innerHTML = '<span style="color:var(--danger)">Minimum booking duration is 1 hour.</span>';
-            return false;
-        }
+    function fail(message) {
+        if (showMessage && el) el.innerHTML = `<span style="color:var(--danger)">${escapeHtml(message)}</span>`;
+        return { valid: false, message };
     }
-    return true;
+
+    if (!selected) return fail(`Select a ${resourceLabel} first.`);
+    if (!date || !dateInput || date < dateInput.min || date > dateInput.max) return fail('Choose a booking date within 3 days including today.');
+    if (!start || !end) return fail('Select start and end time.');
+    if (startMinutes < 8 * 60 || startMinutes > 16 * 60 || endMinutes < 9 * 60 || endMinutes > 17 * 60) return fail('Time must stay within 08:00 to 17:00.');
+    if (startMinutes % 15 !== 0 || endMinutes % 15 !== 0) return fail('Time must use 15-minute units only.');
+    if (endMinutes - startMinutes < 60) return fail('Minimum booking duration is 1 hour.');
+
+    return { valid: true, selected, date, start, end };
 }
 
-// Update checkTimeSlots to include these new rules
 async function checkTimeSlots() {
-    const s = selectedOption();
-    const date = document.getElementById('booking-date').value;
-    const t = document.getElementById('booking-time').value;
-    const end = document.getElementById('booking-end-time').value;
     const el = document.getElementById('slot-check');
+    if (!el) return;
 
-    if (!s || !date || !t || !end) {
-        el.textContent = 'Select facility, date and time to check slot availability.';
+    const selection = validateBookingSelection(false);
+    if (!selection.valid) {
+        el.textContent = `Select ${resourceLabel}, date, start time, and end time to check slot availability.`;
         return;
     }
 
-    if (end <= t) {
-        el.innerHTML = '<span style="color:var(--danger)">End time must be later than start time.</span>';
-        return;
-    }
+    el.textContent = 'Checking booked slots...';
 
-    if (!validateDuration()) return;
+    try {
+        const response = await fetch(`booking.php?check_slots=1&resource_type=${encodeURIComponent(resourceType)}&resource_id=${encodeURIComponent(selection.selected.id)}&date=${encodeURIComponent(selection.date)}`);
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            el.textContent = 'Unable to check availability.';
+            return;
+        }
 
-    const res = await fetch(`booking.php?check_slots=1&resource_type=${encodeURIComponent(resourceType)}&resource_id=${s.id}&date=${encodeURIComponent(date)}`);
-    const data = await res.json();
-    
-    if (!data.success) { el.textContent = 'Unable to check availability.'; return; }
-    
-    if (!data.slots.length) {
-        el.innerHTML = '<strong style="color:var(--success)">Available</strong><div>No existing bookings for this date.</div>';
-        return;
+        const requestStart = minutesFromTime(selection.start);
+        const requestEnd = minutesFromTime(selection.end);
+        const overlappingSlots = (data.slots || []).filter(slot => {
+            const slotStart = minutesFromTime(slot.start);
+            const slotEnd = minutesFromTime(slot.end);
+            return slotStart < requestEnd && slotEnd > requestStart;
+        });
+
+        if (!overlappingSlots.length) {
+            el.innerHTML = '<strong style="color:var(--success)">Available</strong><div>No booked or pending slot overlaps this requested time.</div>';
+            return;
+        }
+
+        el.innerHTML = `<strong style="color:var(--danger)">Time Conflict</strong><div>This slot overlaps:</div><ul>${overlappingSlots.map(slot => `<li>${escapeHtml(slot.start)} - ${escapeHtml(slot.end)} (${escapeHtml(slot.status || 'Booked')})</li>`).join('')}</ul>`;
+    } catch (error) {
+        el.textContent = 'Unable to check availability.';
     }
-    el.innerHTML = `<strong>Booked Slots</strong><ul>${data.slots.map(x => `<li>${x.start} - ${x.end}</li>`).join('')}</ul>`;
 }
 
-// Rest of your functions (formatCost, renderResources, updateCost, submitBooking, etc.)
-// ...
-</script></body></html>
+async function submitBooking(event) {
+    event.preventDefault();
+
+    const selection = validateBookingSelection(true);
+    if (!selection.valid) return;
+
+    const comments = document.getElementById('comments')?.value.trim() || '';
+    const formData = new FormData();
+    formData.append('resource_type', resourceType);
+    formData.append('resource_id', String(selection.selected.id));
+    formData.append('booking_date', selection.date);
+    formData.append('start_time', selection.start);
+    formData.append('end_time', selection.end);
+    formData.append('comments', comments);
+    formData.append('purpose', comments || 'General booking request');
+
+    const submitButton = document.querySelector('.btn-submit');
+    if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.textContent = 'Submitting...';
+    }
+
+    try {
+        const response = await fetch('../../api/booking/create_booking.php', {
+            method: 'POST',
+            credentials: 'same-origin',
+            body: formData
+        });
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+            alert(result.message || 'Failed to create booking.');
+            return;
+        }
+
+        alert(result.message || 'Booking created successfully.');
+        window.location.href = 'profile.php';
+    } catch (error) {
+        alert('Failed to create booking.');
+    } finally {
+        if (submitButton) {
+            submitButton.disabled = false;
+            submitButton.textContent = 'Submit Booking Request';
+        }
+    }
+}
+
+function goHome() {
+    window.location.href = '../../homepage.php';
+}
+
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>'"]/g, char => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        "'": '&#039;',
+        '"': '&quot;'
+    }[char]));
+}
+</script>
+</body>
+</html>

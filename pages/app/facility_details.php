@@ -113,7 +113,7 @@ if ($dbLoaded) {
         $details['description'] = $row['description'] ?: $details['description'];
         $details['price_per_day'] = (float)$row['price_per_day'];
         $details['price_label'] = ((float)$row['price_per_day'] <= 0) ? 'Free' : 'RM ' . number_format((float)$row['price_per_day'], 2) . ' / day';
-        $details['status'] = $row['resource_status'] ?: 'available';
+        $details['status'] = $row['resource_status'] ?? $details['status'];
         if (!empty($row['image_base64']) && !empty($row['image_mime'])) {
             $details['image'] = 'data:' . $row['image_mime'] . ';base64,' . $row['image_base64'];
         }
@@ -128,7 +128,7 @@ if ($dbLoaded) {
                        LIMIT 8";
         $bookingStmt = $pdo->prepare($bookingSql);
         $bookingStmt->execute([$type, $resourceId]);
-        $upcomingBookings = $bookingStmt->fetchAll();
+        $upcomingBookings = $bookingStmt->fetchAll(PDO::FETCH_ASSOC);
     }
 }
 
@@ -171,7 +171,7 @@ $bookingUrl .= '&resource_name=' . urlencode($details['name']);
         .details-image img { width:100%; height:100%; object-fit:cover; display:block; }
         .image-placeholder { height:100%; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg,#8b1538,#a01d48); color:#fff; font-size:48px; font-weight:700; }
         .details-content { padding:34px; }
-        .type-badge { display:inline-block; padding:6px 12px; border-radius:999px; background:#fff3cd; color:#856404; font-size:12px; font-weight:700; margin-bottom:14px; }
+        .type-badge { display:inline-block; padding:6px 12px; border-radius: 999px; background:#fff3cd; color:#856404; font-size:12px; font-weight:700; margin-bottom:14px; }
         h1 { font-size:30px; margin-bottom:10px; }
         .description { color:var(--text-light); line-height:1.7; margin-bottom:22px; }
         .info-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; margin-bottom:24px; }
@@ -215,6 +215,25 @@ $bookingUrl .= '&resource_name=' . urlencode($details['name']);
         .helper-text { margin-top:8px; font-size:13px; color:var(--text-light); }
 
         @media(max-width:800px){ .details-card{grid-template-columns:1fr;} .details-image{min-height:240px;} .info-grid{grid-template-columns:1fr;} .picker-grid,.rules-box{grid-template-columns:1fr;} .available-card{grid-template-columns:1fr;} }
+        /* Timetable Grid View Custom Styles */
+        .schedule-controls-wrapper { display: flex; align-items: center; justify-content: space-between; margin: 20px 0 15px 0; padding-bottom: 10px; border-bottom: 1px solid var(--border-light); flex-wrap: wrap; gap: 10px; }
+        .date-picker-input { padding: 8px 14px; border: 1px solid var(--border-light); border-radius: 6px; font-size: 14px; outline: none; font-family: inherit; }
+        .schedule-grid-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 25px; }
+        .time-block-card { background: #f8f9fa; border: 1px solid var(--border-light); border-radius: 6px; padding: 12px; text-align: center; transition: all 0.2s ease; }
+        .time-block-card.status-free { border-top: 4px solid var(--success); }
+        .time-block-card.status-booked { border-top: 4px solid var(--danger); background: #fff5f5; opacity: 0.85; }
+        .time-block-card.status-pending { border-top: 4px solid var(--accent-color); background: #fffdf3; }
+        .time-block-card .time-range { font-weight: 700; font-size: 14px; color: var(--text-dark); display: block; margin-bottom: 4px; }
+        .time-block-card .slot-badge { font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 4px; display: inline-block; }
+        .slot-badge.badge-free { background: #e8f5e9; color: var(--success); }
+        .slot-badge.badge-booked { background: #ffebee; color: var(--danger); }
+        .slot-badge.badge-pending { background: #fff3cd; color: #856404; }
+        .weekend-alert { padding: 20px; background: #f7fafc; border: 1px dashed #cbd5e0; border-radius: 8px; text-align: center; color: var(--text-light); grid-column: 1 / -1; }
+
+        @media(max-width:800px){ .details-card{grid-template-columns:1fr;} .details-image{min-height:240px;} .info-grid{grid-template-columns:1fr;} }
+
+        .availability-result.available { border-left: 5px solid var(--success); background:#e8f5e9; }
+        .availability-result.unavailable { border-left: 5px solid var(--danger); background:#ffebee; }
     </style>
 </head>
 <body>
@@ -272,7 +291,7 @@ $bookingUrl .= '&resource_name=' . urlencode($details['name']);
     <section class="selection-panel">
         <h2>Choose Booking Date &amp; Time</h2>
         <p class="selection-note">
-            Select a date and an hourly time slot to preview this facility's availability. 
+            Select a date and time slot to preview this <?= h($type) ?>'s availability. 
             This preview is for page guidance only; the actual booking request is confirmed on the booking page.
         </p>
 
@@ -299,19 +318,19 @@ $bookingUrl .= '&resource_name=' . urlencode($details['name']);
         </div>
 
         <div class="rules-box">
-            <div class="rule-pill"><strong>Hourly unit:</strong><br>Time can only be selected in 1-hour steps.</div>
+            <div class="rule-pill"><strong>15-minute units:</strong><br>Choose times such as 08:00, 08:15, 08:30, or 08:45.</div>
             <div class="rule-pill"><strong>Minimum duration:</strong><br>End time must be at least 1 hour after start time.</div>
             <div class="rule-pill"><strong>Operating hours:</strong><br>Only 08:00 to 17:00 may be selected.</div>
         </div>
 
         <div class="check-row">
             <button type="button" class="btn-check" id="check-selected-time">Check Selected Time</button>
-            <span class="helper-text">Students may choose dates within 3 days including today.</span>
+            <span class="helper-text">Booking dates are limited to 3 days including today.</span>
         </div>
 
         <div class="availability-result neutral" id="selected-time-result">
             <h3>No time selected yet</h3>
-            <p>Choose a date, start time, and end time to preview this facility for the selected slot.</p>
+            <p>Choose a date, start time, and end time to preview this <?= h($type) ?> for the selected slot.</p>
         </div>
     </section>
 
@@ -353,211 +372,208 @@ $bookingUrl .= '&resource_name=' . urlencode($details['name']);
 </div>
 
 <?php include __DIR__ . '/../../includes/footer.php'; ?>
+
+
 <script>
+    const dbBookingLogs = <?php echo json_encode($upcomingBookings, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
+    const resourceType = <?= json_encode($type) ?>;
+    const continueBookingBaseUrl = <?= json_encode($bookingUrl, JSON_UNESCAPED_SLASHES) ?>;
+
     document.addEventListener('DOMContentLoaded', async function() {
-        const dateInput = document.getElementById('availability-date');
-        const startSelect = document.getElementById('availability-start');
-        const endSelect = document.getElementById('availability-end');
-        const resultBox = document.getElementById('selected-time-result');
-        const checkBtn = document.getElementById('check-selected-time');
-        const dateRangeNote = document.getElementById('date-range-note');
-        const continueLink = document.getElementById('continue-booking-link');
-        const bookingBaseUrl = <?= json_encode($bookingUrl) ?>;
-        const resourceName = <?= json_encode($details['name']) ?>;
-        const resourceType = <?= json_encode($type) ?>;
-        const resourceLocation = <?= json_encode($details['location']) ?>;
-
-        const pad = (number) => String(number).padStart(2, '0');
-        const formatLocalDate = (date) => {
-            const year = date.getFullYear();
-            const month = pad(date.getMonth() + 1);
-            const day = pad(date.getDate());
-            return `${year}-${month}-${day}`;
-        };
-
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        dateInput.min = formatLocalDate(today);
-
-        let currentRole = 'guest';
         try {
             const sessionResponse = await fetch('../../api/auth/auth_session.php', { credentials: 'same-origin' });
             if (!sessionResponse.ok) { window.location.href = '../auth/login.html'; return; }
             const sessionData = await sessionResponse.json();
             if (!sessionData.authenticated) { window.location.href = '../auth/login.html'; return; }
-            const userData = sessionData.user || {};
-            currentRole = String(userData.role || 'guest').toLowerCase();
-        } catch (error) {
-            window.location.href = '../auth/login.html';
+        } catch (err) {
+            console.warn('Session check could not be completed.');
+        }
+
+        setupAvailabilityPreview();
+    });
+
+    function formatLocalDate(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    function minutesFromTime(time) {
+        const [hours, minutes] = String(time || '').split(':').map(Number);
+        if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return NaN;
+        return hours * 60 + minutes;
+    }
+
+    function formatTime(totalMinutes) {
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = totalMinutes % 60;
+        return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+    }
+
+    function setupAvailabilityPreview() {
+        const dateInput = document.getElementById('availability-date');
+        const startSelect = document.getElementById('availability-start');
+        const endSelect = document.getElementById('availability-end');
+        const checkButton = document.getElementById('check-selected-time');
+        const note = document.getElementById('date-range-note');
+
+        if (!dateInput || !startSelect || !endSelect || !checkButton) return;
+
+        const today = new Date();
+        const maxDate = new Date(today);
+        maxDate.setDate(today.getDate() + 2);
+        dateInput.min = formatLocalDate(today);
+        dateInput.max = formatLocalDate(maxDate);
+        note.textContent = `Booking dates are limited to ${dateInput.min} through ${dateInput.max}.`;
+
+        dateInput.value = dateInput.min;
+        populatePreviewTimes(startSelect, endSelect);
+        syncPreviewEndOptions();
+
+        startSelect.addEventListener('change', syncPreviewEndOptions);
+        endSelect.addEventListener('change', updateContinueBookingLink);
+        dateInput.addEventListener('change', updateContinueBookingLink);
+        checkButton.addEventListener('click', renderSelectedTimePreview);
+
+        updateContinueBookingLink();
+    }
+
+    function populatePreviewTimes(startSelect, endSelect) {
+        let startOptions = '<option value="">Select start time</option>';
+        let endOptions = '<option value="">Select end time</option>';
+
+        for (let minute = 8 * 60; minute <= 16 * 60; minute += 15) {
+            const value = formatTime(minute);
+            startOptions += `<option value="${value}">${value}</option>`;
+        }
+
+        for (let minute = 9 * 60; minute <= 17 * 60; minute += 15) {
+            const value = formatTime(minute);
+            endOptions += `<option value="${value}">${value}</option>`;
+        }
+
+        startSelect.innerHTML = startOptions;
+        endSelect.innerHTML = endOptions;
+    }
+
+    function syncPreviewEndOptions() {
+        const startSelect = document.getElementById('availability-start');
+        const endSelect = document.getElementById('availability-end');
+        if (!startSelect || !endSelect) return;
+
+        const startMinutes = minutesFromTime(startSelect.value);
+        const minimumEnd = Number.isFinite(startMinutes) ? startMinutes + 60 : NaN;
+
+        [...endSelect.options].forEach(option => {
+            if (!option.value) {
+                option.disabled = false;
+                return;
+            }
+            const endMinutes = minutesFromTime(option.value);
+            option.disabled = Number.isFinite(minimumEnd) && endMinutes < minimumEnd;
+        });
+
+        if (endSelect.value && endSelect.selectedOptions[0]?.disabled) {
+            endSelect.value = '';
+        }
+
+        updateContinueBookingLink();
+    }
+
+    function dateIsWithinBookingWindow(dateValue) {
+        const dateInput = document.getElementById('availability-date');
+        return Boolean(dateValue && dateInput && dateValue >= dateInput.min && dateValue <= dateInput.max);
+    }
+
+    function validatePreviewSelection() {
+        const dateValue = document.getElementById('availability-date')?.value || '';
+        const startValue = document.getElementById('availability-start')?.value || '';
+        const endValue = document.getElementById('availability-end')?.value || '';
+        const startMinutes = minutesFromTime(startValue);
+        const endMinutes = minutesFromTime(endValue);
+
+        if (!dateIsWithinBookingWindow(dateValue)) {
+            return { valid: false, message: 'Please choose a booking date within the allowed 3-day range.' };
+        }
+        if (!startValue || !endValue) {
+            return { valid: false, message: 'Please choose both start time and end time.' };
+        }
+        if (startMinutes < 8 * 60 || startMinutes > 16 * 60 || endMinutes < 9 * 60 || endMinutes > 17 * 60) {
+            return { valid: false, message: 'Time must stay within 08:00 to 17:00.' };
+        }
+        if (startMinutes % 15 !== 0 || endMinutes % 15 !== 0) {
+            return { valid: false, message: 'Time must use 15-minute units only.' };
+        }
+        if (endMinutes - startMinutes < 60) {
+            return { valid: false, message: 'Minimum booking duration is 1 hour.' };
+        }
+        return { valid: true, dateValue, startValue, endValue, startMinutes, endMinutes };
+    }
+
+    function renderSelectedTimePreview() {
+        const resultBox = document.getElementById('selected-time-result');
+        if (!resultBox) return;
+
+        const selection = validatePreviewSelection();
+        if (!selection.valid) {
+            resultBox.className = 'availability-result unavailable';
+            resultBox.innerHTML = `<h3>Selection unavailable</h3><p>${escapeHtml(selection.message)}</p>`;
+            updateContinueBookingLink();
             return;
         }
 
-        if (currentRole === 'student') {
-            const maxStudentDate = new Date(today);
-            maxStudentDate.setDate(maxStudentDate.getDate() + 2);
-            dateInput.max = formatLocalDate(maxStudentDate);
-            dateRangeNote.textContent = 'Student rule: choose from today until ' + formatLocalDate(maxStudentDate) + ' only.';
-        } else {
-            dateRangeNote.textContent = 'Choose an available booking date. The 3-day date limit applies to students only.';
-        }
+        const selectedStart = new Date(`${selection.dateValue}T${selection.startValue}:00`);
+        const selectedEnd = new Date(`${selection.dateValue}T${selection.endValue}:00`);
+        const conflict = (dbBookingLogs || []).find(booking => {
+            const bookingStart = new Date(booking.booking_start);
+            const bookingEnd = new Date(booking.booking_end);
+            return bookingStart < selectedEnd && bookingEnd > selectedStart;
+        });
 
-        function populateHourOptions() {
-            let startOptions = '<option value="">Select start time</option>';
-            let endOptions = '<option value="">Select end time</option>';
-
-            for (let hour = 8; hour <= 16; hour++) {
-                const value = `${pad(hour)}:00`;
-                startOptions += `<option value="${value}">${value}</option>`;
-            }
-
-            for (let hour = 9; hour <= 17; hour++) {
-                const value = `${pad(hour)}:00`;
-                endOptions += `<option value="${value}">${value}</option>`;
-            }
-
-            startSelect.innerHTML = startOptions;
-            endSelect.innerHTML = endOptions;
-        }
-
-        function parseHour(timeValue) {
-            return Number(String(timeValue).split(':')[0]);
-        }
-
-        function updateEndTimeOptions() {
-            const startHour = parseHour(startSelect.value);
-            Array.from(endSelect.options).forEach((option) => {
-                if (!option.value) {
-                    option.disabled = false;
-                    return;
-                }
-                const endHour = parseHour(option.value);
-                option.disabled = Number.isFinite(startHour) && endHour < startHour + 1;
-            });
-
-            if (endSelect.value && Number.isFinite(startHour) && parseHour(endSelect.value) < startHour + 1) {
-                endSelect.value = '';
-            }
-        }
-
-        function showResult(state, title, message, includeFacilityCard = false) {
-            resultBox.className = `availability-result ${state}`;
-            let cardHtml = '';
-            if (includeFacilityCard) {
-                const selectedDate = dateInput.value;
-                const selectedStart = startSelect.value;
-                const selectedEnd = endSelect.value;
-                cardHtml = `
-                    <div class="available-card">
-                        <div>
-                            <strong>${escapeHtml(resourceName)}</strong>
-                            <div class="meta">
-                                ${escapeHtml(resourceType.charAt(0).toUpperCase() + resourceType.slice(1))} • ${escapeHtml(resourceLocation)}<br>
-                                Selected slot: <span class="selected-slot">${escapeHtml(selectedDate)} | ${escapeHtml(selectedStart)} - ${escapeHtml(selectedEnd)}</span>
-                            </div>
-                        </div>
-                        <strong>Available Preview</strong>
-                    </div>
-                `;
-            }
-
+        if (conflict) {
+            resultBox.className = 'availability-result unavailable';
             resultBox.innerHTML = `
-                <h3>${escapeHtml(title)}</h3>
-                <p>${escapeHtml(message)}</p>
-                ${cardHtml}
+                <h3>Selected slot has an existing ${escapeHtml(String(conflict.booking_status || 'booking'))}</h3>
+                <p>Please choose another time. The selected slot overlaps with a booked or pending request.</p>
+            `;
+        } else {
+            resultBox.className = 'availability-result available';
+            resultBox.innerHTML = `
+                <h3>Selected slot appears available</h3>
+                <p>${escapeHtml(selection.dateValue)} · ${escapeHtml(selection.startValue)} - ${escapeHtml(selection.endValue)} may proceed to booking.</p>
             `;
         }
 
-        function escapeHtml(value) {
-            return String(value)
-                .replaceAll('&', '&amp;')
-                .replaceAll('<', '&lt;')
-                .replaceAll('>', '&gt;')
-                .replaceAll('"', '&quot;')
-                .replaceAll("'", '&#039;');
+        updateContinueBookingLink();
+    }
+
+    function updateContinueBookingLink() {
+        const link = document.getElementById('continue-booking-link');
+        if (!link) return;
+
+        const selection = validatePreviewSelection();
+        if (!selection.valid) {
+            link.href = continueBookingBaseUrl;
+            return;
         }
 
-        function updateBookingLink() {
-            const selectedDate = dateInput.value;
-            const selectedStart = startSelect.value;
-            const selectedEnd = endSelect.value;
+        const separator = continueBookingBaseUrl.includes('?') ? '&' : '?';
+        link.href = continueBookingBaseUrl
+            + separator + 'booking_date=' + encodeURIComponent(selection.dateValue)
+            + '&start_time=' + encodeURIComponent(selection.startValue)
+            + '&end_time=' + encodeURIComponent(selection.endValue);
+    }
 
-            if (!selectedDate || !selectedStart || !selectedEnd) {
-                continueLink.href = bookingBaseUrl;
-                return;
-            }
-
-            const params = new URLSearchParams();
-            params.set('booking_date', selectedDate);
-            params.set('start_time', selectedStart);
-            params.set('end_time', selectedEnd);
-            continueLink.href = bookingBaseUrl + '&' + params.toString();
-        }
-
-        function validateSelectedSlot() {
-            const selectedDate = dateInput.value;
-            const selectedStart = startSelect.value;
-            const selectedEnd = endSelect.value;
-
-            if (!selectedDate || !selectedStart || !selectedEnd) {
-                showResult('error', 'Incomplete selection', 'Please choose a booking date, start time, and end time.');
-                return false;
-            }
-
-            const startHour = parseHour(selectedStart);
-            const endHour = parseHour(selectedEnd);
-
-            if (startHour < 8 || startHour > 16 || endHour < 9 || endHour > 17) {
-                showResult('error', 'Time outside booking hours', 'Please select a valid slot within 08:00 to 17:00.');
-                return false;
-            }
-
-            if (endHour <= startHour) {
-                showResult('error', 'Invalid time range', 'End time must be later than start time.');
-                return false;
-            }
-
-            if ((endHour - startHour) < 1) {
-                showResult('error', 'Minimum duration not met', 'The booking duration must be at least 1 hour.');
-                return false;
-            }
-
-            if (currentRole === 'student') {
-                const chosenDate = new Date(selectedDate + 'T00:00:00');
-                const maxStudentDate = new Date(today);
-                maxStudentDate.setDate(maxStudentDate.getDate() + 2);
-                if (chosenDate < today || chosenDate > maxStudentDate) {
-                    showResult('error', 'Student booking date is outside the allowed range', 'Students can choose only today and the next 2 days.');
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
-        populateHourOptions();
-
-        startSelect.addEventListener('change', function() {
-            updateEndTimeOptions();
-            updateBookingLink();
-        });
-        endSelect.addEventListener('change', updateBookingLink);
-        dateInput.addEventListener('change', updateBookingLink);
-
-        checkBtn.addEventListener('click', function() {
-            if (!validateSelectedSlot()) {
-                updateBookingLink();
-                return;
-            }
-
-            updateBookingLink();
-            showResult(
-                'success',
-                'Facility available for selected time preview',
-                'This UI preview shows the facility as available for the selected hourly slot. Final availability should be confirmed during the booking process.',
-                true
-            );
-        });
-    });
+    function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>'"]/g, char => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            "'": '&#039;',
+            '"': '&quot;'
+        }[char]));
+    }
 </script>
 </body>
 </html>

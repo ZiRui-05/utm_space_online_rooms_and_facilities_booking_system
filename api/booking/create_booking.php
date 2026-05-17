@@ -43,6 +43,49 @@ if (strtotime($bookingEnd) <= strtotime($bookingStart)) {
     exit;
 }
 
+$startParts = array_map('intval', explode(':', $startTime));
+$endParts = array_map('intval', explode(':', $endTime));
+$startMinutes = ($startParts[0] * 60) + $startParts[1];
+$endMinutes = ($endParts[0] * 60) + $endParts[1];
+
+if (
+    $startMinutes < (8 * 60) ||
+    $startMinutes > (16 * 60) ||
+    $endMinutes < (9 * 60) ||
+    $endMinutes > (17 * 60)
+) {
+    http_response_code(400);
+    echo json_encode(['success' => false, 'message' => 'Booking time must stay within 08:00 to 17:00']);
+    exit;
+}
+
+if (($startMinutes % 15) !== 0 || ($endMinutes % 15) !== 0) {
+    http_response_code(400);
+    echo json_encode(['success' => false, 'message' => 'Booking time must use 15-minute units']);
+    exit;
+}
+
+if (($endMinutes - $startMinutes) < 60) {
+    http_response_code(400);
+    echo json_encode(['success' => false, 'message' => 'Minimum booking duration is 1 hour']);
+    exit;
+}
+
+$selectedBookingDate = DateTimeImmutable::createFromFormat('Y-m-d', $bookingDate);
+$today = new DateTimeImmutable('today');
+$latestBookingDate = $today->modify('+2 days');
+
+if (
+    !$selectedBookingDate ||
+    $selectedBookingDate->format('Y-m-d') !== $bookingDate ||
+    $selectedBookingDate < $today ||
+    $selectedBookingDate > $latestBookingDate
+) {
+    http_response_code(400);
+    echo json_encode(['success' => false, 'message' => 'Booking date must be within 3 days including today']);
+    exit;
+}
+
 try {
     $stmtRole = $pdo->prepare('SELECT role FROM users WHERE user_id = ? LIMIT 1');
     $stmtRole->execute([$userId]);
