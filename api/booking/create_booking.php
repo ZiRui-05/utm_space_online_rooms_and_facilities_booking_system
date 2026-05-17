@@ -71,8 +71,9 @@ if (($endMinutes - $startMinutes) < 60) {
     exit;
 }
 
-$selectedBookingDate = DateTimeImmutable::createFromFormat('Y-m-d', $bookingDate);
-$today = new DateTimeImmutable('today');
+$bookingTimezone = new DateTimeZone('Asia/Kuala_Lumpur');
+$selectedBookingDate = DateTimeImmutable::createFromFormat('!Y-m-d', $bookingDate, $bookingTimezone);
+$today = new DateTimeImmutable('today', $bookingTimezone);
 $latestBookingDate = $today->modify('+2 days');
 
 if (
@@ -86,11 +87,19 @@ if (
     exit;
 }
 
+$selectedBookingStart = DateTimeImmutable::createFromFormat('!Y-m-d H:i:s', $bookingStart, $bookingTimezone);
+$nowMalaysia = new DateTimeImmutable('now', $bookingTimezone);
+if (!$selectedBookingStart || $selectedBookingStart < $nowMalaysia) {
+    http_response_code(400);
+    echo json_encode(['success' => false, 'message' => 'You cannot book a time slot that starts before the current time']);
+    exit;
+}
+
 try {
     $stmtRole = $pdo->prepare('SELECT role FROM users WHERE user_id = ? LIMIT 1');
     $stmtRole->execute([$userId]);
     $role = strtolower((string)($stmtRole->fetchColumn() ?: 'guest'));
-    $isFree = in_array($role, ['student', 'staff', 'admin', 'facility_manager'], true);
+    $isFree = ($role === 'student');
 
     $table = $resourceType === 'room' ? 'rooms' : 'facilities';
     $idCol = $resourceType === 'room' ? 'room_id' : 'facility_id';

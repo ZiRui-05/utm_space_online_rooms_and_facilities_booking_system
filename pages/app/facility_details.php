@@ -508,6 +508,10 @@ $bookingUrl .= '&resource_name=' . urlencode($details['name']);
         if (endMinutes - startMinutes < 60) {
             return { valid: false, message: 'Minimum booking duration is 1 hour.' };
         }
+        const selectedStartDateTime = new Date(`${dateValue}T${startValue}:00`);
+        if (Number.isNaN(selectedStartDateTime.getTime()) || selectedStartDateTime < new Date()) {
+            return { valid: false, message: 'You cannot book a time slot that starts before the current time.' };
+        }
         return { valid: true, dateValue, startValue, endValue, startMinutes, endMinutes };
     }
 

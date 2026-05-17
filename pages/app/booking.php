@@ -485,7 +485,7 @@ const resourceLabel = resourceType === 'room' ? 'room' : 'facility';
 const options = <?= json_encode($resourceOptions, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 const initialSelectedId = <?= (int)($selectedResource['id'] ?? 0) ?>;
 const role = <?= json_encode($currentRole) ?>;
-const freeRoles = ['student', 'staff', 'admin', 'facility_manager'];
+const freeRoles = ['student'];
 const initialBookingDate = <?= json_encode($selectedDateParam) ?>;
 const initialStartTime = <?= json_encode($selectedStartParam) ?>;
 const initialEndTime = <?= json_encode($selectedEndParam) ?>;
@@ -667,7 +667,7 @@ function updateCost() {
     const rawPrice = Number(selected.price || 0);
     const isFree = freeRoles.includes(String(role || '').toLowerCase());
     originalPrice.textContent = rawPrice > 0 ? `Standard price: RM ${rawPrice.toFixed(2)}` : 'Standard price: RM 0.00';
-    discountNote.textContent = isFree ? 'Eligible role: booking cost is waived.' : '';
+    discountNote.textContent = isFree ? 'Student discount: 100% off. Your booking is free.' : '';
     totalCost.textContent = `RM ${(isFree ? 0 : rawPrice).toFixed(2)}`;
 }
 
@@ -695,6 +695,11 @@ function validateBookingSelection(showMessage = true) {
     if (startMinutes < 8 * 60 || startMinutes > 16 * 60 || endMinutes < 9 * 60 || endMinutes > 17 * 60) return fail('Time must stay within 08:00 to 17:00.');
     if (startMinutes % 15 !== 0 || endMinutes % 15 !== 0) return fail('Time must use 15-minute units only.');
     if (endMinutes - startMinutes < 60) return fail('Minimum booking duration is 1 hour.');
+
+    const selectedStartDateTime = new Date(`${date}T${start}:00`);
+    if (Number.isNaN(selectedStartDateTime.getTime()) || selectedStartDateTime < new Date()) {
+        return fail('You cannot book a time slot that starts before the current time.');
+    }
 
     return { valid: true, selected, date, start, end };
 }

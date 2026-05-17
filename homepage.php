@@ -601,7 +601,7 @@
 
     <div class="featured-grid">
         <div class="featured-card">
-            <img src="T05.jpg" alt="Room T05">
+            <img src="/assets/images/T05.jpg" alt="Room T05">
             <div class="card-content">
                 <h4>Room T05</h4>
                 <p class="facility-description">Sound-isolated acoustic pod with whiteboards and collaborative display screens.</p>
@@ -613,7 +613,7 @@
         </div>
 
         <div class="featured-card">
-            <img src="T06.jpg" alt="T06 Facility">
+            <img src="/assets/images/T06.jpg" alt="T06 Facility">
             <div class="card-content">
                 <h4>T06 Facility</h4>
                 <p class="facility-description">T06 facility contains 6 bookable rooms for discussion, study, meetings, and academic activities.</p>
