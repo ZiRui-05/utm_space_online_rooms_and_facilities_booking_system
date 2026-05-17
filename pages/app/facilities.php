@@ -5,7 +5,7 @@ $facilities = [];
 try {
     require_once __DIR__ . '/../../config/db.php';
     if (isset($pdo) && $pdo instanceof PDO) {
-        $stmt = $pdo->query("SELECT facility_id, facility_name, facility_type, location, capacity, description, price_per_day, resource_status FROM facilities WHERE LOWER(TRIM(facility_name)) <> 't06' ORDER BY facility_name ASC");
+        $stmt = $pdo->query("SELECT facility_id, facility_name, facility_type, location, capacity, description, price_per_day, resource_status FROM facilities ORDER BY facility_name ASC");
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
         foreach ($rows as $row) {
@@ -52,8 +52,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Roboto','Oxygen','
 .content-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}
 .content-title{font-size:28px;font-weight:700;color:var(--text-dark)}
 .content-subtitle{font-size:14px;color:var(--text-light);margin-bottom:8px}
-.sort-container{display:flex;align-items:center;gap:12px}.sort-order-btn{padding:10px 14px;border:1px solid var(--primary-color);background:var(--white);color:var(--primary-color);border-radius:4px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap}.sort-order-btn:hover{background:var(--primary-color);color:#fff}
+
+/* New Split Sort Controls Styling */
+.sort-container{display:flex;align-items:center;gap:8px}
 .sort-label{font-size:14px;color:var(--text-light);font-weight:600}
+.sort-select{width:160px;padding:10px;border:1px solid var(--border-light);border-radius:4px;font-size:14px;background:var(--white)}
+.btn-sort-dir{display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;padding:0;background:var(--white);border:1px solid var(--border-light);border-radius:4px;cursor:pointer;color:var(--text-dark);font-size:16px;transition:all .2s ease}
+.btn-sort-dir:hover{border-color:var(--primary-color);color:var(--primary-color);background:#fcfcfc}
+
 .room-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:24px}
 .room-card{background:var(--white);border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08);transition:all .3s ease}
 .room-card:hover{transform:translateY(-4px);box-shadow:0 8px 16px rgba(0,0,0,.12)}
@@ -84,7 +90,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Roboto','Oxygen','
 <button class="btn-apply" onclick="applyFilters()">Apply Filters</button><button class="btn-reset" onclick="resetFilters()">Reset All</button>
 </div>
 <div class="content-area"><div class="content-header"><div><h2 class="content-title">Available Facilities</h2><p class="content-subtitle">Showing <span id="facility-count">0</span> facilities</p></div>
-<div class="sort-container"><label class="sort-label">Sort by:</label><select class="sort-select" id="facility-sort-field" onchange="sortFacilities(this.value)"><option value="relevance">Relevance</option><option value="name">Name</option><option value="price">Price</option><option value="capacity">Capacity</option></select><button type="button" class="sort-order-btn" id="facility-sort-order" onclick="toggleFacilitySortDirection()">Ascending ↑</button></div></div>
+
+
+<div class="sort-container">
+    <label class="sort-label">Sort by:</label>
+    <select class="sort-select" id="sort-criteria" onchange="sortFacilities()">
+        <option value="name">Name</option>
+        <option value="price">Price</option>
+        <option value="capacity">Capacity</option>
+    </select>
+    <button class="btn-sort-dir" id="sort-direction-btn" onclick="toggleSortDirection()" title="Toggle Sorting Order">
+        ▲
+    </button>
+</div>
+
+</div>
 <div class="room-grid" id="facility-grid"></div>
 <div class="no-results" id="no-results" style="display:none;"><div class="no-results-icon">🏢</div><div style="font-size:20px;font-weight:700;color:var(--text-dark);margin-bottom:8px;">No facilities found</div></div>
 </div></div>
@@ -92,29 +112,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Roboto','Oxygen','
 <script>
 const allFacilities = <?php echo json_encode($facilities, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES); ?>;
 let filteredFacilities = [...allFacilities];
-let currentFacilitySortField = 'relevance';
-let facilitySortDirection = 'asc';
-const facilityOriginalOrder = new Map(allFacilities.map((facility, index) => [facility.id, index]));
-
-function normalizeFilterValue(value) {
-  return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-}
+let currentSortDirection = 'asc'; // Tracking state: 'asc' or 'desc'
 
 function renderTypeOptions(){
   const s=document.getElementById('facility-type-filter');
   [...new Set(allFacilities.map(f=>f.type).filter(Boolean))].sort().forEach(t=>{const o=document.createElement('option');o.value=t;o.textContent=t.replace(/\b\w/g,m=>m.toUpperCase());s.appendChild(o);});
-  applyFacilityTypeFromUrl();
 }
-
-function applyFacilityTypeFromUrl(){
-  const queryType = new URLSearchParams(window.location.search).get('facility_type');
-  if(!queryType) return;
-  const filter = document.getElementById('facility-type-filter');
-  const target = normalizeFilterValue(queryType);
-  const match = [...filter.options].find(option => normalizeFilterValue(option.value) === target || normalizeFilterValue(option.value).includes(target) || target.includes(normalizeFilterValue(option.value)));
-  if(match) filter.value = match.value;
-}
-
 function displayFacilities(){
  const grid=document.getElementById('facility-grid'); const empty=document.getElementById('no-results');
  if(!filteredFacilities.length){grid.style.display='none'; empty.style.display='block'; document.getElementById('facility-count').textContent='0'; return;}
@@ -122,21 +125,44 @@ function displayFacilities(){
  grid.innerHTML=filteredFacilities.map(f=>`<div class="room-card"><div class="room-image">${f.image?`<img src="${f.image}" alt="${f.name}" loading="lazy" decoding="async">`:`<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:64px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;">🏢</div>`}<span class="room-label">${(f.type||'facility').toUpperCase()}</span><span class="room-badge ${f.available?'available':'unavailable'}">${f.available?'Available':'Unavailable'}</span></div><div class="room-content"><h3 class="room-name">${f.name}</h3><div class="room-capacity">📍 ${f.location}</div><p class="room-description">${f.description}</p><div class="room-footer"><a class="btn-view-details" href="facilities_detail.php?type=facility&id=${f.id}&name=${encodeURIComponent(f.name)}">View Details</a><button class="btn-book" ${!f.available?'disabled':''} onclick="window.location.href='booking.php?resource_type=facility&facility_id=${encodeURIComponent(f.id)}&resource_name='+encodeURIComponent(f.name)">${f.available?'Book Facility':'Unavailable'}</button></div></div></div>`).join('');
  document.getElementById('facility-count').textContent=filteredFacilities.length;
 }
-function applyFilters(){const t=document.getElementById('facility-type-filter').value;filteredFacilities=allFacilities.filter(f=>!t||f.type===t);applyFacilitySort();}
-function resetFilters(){document.getElementById('facility-type-filter').value='';filteredFacilities=[...allFacilities];currentFacilitySortField='relevance';facilitySortDirection='asc';document.getElementById('facility-sort-field').value='relevance';updateFacilitySortButton();displayFacilities();}
-function sortFacilities(field){currentFacilitySortField=field;applyFacilitySort();}
-function toggleFacilitySortDirection(){facilitySortDirection=facilitySortDirection==='asc'?'desc':'asc';updateFacilitySortButton();applyFacilitySort();}
-function updateFacilitySortButton(){document.getElementById('facility-sort-order').textContent=facilitySortDirection==='asc'?'Ascending ↑':'Descending ↓';}
-function applyFacilitySort(){
- const direction=facilitySortDirection==='asc'?1:-1;
- filteredFacilities.sort((a,b)=>{
-   if(currentFacilitySortField==='name') return String(a.name||'').localeCompare(String(b.name||''))*direction;
-   if(currentFacilitySortField==='price') return ((Number(a.cost)||0)-(Number(b.cost)||0))*direction;
-   if(currentFacilitySortField==='capacity') return ((Number(a.capacity)||0)-(Number(b.capacity)||0))*direction;
-   return ((facilityOriginalOrder.get(a.id)||0)-(facilityOriginalOrder.get(b.id)||0))*direction;
- });
- displayFacilities();
+function applyFilters(){const t=document.getElementById('facility-type-filter').value;filteredFacilities=allFacilities.filter(f=>!t||f.type===t);sortFacilities();}
+function resetFilters(){document.getElementById('facility-type-filter').value='';filteredFacilities=[...allFacilities];sortFacilities();}
+
+// Handles the unified sorting processing
+function sortFacilities() {
+    const criteria = document.getElementById('sort-criteria').value;
+    
+    filteredFacilities.sort((a, b) => {
+        let comparison = 0;
+        
+        if (criteria === 'name') {
+            comparison = a.name.localeCompare(b.name);
+        } else if (criteria === 'price') {
+            comparison = a.cost - b.cost;
+        } else if (criteria === 'capacity') {
+            comparison = a.capacity - b.capacity;
+        }
+        
+        // Reverse if sorting order direction is set to descending
+        return currentSortDirection === 'asc' ? comparison : -comparison;
+    });
+    
+    displayFacilities();
 }
-document.addEventListener('DOMContentLoaded',()=>{renderTypeOptions();applyFilters();updateFacilitySortButton();});
+
+// Inverts sort tracking and dynamically replaces layout indicators text
+function toggleSortDirection() {
+    const btn = document.getElementById('sort-direction-btn');
+    if (currentSortDirection === 'asc') {
+        currentSortDirection = 'desc';
+        btn.textContent = '▼';
+    } else {
+        currentSortDirection = 'asc';
+        btn.textContent = '▲';
+    }
+    sortFacilities();
+}
+
+document.addEventListener('DOMContentLoaded',()=>{renderTypeOptions();sortFacilities();});
 </script>
 </body></html>
