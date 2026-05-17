@@ -298,6 +298,59 @@
             grid-column: span 2;
         }
 
+        .verification-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 12px;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: capitalize;
+        }
+
+        .verification-badge.verified {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .verification-badge.unverified {
+            background: #fff3e0;
+            color: #ef6c00;
+        }
+
+        .utm-card-upload-box {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 12px;
+            padding: 14px;
+            border: 1px dashed var(--border-light);
+            border-radius: 8px;
+            background: var(--bg-light);
+        }
+
+        .btn-upload-card {
+            background: var(--primary-color);
+            color: var(--white);
+            border: none;
+            border-radius: 4px;
+            padding: 10px 16px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .btn-upload-card:hover {
+            background: var(--primary-hover);
+        }
+
+        .utm-card-status {
+            font-size: 13px;
+            color: var(--text-light);
+            line-height: 1.5;
+        }
+
         .detail-item {
             display: flex;
             flex-direction: column;
@@ -593,6 +646,18 @@
                         <div class="detail-label">Address</div>
                         <div class="detail-value editable-field" id="detail-address">Waiting to edit</div>
                     </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Verification Status</div>
+                        <div class="detail-value"><span id="detail-verification-status" class="verification-badge unverified">Unverified</span></div>
+                    </div>
+                    <div class="detail-item full-width-field">
+                        <div class="detail-label">UTM Card</div>
+                        <div class="utm-card-upload-box">
+                            <input type="file" id="utm-card-input" accept="image/jpeg,image/png,image/webp" style="display:none;">
+                            <button type="button" class="btn-upload-card" onclick="triggerUtmCardUpload()">🪪 Upload UTM Card</button>
+                            <div class="utm-card-status" id="utm-card-status">Upload a clear JPG, PNG, or WEBP image of your UTM card. Verification becomes verified after upload.</div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -629,6 +694,8 @@
     <script>
         let isEditMode = false;
         let pendingAvatarBase64 = "";
+        let pendingUtmCardBase64 = "";
+        let pendingUtmCardMime = "";
         
         // Load user data
         document.addEventListener('DOMContentLoaded', async function() {
@@ -676,9 +743,17 @@
             document.getElementById('detail-phone').textContent = userData.phone_number || 'Waiting to edit';
             document.getElementById('detail-department').textContent = userData.department || 'Waiting to edit';
             
-            // Render Gender and Address values
+            // Render Gender, Address, and verification values
             document.getElementById('detail-gender').textContent = userData.gender || 'Waiting to edit';
             document.getElementById('detail-address').textContent = userData.address || 'Waiting to edit';
+
+            const verificationStatus = userData.verification_status === 'verified' ? 'verified' : 'unverified';
+            const verificationBadge = document.getElementById('detail-verification-status');
+            verificationBadge.textContent = verificationStatus === 'verified' ? 'Verified' : 'Unverified';
+            verificationBadge.className = 'verification-badge ' + verificationStatus;
+            document.getElementById('utm-card-status').textContent = Number(userData.has_utm_card) === 1
+                ? 'UTM card uploaded. Your profile is verified.'
+                : 'Upload a clear JPG, PNG, or WEBP image of your UTM card. Verification becomes verified after upload.';
             
             renderBookings(result.bookings || []);
         }
@@ -758,6 +833,7 @@
                     <option value="" ${currentGender === 'Waiting to edit' || currentGender === '' ? 'selected' : ''}>Select Gender</option>
                     <option value="Male" ${currentGender === 'Male' ? 'selected' : ''}>Male</option>
                     <option value="Female" ${currentGender === 'Female' ? 'selected' : ''}>Female</option>
+                    <option value="Other" ${currentGender === 'Other' ? 'selected' : ''}>Other</option>
                 </select>
             `;
 
@@ -790,7 +866,9 @@
                     department: department,
                     gender: gender,
                     address: address,
-                    avatar_base64: pendingAvatarBase64
+                    avatar_base64: pendingAvatarBase64,
+                    utm_card_base64: pendingUtmCardBase64,
+                    utm_card_mime: pendingUtmCardMime
                 })
             });
 
@@ -804,8 +882,38 @@
             document.getElementById('btn-edit-profile').textContent = '✏️ Edit Profile';
             await loadProfileData();
             pendingAvatarBase64 = '';
+            pendingUtmCardBase64 = '';
+            pendingUtmCardMime = '';
             alert('Profile updated successfully.');
         }
+
+        function triggerUtmCardUpload() {
+            document.getElementById('utm-card-input').click();
+        }
+
+        document.getElementById('utm-card-input').addEventListener('change', async function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+            if (!allowedTypes.includes(file.type)) {
+                alert('UTM card must be JPG, PNG, or WEBP.');
+                event.target.value = '';
+                return;
+            }
+            if (file.size > 2 * 1024 * 1024) {
+                alert('UTM card image must be 2MB or smaller.');
+                event.target.value = '';
+                return;
+            }
+
+            const dataUrl = await fileToDataUrl(file);
+            pendingUtmCardBase64 = String(dataUrl).split(',')[1] || '';
+            pendingUtmCardMime = file.type;
+            document.getElementById('utm-card-status').textContent = 'Uploading UTM card and updating verification status...';
+            event.target.value = '';
+            await saveProfileEdits();
+        });
 
         function triggerAvatarUpload() {
             document.getElementById('avatar-input').click();

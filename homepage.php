@@ -566,25 +566,29 @@
     <div class="section-header">
         <h3>Browse by Category</h3>
         <p>Find the perfect space for your specific academic needs.</p>
-        <a href="#" class="view-all">View All Categories →</a>
+        <a href="pages/app/room-availability.php" class="view-all">View All Categories →</a>
     </div>
 
     <div class="categories-grid">
-        <div class="category-card" onclick="navigateTo('lecture-halls')">
+        <div class="category-card" onclick="navigateToCategory('room', 'lecture-hall')">
             <div class="category-icon">🎤</div>
             <p>Lecture Halls</p>
         </div>
-        <div class="category-card" onclick="navigateTo('study-pods')">
+        <div class="category-card" onclick="navigateToCategory('room', 'study-pod')">
             <div class="category-icon">📚</div>
             <p>Study Pods</p>
         </div>
-        <div class="category-card" onclick="navigateTo('labs')">
+        <div class="category-card" onclick="navigateToCategory('facility', 'lab')">
             <div class="category-icon">🔬</div>
             <p>Labs</p>
         </div>
-        <div class="category-card" onclick="navigateTo('meeting-rooms')">
+        <div class="category-card" onclick="navigateToCategory('room', 'meeting-room')">
             <div class="category-icon">👥</div>
             <p>Meeting Rooms</p>
+        </div>
+        <div class="category-card" onclick="navigateToT06Rooms()">
+            <div class="category-icon">🏢</div>
+            <p>T06 Facility</p>
         </div>
     </div>
 </section>
@@ -609,11 +613,20 @@
         </div>
 
         <div class="featured-card">
-            <img src="/assets/images/T06.jpg" alt="Room T06"> <div class="card-content">
-                <h4>Room T06</h4>
-                <p class="facility-description">Sound-isolated acoustic pod with whiteboards and collaborative display screens.</p>
-                <div class="facility-meta"></div>
-                <button class="btn-book-facility" onclick="bookFacility('Room T06')">Reserve Room</button>
+            <img src="/assets/images/T06.jpg" alt="T06 Facility">
+            <div class="card-content">
+                <h4>T06 Facility</h4>
+                <p class="facility-name">6 rooms available</p>
+                <p class="facility-description">T06 facility contains 6 bookable rooms for discussion, study, meetings, and academic activities.</p>
+                <div class="facility-features">
+                    <span class="feature">6 Rooms</span>
+                    <span class="feature">08:00 - 17:00</span>
+                    <span class="feature">Student Booking</span>
+                </div>
+                <div class="facility-meta">
+                    <span class="price-free">Free (Student)</span>
+                </div>
+                <button class="btn-book-facility" onclick="navigateToT06Rooms()">View T06 Rooms</button>
             </div>
         </div>
     </div>
@@ -664,11 +677,20 @@
 
     });
 
-    function navigateTo(category) { alert('Navigating to ' + category); }
+    function navigateToCategory(resourceType, category) {
+        const target = resourceType === 'facility'
+            ? 'pages/app/facilities.php?facility_type=' + encodeURIComponent(category)
+            : 'pages/app/room-availability.php?room_type=' + encodeURIComponent(category);
+        window.location.href = target;
+    }
+
+    function navigateToT06Rooms() {
+        window.location.href = 'pages/app/room-availability.php?facility=T06&location=T06';
+    }
     function addNewFacility() { alert('Add new facility feature coming soon!'); }
-    function checkAvailability(facility) { window.location.href = 'facility_details.php?type=facility&name=' + encodeURIComponent(facility); }
-    function bookFacility(facility) { window.location.href = 'facility_details.php?type=room&name=' + encodeURIComponent(facility); }
-    function reserveFacility(facility) { window.location.href = 'facility_details.php?type=facility&name=' + encodeURIComponent(facility); }
+    function checkAvailability(facility) { window.location.href = 'pages/app/facility_details.php?type=facility&name=' + encodeURIComponent(facility); }
+    function bookFacility(facility) { window.location.href = 'pages/app/facility_details.php?type=room&name=' + encodeURIComponent(facility); }
+    function reserveFacility(facility) { window.location.href = 'pages/app/facility_details.php?type=facility&name=' + encodeURIComponent(facility); }
     function prevSlide() { alert('Previous slide'); }
     function nextSlide() { alert('Next slide'); }
 </script>
