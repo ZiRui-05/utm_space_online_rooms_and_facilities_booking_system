@@ -5,15 +5,10 @@ $facilities = [];
 try {
     require_once __DIR__ . '/../../config/db.php';
     if (isset($pdo) && $pdo instanceof PDO) {
-        $stmt = $pdo->query("SELECT facility_id, facility_name, facility_type, location, capacity, description, price_per_day, resource_status, facility_image_base64, facility_image_mime FROM facilities ORDER BY facility_name ASC");
+        $stmt = $pdo->query("SELECT facility_id, facility_name, facility_type, location, capacity, description, price_per_day, resource_status FROM facilities ORDER BY facility_name ASC");
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
         foreach ($rows as $row) {
-            $image = '';
-            if (!empty($row['facility_image_base64']) && !empty($row['facility_image_mime'])) {
-                $image = 'data:' . $row['facility_image_mime'] . ';base64,' . $row['facility_image_base64'];
-            }
-
             $facilities[] = [
                 'id' => (int)$row['facility_id'],
                 'name' => $row['facility_name'] ?: 'Unnamed Facility',
@@ -23,7 +18,7 @@ try {
                 'description' => $row['description'] ?: 'No description provided.',
                 'cost' => (float)($row['price_per_day'] ?? 0),
                 'available' => (($row['resource_status'] ?? 'available') === 'available'),
-                'image' => $image,
+                'image' => 'facility_image.php?id=' . (int)$row['facility_id'],
             ];
         }
     }
@@ -106,7 +101,7 @@ function displayFacilities(){
  const grid=document.getElementById('facility-grid'); const empty=document.getElementById('no-results');
  if(!filteredFacilities.length){grid.style.display='none'; empty.style.display='block'; document.getElementById('facility-count').textContent='0'; return;}
  grid.style.display='grid'; empty.style.display='none';
- grid.innerHTML=filteredFacilities.map(f=>`<div class="room-card"><div class="room-image">${f.image?`<img src="${f.image}" alt="${f.name}">`:`<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:64px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;">🏢</div>`}<span class="room-label">${(f.type||'facility').toUpperCase()}</span><span class="room-badge ${f.available?'available':'unavailable'}">${f.available?'Available':'Unavailable'}</span></div><div class="room-content"><h3 class="room-name">${f.name}</h3><div class="room-capacity">📍 ${f.location}</div><p class="room-description">${f.description}</p><div class="room-footer"><a class="btn-view-details" href="facilities_detail.php?type=facility&id=${f.id}&name=${encodeURIComponent(f.name)}">View Details</a><button class="btn-book" ${!f.available?'disabled':''} onclick="window.location.href='booking.php?resource_type=facility&facility_id=${f.id}&resource_name='+encodeURIComponent('${'${f.name}'}')">${f.available?'Book Facility':'Unavailable'}</button></div></div></div>`).join('');
+ grid.innerHTML=filteredFacilities.map(f=>`<div class="room-card"><div class="room-image">${f.image?`<img src="${f.image}" alt="${f.name}" loading="lazy" decoding="async">`:`<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:64px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;">🏢</div>`}<span class="room-label">${(f.type||'facility').toUpperCase()}</span><span class="room-badge ${f.available?'available':'unavailable'}">${f.available?'Available':'Unavailable'}</span></div><div class="room-content"><h3 class="room-name">${f.name}</h3><div class="room-capacity">📍 ${f.location}</div><p class="room-description">${f.description}</p><div class="room-footer"><a class="btn-view-details" href="facilities_detail.php?type=facility&id=${f.id}&name=${encodeURIComponent(f.name)}">View Details</a><button class="btn-book" ${!f.available?'disabled':''} onclick="window.location.href='booking.php?resource_type=facility&facility_id=${f.id}&resource_name='+encodeURIComponent(f.name)">${f.available?'Book Facility':'Unavailable'}</button></div></div></div>`).join('');
  document.getElementById('facility-count').textContent=filteredFacilities.length;
 }
 function applyFilters(){const t=document.getElementById('facility-type-filter').value;filteredFacilities=allFacilities.filter(f=>!t||f.type===t);displayFacilities();}

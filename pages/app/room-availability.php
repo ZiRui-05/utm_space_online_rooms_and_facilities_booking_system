@@ -5,15 +5,10 @@ $rooms = [];
 try {
     require_once __DIR__ . '/../../config/db.php';
     if (isset($pdo) && $pdo instanceof PDO) {
-        $stmt = $pdo->query("SELECT room_id, room_name, room_type, location, capacity, description, price_per_day, resource_status, room_image_base64, room_image_mime FROM rooms ORDER BY room_name ASC");
+        $stmt = $pdo->query("SELECT room_id, room_name, room_type, location, capacity, description, price_per_day, resource_status FROM rooms ORDER BY room_name ASC");
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
         foreach ($rows as $row) {
-            $image = '';
-            if (!empty($row['room_image_base64']) && !empty($row['room_image_mime'])) {
-                $image = 'data:' . $row['room_image_mime'] . ';base64,' . $row['room_image_base64'];
-            }
-
             $rooms[] = [
                 'id' => (int)$row['room_id'],
                 'name' => $row['room_name'] ?: 'Unnamed Room',
@@ -23,7 +18,7 @@ try {
                 'description' => $row['description'] ?: 'No description provided.',
                 'cost' => (float)($row['price_per_day'] ?? 0),
                 'available' => (($row['resource_status'] ?? 'available') === 'available'),
-                'image' => $image,
+                'image' => 'room_image.php?id=' . (int)$row['room_id'],
             ];
         }
     }
@@ -71,7 +66,7 @@ function renderOptions(){
  [...new Set(allRooms.map(r=>r.location).filter(Boolean))].sort().forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;l.appendChild(o);});
 }
 function capacityMatch(cap,val){if(!val) return true; if(val==='1-5')return cap<=5; if(val==='6-15')return cap>=6&&cap<=15; if(val==='16-50')return cap>=16&&cap<=50; return cap>50;}
-function displayRooms(){const g=document.getElementById('room-grid'),e=document.getElementById('no-results'); if(!filteredRooms.length){g.style.display='none';e.style.display='block';document.getElementById('room-count').textContent='0';return;} g.style.display='grid';e.style.display='none'; g.innerHTML=filteredRooms.map(r=>`<div class="room-card"><div class="room-image">${r.image?`<img src="${r.image}" alt="${r.name}">`:`<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:64px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;">🏫</div>`}<span class="room-label">${(r.type||'room').toUpperCase()}</span><span class="room-badge ${r.available?'available':'unavailable'}">${r.available?'Available':'Unavailable'}</span></div><div class="room-content"><h3 class="room-name">${r.name}</h3><div class="room-capacity">👥 ${r.capacity||'-'} people · ${r.location}</div><p class="room-description">${r.description}</p><div class="room-footer"><a class="btn-view-details" href="facilities_detail.php?type=room&id=${r.id}&name=${encodeURIComponent(r.name)}">View Details</a><button class="btn-book" ${!r.available?'disabled':''} onclick="window.location.href='booking.php?resource_type=room&room_id=${r.id}&resource_name='+encodeURIComponent('${'${r.name}'}')">${r.available?'Book Room':'Unavailable'}</button></div></div></div>`).join(''); document.getElementById('room-count').textContent=filteredRooms.length;}
+function displayRooms(){const g=document.getElementById('room-grid'),e=document.getElementById('no-results'); if(!filteredRooms.length){g.style.display='none';e.style.display='block';document.getElementById('room-count').textContent='0';return;} g.style.display='grid';e.style.display='none'; g.innerHTML=filteredRooms.map(r=>`<div class="room-card"><div class="room-image">${r.image?`<img src="${r.image}" alt="${r.name}" loading="lazy" decoding="async">`:`<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:64px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;">🏫</div>`}<span class="room-label">${(r.type||'room').toUpperCase()}</span><span class="room-badge ${r.available?'available':'unavailable'}">${r.available?'Available':'Unavailable'}</span></div><div class="room-content"><h3 class="room-name">${r.name}</h3><div class="room-capacity">👥 ${r.capacity||'-'} people · ${r.location}</div><p class="room-description">${r.description}</p><div class="room-footer"><a class="btn-view-details" href="facilities_detail.php?type=room&id=${r.id}&name=${encodeURIComponent(r.name)}">View Details</a><button class="btn-book" ${!r.available?'disabled':''} onclick="window.location.href='booking.php?resource_type=room&room_id=${r.id}&resource_name='+encodeURIComponent(r.name)">${r.available?'Book Room':'Unavailable'}</button></div></div></div>`).join(''); document.getElementById('room-count').textContent=filteredRooms.length;}
 function applyFilters(){const t=document.getElementById('room-type-filter').value,l=document.getElementById('location-filter').value,c=document.getElementById('capacity-filter').value; filteredRooms=allRooms.filter(r=>(!t||r.type===t)&&(!l||r.location===l)&&capacityMatch(r.capacity,c));displayRooms();}
 function resetFilters(){document.getElementById('room-type-filter').value='';document.getElementById('location-filter').value='';document.getElementById('capacity-filter').value='';filteredRooms=[...allRooms];displayRooms();}
 function sortRooms(s){if(s==='price-low')filteredRooms.sort((a,b)=>a.cost-b.cost); else if(s==='price-high')filteredRooms.sort((a,b)=>b.cost-a.cost); else if(s==='capacity')filteredRooms.sort((a,b)=>a.capacity-b.capacity); else filteredRooms=[...allRooms];displayRooms();}
