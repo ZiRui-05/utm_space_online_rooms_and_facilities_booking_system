@@ -7,7 +7,7 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 
 require_once __DIR__ . '/../../config/db.php';
 
-$userId = (int)($_SESSION['user_id'] ?? 0);
+$userId = (int)($_SESSION['user']['user_id'] ?? ($_SESSION['user_id'] ?? 0));
 $resourceType = strtolower(trim($_POST['resource_type'] ?? 'facility'));
 $resourceId = (int)($_POST['resource_id'] ?? 0);
 $bookingDate = trim($_POST['booking_date'] ?? '');

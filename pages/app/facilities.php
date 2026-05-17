@@ -110,7 +110,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Roboto','Oxygen','
 </div></div>
 <?php include '../../includes/footer.php'; ?>
 <script>
-const allFacilities = <?php echo json_encode($facilities, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES); ?>;
+const allFacilities = <?php echo json_encode($facilities, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT); ?>;
 let filteredFacilities = [...allFacilities];
 let currentSortDirection = 'asc'; // Tracking state: 'asc' or 'desc'
 
@@ -122,9 +122,20 @@ function displayFacilities(){
  const grid=document.getElementById('facility-grid'); const empty=document.getElementById('no-results');
  if(!filteredFacilities.length){grid.style.display='none'; empty.style.display='block'; document.getElementById('facility-count').textContent='0'; return;}
  grid.style.display='grid'; empty.style.display='none';
- grid.innerHTML=filteredFacilities.map(f=>`<div class="room-card"><div class="room-image">${f.image?`<img src="${f.image}" alt="${f.name}" loading="lazy" decoding="async">`:`<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:64px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;">🏢</div>`}<span class="room-label">${(f.type||'facility').toUpperCase()}</span><span class="room-badge ${f.available?'available':'unavailable'}">${f.available?'Available':'Unavailable'}</span></div><div class="room-content"><h3 class="room-name">${f.name}</h3><div class="room-capacity">📍 ${f.location}</div><p class="room-description">${f.description}</p><div class="room-footer"><a class="btn-view-details" href="facilities_detail.php?type=facility&id=${f.id}&name=${encodeURIComponent(f.name)}">View Details</a><button class="btn-book" ${!f.available?'disabled':''} onclick="window.location.href='booking.php?resource_type=facility&facility_id=${encodeURIComponent(f.id)}&resource_name='+encodeURIComponent(f.name)">${f.available?'Book Facility':'Unavailable'}</button></div></div></div>`).join('');
+ grid.innerHTML=filteredFacilities.map(f=>`<div class="room-card"><div class="room-image">${f.image?`<img src="${f.image}" alt="${f.name}" loading="lazy" decoding="async">`:`<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:64px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;">🏢</div>`}<span class="room-label">${(f.type||'facility').toUpperCase()}</span><span class="room-badge ${f.available?'available':'unavailable'}">${f.available?'Available':'Unavailable'}</span></div><div class="room-content"><h3 class="room-name">${f.name}</h3><div class="room-capacity">📍 ${f.location}</div><p class="room-description">${f.description}</p><div class="room-footer"><a class="btn-view-details" href="facilities_detail.php?type=facility&id=${f.id}&name=${encodeURIComponent(f.name)}">View Details</a><button class="btn-book" ${!f.available?'disabled':''} data-resource-type="facility" data-resource-id="${Number(f.id)}" data-resource-name="${String(f.name || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}">${f.available?'Book Facility':'Unavailable'}</button></div></div></div>`).join('');
  document.getElementById('facility-count').textContent=filteredFacilities.length;
+
+ grid.querySelectorAll('.btn-book:not([disabled])').forEach(button => {
+   button.addEventListener('click', () => {
+     navigateToBooking(
+       String(button.dataset.resourceType || 'facility'),
+       Number(button.dataset.resourceId || 0),
+       String(button.dataset.resourceName || '')
+     );
+   });
+ });
 }
+
 function applyFilters(){const t=document.getElementById('facility-type-filter').value;filteredFacilities=allFacilities.filter(f=>!t||f.type===t);sortFacilities();}
 function resetFilters(){document.getElementById('facility-type-filter').value='';filteredFacilities=[...allFacilities];sortFacilities();}
 
@@ -161,6 +172,15 @@ function toggleSortDirection() {
         btn.textContent = '▲';
     }
     sortFacilities();
+}
+
+function navigateToBooking(resourceType, resourceId, resourceName) {
+    const params = new URLSearchParams({
+        resource_type: resourceType,
+        resource_id: String(resourceId),
+        resource_name: resourceName || '',
+    });
+    window.location.href = `booking.php?${params.toString()}`;
 }
 
 document.addEventListener('DOMContentLoaded',()=>{renderTypeOptions();sortFacilities();});

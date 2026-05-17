@@ -1,4 +1,5 @@
 <?php
+global $pdo;
 if (isset($_GET['check_slots'])) {
     header('Content-Type: application/json');
 
@@ -48,7 +49,10 @@ $resourceType = strtolower(trim($_GET['resource_type'] ?? 'facility'));
 if (!in_array($resourceType, ['room', 'facility'], true)) {
     $resourceType = 'facility';
 }
-$resourceId = $resourceType === 'room' ? (int)($_GET['room_id'] ?? 0) : (int)($_GET['facility_id'] ?? 0);
+$resourceId = (int)($_GET['resource_id'] ?? 0);
+if ($resourceId <= 0) {
+    $resourceId = $resourceType === 'room' ? (int)($_GET['room_id'] ?? 0) : (int)($_GET['facility_id'] ?? 0);
+}
 $resourceName = trim($_GET['resource_name'] ?? '');
 $bookingLabel = $resourceType === 'room' ? 'Book Room' : 'Book Facility';
 $selectedDateParam = trim($_GET['booking_date'] ?? '');
@@ -65,7 +69,7 @@ try {
     if (session_status() !== PHP_SESSION_ACTIVE) {
         session_start();
     }
-    $uid = (int)($_SESSION['user_id'] ?? 0);
+    $uid = (int)($_SESSION['user']['user_id'] ?? ($_SESSION['user_id'] ?? 0));
     if ($uid > 0) {
         $stmt->execute([$uid]);
         $currentRole = strtolower((string)($stmt->fetchColumn() ?: 'guest'));
@@ -485,7 +489,8 @@ const resourceLabel = resourceType === 'room' ? 'room' : 'facility';
 const options = <?= json_encode($resourceOptions, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 const initialSelectedId = <?= (int)($selectedResource['id'] ?? 0) ?>;
 const role = <?= json_encode($currentRole) ?>;
-const freeRoles = ['student'];
+const normalizedRole = String(role || '').trim().toLowerCase();
+const isNonGuestUser = normalizedRole !== '' && normalizedRole !== 'guest';
 const initialBookingDate = <?= json_encode($selectedDateParam) ?>;
 const initialStartTime = <?= json_encode($selectedStartParam) ?>;
 const initialEndTime = <?= json_encode($selectedEndParam) ?>;
@@ -658,18 +663,31 @@ function updateCost() {
     if (!totalCost || !originalPrice || !discountNote) return;
 
     if (!selected) {
-        totalCost.textContent = 'RM 0';
-        originalPrice.textContent = '';
-        discountNote.textContent = '';
+        if (isNonGuestUser) {
+            originalPrice.innerHTML = '<span style="text-decoration:line-through;">RM 0.00</span>';
+            discountNote.innerHTML = '<span style="display:inline-block;background:#16a34a;color:#fff;padding:2px 8px;border-radius:999px;font-weight:600;">100% Discount</span>';
+            totalCost.textContent = 'Free';
+        } else {
+            totalCost.textContent = 'RM 0';
+            originalPrice.textContent = '';
+            discountNote.textContent = '';
+        }
         return;
     }
 
     const rawPrice = Number(selected.price || 0);
-    const isFree = freeRoles.includes(String(role || '').toLowerCase());
-    originalPrice.textContent = rawPrice > 0 ? `Standard price: RM ${rawPrice.toFixed(2)}` : 'Standard price: RM 0.00';
-    discountNote.textContent = isFree ? 'Student discount: 100% off. Your booking is free.' : '';
-    totalCost.textContent = isFree ? 'Free' : `RM ${rawPrice.toFixed(2)}`;
-}}
+    if (isNonGuestUser) {
+        originalPrice.innerHTML = rawPrice > 0
+            ? `<span style="text-decoration:line-through;">RM ${rawPrice.toFixed(2)}</span>`
+            : '<span style="text-decoration:line-through;">RM 0.00</span>';
+        discountNote.innerHTML = '<span style="display:inline-block;background:#16a34a;color:#fff;padding:2px 8px;border-radius:999px;font-weight:600;">100% Discount</span>';
+        totalCost.textContent = 'Free';
+    } else {
+        originalPrice.textContent = '';
+        discountNote.textContent = '';
+        totalCost.textContent = `RM ${rawPrice.toFixed(2)}`;
+    }
+}
 
 function validateBookingSelection(showMessage = true) {
     const selected = selectedOption();
@@ -695,11 +713,6 @@ function validateBookingSelection(showMessage = true) {
     if (startMinutes < 8 * 60 || startMinutes > 16 * 60 || endMinutes < 9 * 60 || endMinutes > 17 * 60) return fail('Time must stay within 08:00 to 17:00.');
     if (startMinutes % 15 !== 0 || endMinutes % 15 !== 0) return fail('Time must use 15-minute units only.');
     if (endMinutes - startMinutes < 60) return fail('Minimum booking duration is 1 hour.');
-
-    const selectedStartDateTime = new Date(`${date}T${start}:00`);
-    if (Number.isNaN(selectedStartDateTime.getTime()) || selectedStartDateTime < new Date()) {
-        return fail('You cannot book a time slot that starts before the current time.');
-    }
 
     return { valid: true, selected, date, start, end };
 }
