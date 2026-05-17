@@ -103,8 +103,41 @@ function processAvatarImage(string $rawData): array
 }
 
 
+function processUtmCardImage(string $rawData, string $declaredMime = ''): array
+{
+    $decoded = base64_decode($rawData, true);
+    if ($decoded === false) {
+        throw new RuntimeException('Invalid UTM card image format.');
+    }
+
+    if (strlen($decoded) > 2 * 1024 * 1024) {
+        throw new RuntimeException('UTM card image must be 2MB or smaller.');
+    }
+
+    $imageInfo = @getimagesizefromstring($decoded);
+    if ($imageInfo === false) {
+        throw new RuntimeException('UTM card must be uploaded as an image file.');
+    }
+
+    $actualMime = (string)($imageInfo['mime'] ?? '');
+    $allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!in_array($actualMime, $allowedMimeTypes, true)) {
+        throw new RuntimeException('UTM card must be JPG, PNG, or WEBP.');
+    }
+
+    if ($declaredMime !== '' && !in_array($declaredMime, $allowedMimeTypes, true)) {
+        throw new RuntimeException('Unsupported UTM card file type.');
+    }
+
+    return [
+        'utm_card_base64' => base64_encode($decoded),
+        'utm_card_mime' => $actualMime,
+    ];
+}
+
+
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    $stmt = $pdo->prepare('SELECT user_id, full_name, email, utm_id, ic_no, phone_number, department, profile_image_base64, profile_image_mime FROM users WHERE user_id = :user_id LIMIT 1');
+    $stmt = $pdo->prepare("SELECT user_id, full_name, email, utm_id, ic_no, phone_number, department, gender, address, verification_status, profile_image_base64, profile_image_mime, CASE WHEN utm_card_base64 IS NULL OR utm_card_base64 = '' THEN 0 ELSE 1 END AS has_utm_card FROM users WHERE user_id = :user_id LIMIT 1");
     $stmt->execute(['user_id' => $userId]);
     $user = $stmt->fetch();
 
@@ -134,12 +167,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $input = json_decode(file_get_contents('php://input'), true);
     $phoneNumber = trim($input['phone_number'] ?? '');
     $department = trim($input['department'] ?? '');
+    $gender = trim($input['gender'] ?? '');
+    $address = trim($input['address'] ?? '');
     $avatarBase64 = trim($input['avatar_base64'] ?? '');
+    $utmCardBase64 = trim($input['utm_card_base64'] ?? '');
+    $utmCardMime = trim($input['utm_card_mime'] ?? '');
+
+    $allowedGenders = ['', 'Male', 'Female', 'Other'];
+    if (!in_array($gender, $allowedGenders, true)) {
+        http_response_code(422);
+        echo json_encode(['success' => false, 'message' => 'Please choose a valid gender.']);
+        exit;
+    }
 
     $params = [
         'phone_number' => $phoneNumber === '' ? null : $phoneNumber,
         'department' => $department === '' ? null : $department,
+        'gender' => $gender === '' ? null : $gender,
+        'address' => $address === '' ? null : $address,
         'user_id' => $userId,
+    ];
+
+    $setParts = [
+        'phone_number = :phone_number',
+        'department = :department',
+        'gender = :gender',
+        'address = :address',
     ];
 
     if ($avatarBase64 !== '') {
@@ -147,18 +200,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $avatarPayload = processAvatarImage($avatarBase64);
             $params['profile_image_base64'] = $avatarPayload['profile_image_base64'];
             $params['profile_image_mime'] = $avatarPayload['profile_image_mime'];
-
-            $stmt = $pdo->prepare('UPDATE users SET phone_number = :phone_number, department = :department, profile_image_base64 = :profile_image_base64, profile_image_mime = :profile_image_mime WHERE user_id = :user_id');
-            $stmt->execute($params);
+            $setParts[] = 'profile_image_base64 = :profile_image_base64';
+            $setParts[] = 'profile_image_mime = :profile_image_mime';
         } catch (RuntimeException $error) {
             http_response_code(422);
             echo json_encode(['success' => false, 'message' => $error->getMessage()]);
             exit;
         }
-    } else {
-        $stmt = $pdo->prepare('UPDATE users SET phone_number = :phone_number, department = :department WHERE user_id = :user_id');
-        $stmt->execute($params);
     }
+
+    if ($utmCardBase64 !== '') {
+        try {
+            $cardPayload = processUtmCardImage($utmCardBase64, $utmCardMime);
+            $params['utm_card_base64'] = $cardPayload['utm_card_base64'];
+            $params['utm_card_mime'] = $cardPayload['utm_card_mime'];
+            $setParts[] = 'utm_card_base64 = :utm_card_base64';
+            $setParts[] = 'utm_card_mime = :utm_card_mime';
+            $setParts[] = "verification_status = 'verified'";
+        } catch (RuntimeException $error) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => $error->getMessage()]);
+            exit;
+        }
+    }
+
+    $stmt = $pdo->prepare('UPDATE users SET ' . implode(', ', $setParts) . ' WHERE user_id = :user_id');
+    $stmt->execute($params);
 
     echo json_encode(['success' => true, 'message' => 'Profile updated']);
     exit;
