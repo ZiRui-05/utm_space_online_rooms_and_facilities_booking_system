@@ -55,7 +55,7 @@
 <footer class="footer">
     <div class="footer-content">
         <div class="footer-section">
-            <h5>UniReserve</h5>
+            <h5>SPACEBOOK</h5>
             <p>© 2024 University Facilities Management. All rights reserved.</p>
         </div>
         <div class="footer-section">

@@ -557,7 +557,7 @@
     
 
     <div class="breadcrumb">
-        <a href="../../homepage.php">Campus</a>
+        <a href="../../homepage.php">Home</a>
         <span>&gt;</span>
         <span>User Profile</span>
     </div>
