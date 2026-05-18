@@ -1,4 +1,5 @@
 <?php
+global $pdo;
 if (isset($_GET['check_slots'])) {
     header('Content-Type: application/json');
 
@@ -48,7 +49,10 @@ $resourceType = strtolower(trim($_GET['resource_type'] ?? 'facility'));
 if (!in_array($resourceType, ['room', 'facility'], true)) {
     $resourceType = 'facility';
 }
-$resourceId = $resourceType === 'room' ? (int)($_GET['room_id'] ?? 0) : (int)($_GET['facility_id'] ?? 0);
+$resourceId = (int)($_GET['resource_id'] ?? 0);
+if ($resourceId <= 0) {
+    $resourceId = $resourceType === 'room' ? (int)($_GET['room_id'] ?? 0) : (int)($_GET['facility_id'] ?? 0);
+}
 $resourceName = trim($_GET['resource_name'] ?? '');
 $bookingLabel = $resourceType === 'room' ? 'Book Room' : 'Book Facility';
 $selectedDateParam = trim($_GET['booking_date'] ?? '');
@@ -65,7 +69,7 @@ try {
     if (session_status() !== PHP_SESSION_ACTIVE) {
         session_start();
     }
-    $uid = (int)($_SESSION['user_id'] ?? 0);
+    $uid = (int)($_SESSION['user']['user_id'] ?? ($_SESSION['user_id'] ?? 0));
     if ($uid > 0) {
         $stmt->execute([$uid]);
         $currentRole = strtolower((string)($stmt->fetchColumn() ?: 'guest'));
@@ -485,7 +489,8 @@ const resourceLabel = resourceType === 'room' ? 'room' : 'facility';
 const options = <?= json_encode($resourceOptions, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 const initialSelectedId = <?= (int)($selectedResource['id'] ?? 0) ?>;
 const role = <?= json_encode($currentRole) ?>;
-const freeRoles = ['student', 'staff', 'admin', 'facility_manager'];
+const normalizedRole = String(role || '').trim().toLowerCase();
+const isNonGuestUser = normalizedRole !== '' && normalizedRole !== 'guest';
 const initialBookingDate = <?= json_encode($selectedDateParam) ?>;
 const initialStartTime = <?= json_encode($selectedStartParam) ?>;
 const initialEndTime = <?= json_encode($selectedEndParam) ?>;
@@ -658,17 +663,30 @@ function updateCost() {
     if (!totalCost || !originalPrice || !discountNote) return;
 
     if (!selected) {
-        totalCost.textContent = 'RM 0';
-        originalPrice.textContent = '';
-        discountNote.textContent = '';
+        if (isNonGuestUser) {
+            originalPrice.innerHTML = '<span style="text-decoration:line-through;">RM 0.00</span>';
+            discountNote.innerHTML = '<span style="display:inline-block;background:#16a34a;color:#fff;padding:2px 8px;border-radius:999px;font-weight:600;">100% Discount</span>';
+            totalCost.textContent = 'Free';
+        } else {
+            totalCost.textContent = 'RM 0';
+            originalPrice.textContent = '';
+            discountNote.textContent = '';
+        }
         return;
     }
 
     const rawPrice = Number(selected.price || 0);
-    const isFree = freeRoles.includes(String(role || '').toLowerCase());
-    originalPrice.textContent = rawPrice > 0 ? `Standard price: RM ${rawPrice.toFixed(2)}` : 'Standard price: RM 0.00';
-    discountNote.textContent = isFree ? 'Eligible role: booking cost is waived.' : '';
-    totalCost.textContent = `RM ${(isFree ? 0 : rawPrice).toFixed(2)}`;
+    if (isNonGuestUser) {
+        originalPrice.innerHTML = rawPrice > 0
+            ? `<span style="text-decoration:line-through;">RM ${rawPrice.toFixed(2)}</span>`
+            : '<span style="text-decoration:line-through;">RM 0.00</span>';
+        discountNote.innerHTML = '<span style="display:inline-block;background:#16a34a;color:#fff;padding:2px 8px;border-radius:999px;font-weight:600;">100% Discount</span>';
+        totalCost.textContent = 'Free';
+    } else {
+        originalPrice.textContent = '';
+        discountNote.textContent = '';
+        totalCost.textContent = `RM ${rawPrice.toFixed(2)}`;
+    }
 }
 
 function validateBookingSelection(showMessage = true) {

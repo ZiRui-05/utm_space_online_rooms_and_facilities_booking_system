@@ -662,15 +662,6 @@
 
 
 <script>
-    document.addEventListener('DOMContentLoaded', async function() {
-        const sessionResponse = await fetch('api/auth/auth_session.php', { credentials: 'same-origin' });
-        if (!sessionResponse.ok) { window.location.href = 'pages/auth/login.html'; return; }
-        const sessionData = await sessionResponse.json();
-        if (!sessionData.authenticated) { window.location.href = 'pages/auth/login.html'; return; }
-        const userData = sessionData.user || {};
-
-    });
-
     function navigateToCategory(category) {
         const normalized = String(category || '').toLowerCase();
         const facilityCategories = ['labs', 'laboratory', 'laboratories'];
@@ -681,11 +672,11 @@
     }
 
     function navigateToT05Rooms() {
-        window.location.href = 'pages/app/room-availability.php?facility=T05&location=T05';
+        window.location.href = 'pages/app/room-availability.php?room_type=study-room&search=T05';
     }
 
     function navigateToT06Rooms() {
-        window.location.href = 'pages/app/room-availability.php?facility=T06&location=T06';
+        window.location.href = 'pages/app/room-availability.php?room_type=study-room&search=T06';
     }
     function addNewFacility() { alert('Add new facility feature coming soon!'); }
     function checkAvailability(facility) { window.location.href = 'pages/app/facility_details.php?type=facility&name=' + encodeURIComponent(facility); }

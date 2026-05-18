@@ -7,7 +7,7 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 
 require_once __DIR__ . '/../../config/db.php';
 
-$userId = (int)($_SESSION['user_id'] ?? 0);
+$userId = (int)($_SESSION['user']['user_id'] ?? ($_SESSION['user_id'] ?? 0));
 $resourceType = strtolower(trim($_POST['resource_type'] ?? 'facility'));
 $resourceId = (int)($_POST['resource_id'] ?? 0);
 $bookingDate = trim($_POST['booking_date'] ?? '');
@@ -86,11 +86,75 @@ if (
     exit;
 }
 
+$selectedDayOfWeek = (int)$selectedBookingDate->format('N');
+if ($selectedDayOfWeek > 5) {
+    http_response_code(400);
+    echo json_encode(['success' => false, 'message' => 'Bookings are allowed on weekdays only']);
+    exit;
+}
+
 try {
+
+    $stmtProfile = $pdo->prepare(
+        'SELECT full_name, utm_id, ic_no, phone_number, department, gender, address FROM users WHERE user_id = ? LIMIT 1'
+    );
+    $stmtProfile->execute([$userId]);
+    $profile = $stmtProfile->fetch(PDO::FETCH_ASSOC) ?: [];
+
+    $requiredProfileFields = [
+        'full_name' => 'Full name',
+        'utm_id' => 'UTM ID',
+        'ic_no' => 'IC number',
+        'phone_number' => 'Phone number',
+        'department' => 'Department',
+        'gender' => 'Gender',
+        'address' => 'Address',
+    ];
+
+    $missingFields = [];
+    foreach ($requiredProfileFields as $fieldKey => $label) {
+        if (trim((string)($profile[$fieldKey] ?? '')) === '') {
+            $missingFields[] = $label;
+        }
+    }
+
+    if ($missingFields !== []) {
+        http_response_code(400);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Please complete your profile before submitting a booking request',
+            'missing_fields' => $missingFields,
+        ]);
+        exit;
+    }
+
     $stmtRole = $pdo->prepare('SELECT role FROM users WHERE user_id = ? LIMIT 1');
     $stmtRole->execute([$userId]);
     $role = strtolower((string)($stmtRole->fetchColumn() ?: 'guest'));
     $isFree = in_array($role, ['student', 'staff', 'admin', 'facility_manager'], true);
+
+    if ($role === 'student' && ($endMinutes - $startMinutes) > (3 * 60)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Students can book up to 3 hours per session']);
+        exit;
+    }
+
+    $stmtExisting = $pdo->prepare(
+        "SELECT COUNT(*) FROM bookings
+         WHERE user_id = ?
+           AND (
+               booking_status = 'pending'
+               OR booking_status = 'approved'
+           )"
+    );
+    $stmtExisting->execute([$userId]);
+    $existingActiveOrPending = (int)$stmtExisting->fetchColumn();
+
+    if ($existingActiveOrPending > 0) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'You already have a pending request or unreturned booking']);
+        exit;
+    }
 
     $table = $resourceType === 'room' ? 'rooms' : 'facilities';
     $idCol = $resourceType === 'room' ? 'room_id' : 'facility_id';

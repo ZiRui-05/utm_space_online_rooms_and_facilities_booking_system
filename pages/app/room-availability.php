@@ -59,7 +59,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Roboto','Oxygen','
 <div class="room-grid" id="room-grid"></div><div class="no-results" id="no-results">No rooms found.</div></div></div>
 <?php include '../../includes/footer.php'; ?>
 <script>
-const allRooms = <?php echo json_encode($rooms, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES); ?>;
+const allRooms = <?php echo json_encode($rooms, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT); ?>;
 let filteredRooms = [...allRooms];
 let currentRoomSortField = 'relevance';
 let roomSortDirection = 'asc';
@@ -138,9 +138,20 @@ function displayRooms(){
     const description = escapeHtml(r.description);
     const type = escapeHtml((r.type||'room').toUpperCase());
     const image = r.image ? `<img src="${escapeHtml(r.image)}" alt="${name}" loading="lazy" decoding="async">` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:64px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;">🏫</div>`;
-    return `<div class="room-card"><div class="room-image">${image}<span class="room-label">${type}</span><span class="room-badge ${r.available?'available':'unavailable'}">${r.available?'Available':'Unavailable'}</span></div><div class="room-content"><h3 class="room-name">${name}</h3><div class="room-capacity">👥 ${Number(r.capacity)||'-'} people · ${location}</div><p class="room-description">${description}</p><div class="room-footer"><a class="btn-view-details" href="facility_details.php?type=room&id=${encodeURIComponent(r.id)}&name=${encodeURIComponent(r.name)}">View Details</a><button class="btn-book" ${!r.available?'disabled':''} onclick="window.location.href='booking.php?resource_type=room&room_id=${encodeURIComponent(r.id)}&resource_name='+encodeURIComponent(r.name)">${r.available?'Book Room':'Unavailable'}</button></div></div></div>`;
+    return `<div class="room-card"><div class="room-image">${image}<span class="room-label">${type}</span><span class="room-badge ${r.available?'available':'unavailable'}">${r.available?'Available':'Unavailable'}</span></div><div class="room-content"><h3 class="room-name">${name}</h3><div class="room-capacity">👥 ${Number(r.capacity)||'-'} people · ${location}</div><p class="room-description">${description}</p><div class="room-footer"><a class="btn-view-details" href="facility_details.php?type=room&id=${encodeURIComponent(r.id)}&name=${encodeURIComponent(r.name)}">View Details</a><button class="btn-book" ${!r.available?'disabled':''} data-resource-type="room" data-resource-id="${Number(r.id)}" data-resource-name="${escapeHtml(String(r.name || ''))}">${r.available?'Book Room':'Unavailable'}</button></div></div></div>`;
  }).join('');
+
+    grid.querySelectorAll('.btn-book:not([disabled])').forEach(button => {
+        button.addEventListener('click', () => {
+            navigateToBooking(
+                String(button.dataset.resourceType || 'room'),
+                Number(button.dataset.resourceId || 0),
+                String(button.dataset.resourceName || '')
+            );
+        });
+    });
 }
+
 
 function applyFilters(){
  const typeValue=document.getElementById('room-type-filter').value;
@@ -183,6 +194,15 @@ function applyRoomSort(){
    return ((roomOriginalOrder.get(a.id)||0)-(roomOriginalOrder.get(b.id)||0))*direction;
  });
  displayRooms();
+}
+
+function navigateToBooking(resourceType, resourceId, resourceName) {
+    const params = new URLSearchParams({
+        resource_type: resourceType,
+        resource_id: String(resourceId),
+        resource_name: resourceName || '',
+    });
+    window.location.href = `booking.php?${params.toString()}`;
 }
 
 document.addEventListener('DOMContentLoaded',()=>{
