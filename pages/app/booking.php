@@ -299,6 +299,47 @@ body{
 
 /* BUTTONS */
 
+
+.login-required-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 16px;
+}
+
+.login-required-modal.is-open {
+    display: flex;
+}
+
+.login-required-content {
+    width: min(420px, 100%);
+    background: var(--white);
+    border-radius: 12px;
+    padding: 22px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.2);
+}
+
+.login-required-content h3 {
+    margin-bottom: 10px;
+    color: var(--primary-color);
+}
+
+.login-required-content p {
+    margin-bottom: 18px;
+    color: var(--text-light);
+    line-height: 1.45;
+}
+
+.login-required-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
 .button-group{
     display:flex;
     justify-content:flex-end;
@@ -345,7 +386,8 @@ body{
         padding:24px;
     }
 
-    .button-group{
+    
+.button-group{
         flex-direction:column;
     }
 
@@ -480,6 +522,17 @@ include __DIR__ . '/../../includes/header.php';
                 <button type="submit" class="btn-submit">Submit Booking Request</button>
             </div>
         </form>
+    </div>
+</div>
+
+<div id="login-required-modal" class="login-required-modal" aria-hidden="true">
+    <div class="login-required-content" role="dialog" aria-modal="true" aria-labelledby="login-required-title">
+        <h3 id="login-required-title">Login Required</h3>
+        <p>You need to login before making a booking request.</p>
+        <div class="login-required-actions">
+            <button type="button" class="btn-cancel" onclick="closeLoginRequiredModal()">Cancel</button>
+            <button type="button" class="btn-submit" onclick="goToLoginPage()">Go to Login Page</button>
+        </div>
     </div>
 </div>
 <?php include __DIR__ . '/../../includes/footer.php'; ?>
@@ -759,6 +812,11 @@ async function checkTimeSlots() {
 async function submitBooking(event) {
     event.preventDefault();
 
+    if (!isNonGuestUser) {
+        openLoginRequiredModal();
+        return;
+    }
+
     const selection = validateBookingSelection(true);
     if (!selection.valid) return;
 
@@ -801,6 +859,25 @@ async function submitBooking(event) {
             submitButton.textContent = 'Submit Booking Request';
         }
     }
+}
+
+
+function openLoginRequiredModal() {
+    const modal = document.getElementById('login-required-modal');
+    if (!modal) return;
+    modal.classList.add('is-open');
+    modal.setAttribute('aria-hidden', 'false');
+}
+
+function closeLoginRequiredModal() {
+    const modal = document.getElementById('login-required-modal');
+    if (!modal) return;
+    modal.classList.remove('is-open');
+    modal.setAttribute('aria-hidden', 'true');
+}
+
+function goToLoginPage() {
+    window.location.href = '../auth/login.php';
 }
 
 function goHome() {
