@@ -1,0 +1,37 @@
+<?php
+require_once __DIR__ . '/includes/auth.php';
+$user = require_role(['facility_manager']);
+$self_file = 'manager_manage_rooms.php';
+$table = 'rooms'; $idCol='room_id'; $nameCol='room_name'; $codeCol='room_code'; $typeCol='room_type'; $imgCol='room_image_base64'; $mimeCol='room_image_mime';
+if (isset($_GET['delete'])) { $id=(int)$_GET['delete']; $stmt=$conn->prepare("DELETE FROM $table WHERE $idCol=?"); $stmt->bind_param('i',$id); $stmt->execute(); header('Location: '.$self_file.'?success='.urlencode('Room deleted')); exit; }
+$edit=null; if(isset($_GET['edit'])){ $id=(int)$_GET['edit']; $stmt=$conn->prepare("SELECT * FROM $table WHERE $idCol=?"); $stmt->bind_param('i',$id); $stmt->execute(); $edit=$stmt->get_result()->fetch_assoc(); }
+if($_SERVER['REQUEST_METHOD']==='POST'){
+    $id=(int)($_POST[$idCol]??0); $name=trim($_POST[$nameCol]??''); $code=trim($_POST[$codeCol]??''); $type=trim($_POST[$typeCol]??''); $loc=trim($_POST['location']??''); $cap=(int)($_POST['capacity']??0); $desc=trim($_POST['description']??''); $price=(float)($_POST['price_per_day']??0); $status=$_POST['resource_status']??'available';
+    if($cap < 0){ header('Location: '.$self_file.'?error='.urlencode('Capacity cannot be negative')); exit; }
+    if($price < 0){ header('Location: '.$self_file.'?error='.urlencode('Price cannot be negative')); exit; }
+    $imgBase64 = null; $imgMime = null; $hasNewImage = isset($_FILES['resource_image']) && is_uploaded_file($_FILES['resource_image']['tmp_name']);
+    if($hasNewImage){
+        $allowed=['image/jpeg','image/png','image/webp','image/gif']; $imgMime=mime_content_type($_FILES['resource_image']['tmp_name']);
+        if(!in_array($imgMime,$allowed,true)){ header('Location: '.$self_file.'?error='.urlencode('Only JPG, PNG, WEBP or GIF images are allowed')); exit; }
+        if((int)$_FILES['resource_image']['size'] > 2*1024*1024){ header('Location: '.$self_file.'?error='.urlencode('Image must be 2MB or below')); exit; }
+        $imgBase64=base64_encode(file_get_contents($_FILES['resource_image']['tmp_name']));
+    }
+    if($id>0){
+        if($hasNewImage){ $stmt=$conn->prepare("UPDATE $table SET $nameCol=?, $codeCol=?, $typeCol=?, location=?, capacity=?, description=?, price_per_day=?, resource_status=?, $imgCol=?, $mimeCol=? WHERE $idCol=?"); $stmt->bind_param('ssssisdsssi',$name,$code,$type,$loc,$cap,$desc,$price,$status,$imgBase64,$imgMime,$id); }
+        else { $stmt=$conn->prepare("UPDATE $table SET $nameCol=?, $codeCol=?, $typeCol=?, location=?, capacity=?, description=?, price_per_day=?, resource_status=? WHERE $idCol=?"); $stmt->bind_param('ssssisdsi',$name,$code,$type,$loc,$cap,$desc,$price,$status,$id); }
+        $stmt->execute(); $msg='Room updated';
+    } else {
+        $stmt=$conn->prepare("INSERT INTO $table($nameCol,$codeCol,$typeCol,location,capacity,description,price_per_day,resource_status,$imgCol,$mimeCol) VALUES(?,?,?,?,?,?,?,?,?,?)"); $stmt->bind_param('ssssisdsss',$name,$code,$type,$loc,$cap,$desc,$price,$status,$imgBase64,$imgMime); $stmt->execute(); $msg='Room added';
+    }
+    header('Location: '.$self_file.'?success='.urlencode($msg)); exit;
+}
+$search=trim($_GET['search']??''); $statusFilter=$_GET['status']??'';
+$where=[]; $types=''; $params=[]; if($search!==''){ $where[]="($nameCol LIKE CONCAT('%',?,'%') OR location LIKE CONCAT('%',?,'%'))"; $types.='ss'; $params[]=$search; $params[]=$search; } if($statusFilter!==''){ $where[]='resource_status=?'; $types.='s'; $params[]=$statusFilter; }
+$stmt=$conn->prepare("SELECT * FROM $table".($where?' WHERE '.implode(' AND ',$where):'')." ORDER BY $nameCol"); if($types) $stmt->bind_param($types,...$params); $stmt->execute(); $items=$stmt->get_result();
+$page_title='Facility Manager Manage Rooms'; $active_page='rooms'; include __DIR__ . '/includes/header.php';
+?>
+<div class="mb-8"><h1 class="text-4xl font-black text-[#36000f]">Facility Manager - Room Management</h1><p class="text-slate-500 mt-2">Add, update, delete and upload pictures. Negative price/capacity is blocked.</p></div>
+<div class="bg-white rounded-xl border border-[#dcc0c2] p-5 shadow-sm mb-6"><form class="grid md:grid-cols-3 gap-4"><input class="input" name="search" value="<?= h($search) ?>" placeholder="Search name or location"><select class="input" name="status"><option value="">All Status</option><?php foreach(['available','unavailable','maintenance'] as $s): ?><option value="<?= $s ?>" <?= $statusFilter===$s?'selected':'' ?>><?= ucfirst($s) ?></option><?php endforeach; ?></select><button class="btn-primary">Search / Filter</button></form></div>
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-6"><form method="post" enctype="multipart/form-data" class="bg-white rounded-xl border border-[#dcc0c2] p-6 shadow-sm space-y-4"><h2 class="text-xl font-black text-[#36000f]"><?= $edit?'Update Room':'Add Room' ?></h2><input type="hidden" name="<?= h($idCol) ?>" value="<?= h($edit[$idCol]??0) ?>"><input class="input" name="<?= h($nameCol) ?>" required placeholder="Room name" value="<?= h($edit[$nameCol]??'') ?>"><input class="input" name="<?= h($codeCol) ?>" placeholder="Room code" value="<?= h($edit[$codeCol]??'') ?>"><input class="input" name="<?= h($typeCol) ?>" placeholder="Room type" value="<?= h($edit[$typeCol]??'') ?>"><input class="input" name="location" required placeholder="Location" value="<?= h($edit['location']??'') ?>"><input class="input" name="capacity" type="number" min="0" placeholder="Capacity" value="<?= h($edit['capacity']??'') ?>"><input class="input" name="price_per_day" type="number" min="0" step="0.01" placeholder="Price per day" value="<?= h($edit['price_per_day']??'0.00') ?>"><input class="input" name="resource_image" type="file" accept="image/*"><select class="input" name="resource_status"><?php foreach(['available','unavailable','maintenance'] as $s): ?><option value="<?= $s ?>" <?= ($edit['resource_status']??'available')===$s?'selected':'' ?>><?= ucfirst($s) ?></option><?php endforeach; ?></select><textarea class="input" name="description" placeholder="Description"><?= h($edit['description']??'') ?></textarea><button class="btn-primary w-full"><?= $edit?'Update Room':'Add Room' ?></button></form>
+<div class="xl:col-span-2 bg-white rounded-xl border border-[#dcc0c2] shadow-sm overflow-x-auto"><table class="w-full"><thead><tr><th class="table-th">Room</th><th class="table-th">Picture</th><th class="table-th">Availability</th><th class="table-th">Capacity</th><th class="table-th">Action</th></tr></thead><tbody><?php while($it=$items->fetch_assoc()): ?><tr><td class="table-td font-bold"><?= h($it[$nameCol]) ?><p class="text-xs text-slate-500"><?= h($it['location']) ?></p></td><td class="table-td"><?php if(!empty($it[$imgCol])): ?><img class="w-20 h-14 object-cover rounded border" src="data:<?= h($it[$mimeCol] ?: 'image/png') ?>;base64,<?= $it[$imgCol] ?>" alt="Room picture"><?php else: ?><span class="text-xs text-slate-400">No image</span><?php endif; ?></td><td class="table-td"><span class="badge badge-<?= h($it['resource_status']) ?>"><?= h($it['resource_status']) ?></span></td><td class="table-td"><?= h($it['capacity']) ?></td><td class="table-td"><a class="text-red-900 font-bold" href="?edit=<?= h($it[$idCol]) ?>">Update</a> · <a class="text-red-700 font-bold" onclick="return confirm('Delete this room?')" href="?delete=<?= h($it[$idCol]) ?>">Delete</a></td></tr><?php endwhile; ?></tbody></table></div></div>
+<?php include __DIR__ . '/includes/footer.php'; ?>
