@@ -665,7 +665,7 @@
                         <div class="utm-card-upload-box">
                             <input type="file" id="utm-card-input" accept="image/jpeg,image/png,image/webp" style="display:none;">
                             <button type="button" class="btn-upload-card" onclick="triggerUtmCardUpload()">🪪 Upload UTM Card</button>
-                            <div class="utm-card-status" id="utm-card-status">Upload a clear JPG, PNG, or WEBP image of your UTM card. Verification becomes verified after upload.</div>
+                            <div class="utm-card-status" id="utm-card-status">Upload a clear JPG, PNG, or WEBP image of your UTM card. Admin will verify it after upload.</div>
                         </div>
                     </div>
                 </div>
@@ -763,7 +763,7 @@
             verificationBadge.className = 'verification-badge ' + verificationStatus;
             document.getElementById('utm-card-status').textContent = Number(userData.has_utm_card) === 1
                 ? 'UTM card uploaded. Your profile is verified.'
-                : 'Upload a clear JPG, PNG, or WEBP image of your UTM card. Verification becomes verified after upload.';
+                : 'Upload a clear JPG, PNG, or WEBP image of your UTM card. Admin will verify it after upload.';
             
             renderBookings(result.bookings || []);
         }
@@ -950,7 +950,7 @@
             const dataUrl = await fileToDataUrl(file);
             pendingUtmCardBase64 = String(dataUrl).split(',')[1] || '';
             pendingUtmCardMime = file.type;
-            document.getElementById('utm-card-status').textContent = 'Uploading UTM card and updating verification status...';
+            document.getElementById('utm-card-status').textContent = 'Uploading UTM card and sending to admin for verification...';
             event.target.value = '';
             await saveProfileEdits();
         });

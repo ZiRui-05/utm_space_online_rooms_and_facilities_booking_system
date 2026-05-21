@@ -194,11 +194,13 @@ $toRoot = static fn(string $path): string => $prefix . ltrim($path, '/');
             <button class="user-avatar" id="user-avatar-btn" onclick="toggleUserMenu(event)">U</button>
             <div class="dropdown-menu" id="user-menu" style="display:none;">
                 <a href="<?= htmlspecialchars($toRoot('pages/app/profile.php'), ENT_QUOTES, 'UTF-8') ?>" class="dropdown-item">👤 My Profile</a>
+                <a href="<?= htmlspecialchars($toRoot('manager_admin/admin_dashboard.php'), ENT_QUOTES, 'UTF-8') ?>" class="dropdown-item" id="admin-profile-link" style="display:none;">🛡️ Admin Dashboard</a>
+                <a href="<?= htmlspecialchars($toRoot('manager_admin/facility_manager_dashboard.php'), ENT_QUOTES, 'UTF-8') ?>" class="dropdown-item" id="facility-manager-dashboard-link" style="display:none;">🏢 Facility Manager Dashboard</a>
                 <a href="<?= htmlspecialchars($toRoot('pages/app/booking-history.php'), ENT_QUOTES, 'UTF-8') ?>" class="dropdown-item">📋 My Bookings</a>
                 <a href="#" class="dropdown-item">⚙️ Settings</a>
                 <a href="#" class="dropdown-item">❓ About</a>
                 <hr class="dropdown-divider">
-                <a href="<?= htmlspecialchars($toRoot('pages/auth/login.php'), ENT_QUOTES, 'UTF-8') ?>" class="dropdown-item logout" onclick="handleLogout()">🚪 Logout</a>
+                <a href="<?= htmlspecialchars($toRoot('pages/app/logout.php'), ENT_QUOTES, 'UTF-8') ?>" class="dropdown-item logout" onclick="return handleLogout(event)">🚪 Logout</a>
             </div>
         </div>
     </div>
@@ -276,6 +278,14 @@ $toRoot = static fn(string $path): string => $prefix . ltrim($path, '/');
                 }
 
                 setAuthenticatedView();
+                const adminProfileLinkEarly = document.getElementById('admin-profile-link');
+                const facilityManagerDashboardLinkEarly = document.getElementById('facility-manager-dashboard-link');
+                if (adminProfileLinkEarly && sessionData.user?.role === 'admin') {
+                    adminProfileLinkEarly.style.display = 'block';
+                }
+                if (facilityManagerDashboardLinkEarly && sessionData.user?.role === 'facility_manager') {
+                    facilityManagerDashboardLinkEarly.style.display = 'block';
+                }
 
                 const sessionUser = sessionData.user || null;
                 const fullName = sessionUser?.full_name || sessionUser?.name;
@@ -293,6 +303,14 @@ $toRoot = static fn(string $path): string => $prefix . ltrim($path, '/');
                 if (!profileData?.success || !profileData?.user) return;
 
                 const profileUser = profileData.user;
+                const adminProfileLink = document.getElementById('admin-profile-link');
+                const facilityManagerDashboardLink = document.getElementById('facility-manager-dashboard-link');
+                if (adminProfileLink && (profileUser.role === 'admin' || sessionUser?.role === 'admin')) {
+                    adminProfileLink.style.display = 'block';
+                }
+                if (facilityManagerDashboardLink && (profileUser.role === 'facility_manager' || sessionUser?.role === 'facility_manager')) {
+                    facilityManagerDashboardLink.style.display = 'block';
+                }
                 setImageAvatar(profileUser.profile_image_base64, profileUser.profile_image_mime);
             } catch (error) {
                 setGuestView();
@@ -331,14 +349,16 @@ $toRoot = static fn(string $path): string => $prefix . ltrim($path, '/');
             if (badge) badge.style.display = 'none';
         };
 
-        window.handleLogout = function handleLogout(){
+        window.handleLogout = function handleLogout(event){
             localStorage.removeItem('userData');
-            fetch('<?= htmlspecialchars($toRoot('api/auth/auth_logout.php'), ENT_QUOTES, 'UTF-8') ?>', {
-                method: 'POST',
-                credentials: 'same-origin'
-            }).finally(() => {
-                window.location.href = '<?= htmlspecialchars($toRoot('pages/auth/login.php'), ENT_QUOTES, 'UTF-8') ?>';
-            });
+            try { sessionStorage.clear(); } catch (error) {}
+            const logoutUrl = '<?= htmlspecialchars($toRoot('pages/app/logout.php'), ENT_QUOTES, 'UTF-8') ?>';
+            if (event) {
+                // Let the real logout PHP page handle the redirect so logout still works if fetch/AJAX fails.
+                return true;
+            }
+            window.location.href = logoutUrl;
+            return false;
         };
 
         // Universal close catcher for clicking outside either active menu structure

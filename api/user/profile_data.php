@@ -216,7 +216,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $params['utm_card_mime'] = $cardPayload['utm_card_mime'];
             $setParts[] = 'utm_card_base64 = :utm_card_base64';
             $setParts[] = 'utm_card_mime = :utm_card_mime';
-            $setParts[] = "verification_status = 'verified'";
+            $setParts[] = "verification_status = 'unverified'";
         } catch (RuntimeException $error) {
             http_response_code(422);
             echo json_encode(['success' => false, 'message' => $error->getMessage()]);

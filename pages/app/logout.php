@@ -2,7 +2,6 @@
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
-header('Content-Type: application/json');
 
 $_SESSION = [];
 
@@ -18,4 +17,5 @@ if (ini_get('session.use_cookies')) {
 }
 
 session_destroy();
-echo json_encode(['success' => true]);
+header('Location: ../auth/login.php');
+exit;
