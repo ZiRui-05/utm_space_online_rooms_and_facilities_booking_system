@@ -371,6 +371,77 @@
             font-weight: 500;
         }
 
+                :root {
+            --utm-maroon: #800020; /* Deep Maroon Theme color */
+            --utm-maroon-hover: #600018;
+        }
+
+        :root {
+            --utm-maroon: #800020;
+            --utm-maroon-hover: #600018;
+        }
+        .utm-card-upload-container {
+            background: #fdfdfd;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 8px;
+        }
+        .utm-card-row {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .utm-upload-card-box {
+            flex: 1;
+            min-width: 240px;
+            height: 150px;
+            border: 2px dashed var(--utm-maroon);
+            border-radius: 8px;
+            background: #fff8f9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            cursor: pointer;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        .utm-upload-card-box:hover {
+            background: #f5e6e8;
+            transform: translateY(-2px);
+        }
+        .upload-card-placeholder {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: var(--utm-maroon);
+            font-weight: 500;
+            gap: 8px;
+        }
+        .upload-card-icon { font-size: 24px; }
+        .upload-card-text { font-size: 13px; }
+        .card-preview-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            position: absolute;
+            top: 0; left: 0;
+            display: none;
+        }
+        .btn-upload-card-maroon {
+            background-color: var(--utm-maroon);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .btn-upload-card-maroon:hover { background-color: var(--utm-maroon-hover); }
+        .utm-card-status { font-size: 12px; color: #666; margin-top: 8px; }
+
         /* Booking History Section */
         .booking-section {
             background: var(--white);
@@ -661,15 +732,38 @@
                         <div class="detail-value"><span id="detail-verification-status" class="verification-badge unverified">Unverified</span></div>
                     </div>
                     <div class="detail-item full-width-field">
-                        <div class="detail-label">UTM Card</div>
-                        <div class="utm-card-upload-box">
-                            <input type="file" id="utm-card-input" accept="image/jpeg,image/png,image/webp" style="display:none;">
-                            <button type="button" class="btn-upload-card" onclick="triggerUtmCardUpload()">🪪 Upload UTM Card</button>
-                            <div class="utm-card-status" id="utm-card-status">Upload a clear JPG, PNG, or WEBP image of your UTM card. Verification becomes verified after upload.</div>
-                        </div>
-                    </div>
+    <div class="detail-label">UTM Card Verification</div>
+    <div class="utm-card-upload-container">
+        
+        <input type="file" id="card-front-input" accept="image/*" style="display:none;">
+        <input type="file" id="card-back-input" accept="image/*" style="display:none;">
+
+        <div class="utm-card-row">
+            <div class="utm-upload-card-box" onclick="triggerCardUpload('front')" id="card-front-box">
+                <div class="upload-card-placeholder" id="front-placeholder">
+                    <span class="upload-card-icon">➕</span>
+                    <span class="upload-card-text">Upload Front Side</span>
                 </div>
+                <img id="card-front-preview" class="card-preview-img" alt="Front Preview">
             </div>
+
+            <div class="utm-upload-card-box" onclick="triggerCardUpload('back')" id="card-back-box">
+                <div class="upload-card-placeholder" id="back-placeholder">
+                    <span class="upload-card-icon">➕</span>
+                    <span class="upload-card-text">Upload Back Side</span>
+                </div>
+                <img id="card-back-preview" class="card-preview-img" alt="Back Preview">
+            </div>
+        </div>
+
+        <div class="utm-action-footer">
+            <button type="button" class="btn-upload-card-maroon" onclick="submitUtmCards()">🪪 Submit UTM Cards for Verification</button>
+            <div class="utm-card-status" id="utm-card-status">
+                Upload clear front and back images of your UTM card (Max 5MB each). Verification updates after submission.
+            </div>
+        </div>
+    </div>
+</div>
 
             <div class="booking-section">
                 <div class="booking-header">
@@ -702,342 +796,368 @@
 
 
     <script>
-        let isEditMode = false;
-        let pendingAvatarBase64 = "";
-        let pendingUtmCardBase64 = "";
-        let pendingUtmCardMime = "";
+    let isEditMode = false;
+    let pendingAvatarBase64 = "";
+    
+    // Clean individual staging containers for both card sides
+    let pendingFrontCardBase64 = "";
+    let pendingFrontCardMime = "";
+    let pendingBackCardBase64 = "";
+    let pendingBackCardMime = "";
+    
+    // Initial Load Hook
+    document.addEventListener('DOMContentLoaded', async function() {
+        const sessionResponse = await fetch('../../api/auth/auth_session.php', { credentials: 'same-origin' });
+        if (!sessionResponse.ok) { window.location.href = '../auth/login.php'; return; }
+        const sessionData = await sessionResponse.json();
+        if (!sessionData.authenticated) { window.location.href = '../auth/login.php'; return; }
+        await loadProfileData();
+        setupCardListeners(); // Initialize modern side listeners safely
+    });
+
+    async function loadProfileData() {
+        const response = await fetch('../../api/user/profile_data.php', { credentials: 'same-origin' });
+        if (!response.ok) {
+            alert('Failed to load profile data.');
+            return;
+        }
+
+        const result = await response.json();
+        if (!result.success || !result.user) {
+            alert(result.message || 'Failed to load profile data.');
+            return;
+        }
+
+        const userData = result.user;
+        const initials = (userData.full_name || 'U').split(' ').map(n => n[0]).join('').toUpperCase();
+        const avatarImg = document.getElementById('profile-avatar');
+        const avatarFallback = document.getElementById('profile-avatar-fallback');
+        avatarFallback.textContent = initials;
         
-        // Load user data
-        document.addEventListener('DOMContentLoaded', async function() {
-            const sessionResponse = await fetch('../../api/auth/auth_session.php', { credentials: 'same-origin' });
-            if (!sessionResponse.ok) { window.location.href = '../auth/login.php'; return; }
-            const sessionData = await sessionResponse.json();
-            if (!sessionData.authenticated) { window.location.href = '../auth/login.php'; return; }
-            await loadProfileData();
+        if (userData.profile_image_base64 && userData.profile_image_mime) {
+            avatarImg.src = `data:${userData.profile_image_mime};base64,${userData.profile_image_base64}`;
+            avatarImg.style.display = 'block';
+            avatarFallback.style.display = 'none';
+        } else {
+            avatarImg.style.display = 'none';
+            avatarFallback.style.display = 'flex';
+        }
+        
+        document.getElementById('profile-name').textContent = userData.full_name || '-';
+        document.getElementById('detail-name').textContent = userData.full_name || '-';
+        document.getElementById('detail-email').textContent = userData.email || '-';
+        document.getElementById('profile-utm-id').textContent = userData.utm_id || '-';
+        document.getElementById('profile-icno').textContent = userData.ic_no || '-';
+        
+        document.getElementById('detail-phone').textContent = userData.phone_number || 'Waiting to edit';
+        document.getElementById('detail-department').textContent = userData.department || 'Waiting to edit';
+        document.getElementById('detail-gender').textContent = userData.gender || 'Waiting to edit';
+        document.getElementById('detail-address').textContent = userData.address || 'Waiting to edit';
+
+        const verificationStatus = userData.verification_status === 'verified' ? 'verified' : 'unverified';
+        const verificationBadge = document.getElementById('detail-verification-status');
+        verificationBadge.textContent = verificationStatus === 'verified' ? 'Verified' : 'Unverified';
+        verificationBadge.className = 'verification-badge ' + verificationStatus;
+        
+        document.getElementById('utm-card-status').textContent = Number(userData.has_utm_card) === 1
+            ? 'UTM card uploaded. Your profile is verified.'
+            : 'Upload clear front and back images of your UTM card (Max 5MB each).';
+        
+        renderBookings(result.bookings || []);
+    }
+
+    function renderBookings(bookings) {
+        const tbody = document.getElementById('booking-table-body');
+        const emptyMessage = document.getElementById('booking-empty');
+        const bookingTable = document.querySelector('.booking-table');
+        const viewHistory = document.getElementById('view-history');
+        tbody.innerHTML = '';
+
+        if (!bookings.length) {
+            bookingTable.style.display = 'none';
+            emptyMessage.style.display = 'flex';
+            viewHistory.style.display = 'none';
+            return;
+        }
+
+        bookingTable.style.display = 'table';
+        emptyMessage.style.display = 'none';
+        viewHistory.style.display = 'block';
+
+        bookings.forEach((booking) => {
+            const startDate = new Date(booking.booking_start);
+            const endDate = new Date(booking.booking_end);
+            const facilityName = booking.resource_type === 'room'
+                ? (booking.room_name || 'Unknown Room')
+                : (booking.facility_name || 'Unknown Facility');
+            const normalizedStatus = (booking.booking_status || '').toLowerCase();
+            const statusClass = `status-${normalizedStatus}`;
+            const statusLabel = normalizedStatus.charAt(0).toUpperCase() + normalizedStatus.slice(1);
+            const canCancel = normalizedStatus === 'pending' || normalizedStatus === 'approved';
+            const actionHTML = canCancel
+                ? `<button type="button" class="action-link action-cancel" onclick="cancelBooking(${Number(booking.booking_id)})">Cancel Booking</button>`
+                : '<span class="action-link">-</span>';
+
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>
+                    <div class="facility-name">${facilityName}</div>
+                    <div class="facility-ref">Ref: BK-${booking.booking_id}</div>
+                </td>
+                <td>
+                    <div>${startDate.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })}</div>
+                    <div style="color: var(--text-light);">${startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })} - ${endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}</div>
+                </td>
+                <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
+                <td>${actionHTML}</td>
+            `;
+            tbody.appendChild(row);
         });
+    }
 
-        async function loadProfileData() {
-            const response = await fetch('../../api/user/profile_data.php', { credentials: 'same-origin' });
-            if (!response.ok) {
-                alert('Failed to load profile data.');
-                return;
-            }
+    // Trigger Hidden Card Inputs Click Event
+    function triggerCardUpload(side) {
+        document.getElementById(`card-${side}-input`).click();
+    }
 
-            const result = await response.json();
-            if (!result.success || !result.user) {
-                alert(result.message || 'Failed to load profile data.');
-                return;
-            }
-
-            const userData = result.user;
-            const initials = (userData.full_name || 'U').split(' ').map(n => n[0]).join('').toUpperCase();
-            const avatarImg = document.getElementById('profile-avatar');
-            const avatarFallback = document.getElementById('profile-avatar-fallback');
-            avatarFallback.textContent = initials;
+    // Modern Isolated Setup Listeners Event Registration Engine
+    function setupCardListeners() {
+        ['front', 'back'].forEach(side => {
+            const element = document.getElementById(`card-${side}-input`);
+            if(!element) return;
             
-            if (userData.profile_image_base64 && userData.profile_image_mime) {
-                avatarImg.src = `data:${userData.profile_image_mime};base64,${userData.profile_image_base64}`;
-                avatarImg.style.display = 'block';
-                avatarFallback.style.display = 'none';
-            } else {
-                avatarImg.style.display = 'none';
-                avatarFallback.style.display = 'flex';
-            }
-            
-            document.getElementById('profile-name').textContent = userData.full_name || '-';
-            document.getElementById('detail-name').textContent = userData.full_name || '-';
-            document.getElementById('detail-email').textContent = userData.email || '-';
-            document.getElementById('profile-utm-id').textContent = userData.utm_id || '-';
-            document.getElementById('profile-icno').textContent = userData.ic_no || '-';
-            
-            document.getElementById('detail-phone').textContent = userData.phone_number || 'Waiting to edit';
-            document.getElementById('detail-department').textContent = userData.department || 'Waiting to edit';
-            
-            // Render Gender, Address, and verification values
-            document.getElementById('detail-gender').textContent = userData.gender || 'Waiting to edit';
-            document.getElementById('detail-address').textContent = userData.address || 'Waiting to edit';
+            element.addEventListener('change', async function(event) {
+                const file = event.target.files[0];
+                if (!file) return;
 
-            const verificationStatus = userData.verification_status === 'verified' ? 'verified' : 'unverified';
-            const verificationBadge = document.getElementById('detail-verification-status');
-            verificationBadge.textContent = verificationStatus === 'verified' ? 'Verified' : 'Unverified';
-            verificationBadge.className = 'verification-badge ' + verificationStatus;
-            document.getElementById('utm-card-status').textContent = Number(userData.has_utm_card) === 1
-                ? 'UTM card uploaded. Your profile is verified.'
-                : 'Upload a clear JPG, PNG, or WEBP image of your UTM card. Verification becomes verified after upload.';
-            
-            renderBookings(result.bookings || []);
-        }
-
-        function renderBookings(bookings) {
-            const tbody = document.getElementById('booking-table-body');
-            const emptyMessage = document.getElementById('booking-empty');
-            const bookingTable = document.querySelector('.booking-table');
-            const viewHistory = document.getElementById('view-history');
-            tbody.innerHTML = '';
-
-            if (!bookings.length) {
-                bookingTable.style.display = 'none';
-                emptyMessage.style.display = 'flex';
-                viewHistory.style.display = 'none';
-                return;
-            }
-
-            bookingTable.style.display = 'table';
-            emptyMessage.style.display = 'none';
-            viewHistory.style.display = 'block';
-
-            bookings.forEach((booking) => {
-                const startDate = new Date(booking.booking_start);
-                const endDate = new Date(booking.booking_end);
-                const facilityName = booking.resource_type === 'room'
-                    ? (booking.room_name || 'Unknown Room')
-                    : (booking.facility_name || 'Unknown Facility');
-                const normalizedStatus = (booking.booking_status || '').toLowerCase();
-                const statusClass = `status-${normalizedStatus}`;
-                const statusLabel = normalizedStatus.charAt(0).toUpperCase() + normalizedStatus.slice(1);
-                const canCancel = normalizedStatus === 'pending' || normalizedStatus === 'approved';
-                const actionHTML = canCancel
-                    ? `<button type="button" class="action-link action-cancel" onclick="cancelBooking(${Number(booking.booking_id)})">Cancel Booking</button>`
-                    : '<span class="action-link">-</span>';
-
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>
-                        <div class="facility-name">${facilityName}</div>
-                        <div class="facility-ref">Ref: BK-${booking.booking_id}</div>
-                    </td>
-                    <td>
-                        <div>${startDate.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })}</div>
-                        <div style="color: var(--text-light);">${startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })} - ${endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}</div>
-                    </td>
-                    <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
-                    <td>${actionHTML}</td>
-                `;
-                tbody.appendChild(row);
-            });
-        }
-
-        async function cancelBooking(bookingId) {
-            const shouldCancel = window.confirm('Are you sure you want to cancel this booking request?');
-            if (!shouldCancel) {
-                return;
-            }
-
-            const formData = new FormData();
-            formData.append('id', bookingId);
-
-            const response = await fetch('../../api/booking/cancel_booking.php', {
-                method: 'POST',
-                credentials: 'same-origin',
-                body: formData
-            });
-
-            const result = await response.json();
-            if (!response.ok || !result.success) {
-                alert(result.message || 'Failed to cancel booking request.');
-                return;
-            }
-
-            alert(result.message || 'Booking request cancelled successfully.');
-            await loadProfileData();
-        }
-
-        function toggleProfileEdit() {
-            if (!isEditMode) {
-                if (pendingAvatarBase64) {
-                    saveProfileEdits();
+                const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+                if (!allowedTypes.includes(file.type)) {
+                    alert('UTM card must be JPG, PNG, or WEBP.');
+                    event.target.value = '';
                     return;
                 }
-                enterEditMode();
-            } else {
-                saveProfileEdits();
-            }
-        }
-
-        function enterEditMode() {
-            isEditMode = true;
-            
-            // Standard text elements (Phone, Department)
-            const textFields = ['detail-phone', 'detail-department'];
-            textFields.forEach(id => {
-                const element = document.getElementById(id);
-                const value = element.textContent.trim() === 'Waiting to edit' ? '' : element.textContent.trim();
-                element.innerHTML = `<input type="text" id="${id}-input" value="${value}" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">`;
-            });
-
-            // Gender drop-down element
-            const genderElement = document.getElementById('detail-gender');
-            const currentGender = genderElement.textContent.trim();
-            genderElement.innerHTML = `
-                <select id="detail-gender-input" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;background:#fff;">
-                    <option value="" ${currentGender === 'Waiting to edit' || currentGender === '' ? 'selected' : ''}>Select Gender</option>
-                    <option value="Male" ${currentGender === 'Male' ? 'selected' : ''}>Male</option>
-                    <option value="Female" ${currentGender === 'Female' ? 'selected' : ''}>Female</option>
-                    <option value="Other" ${currentGender === 'Other' ? 'selected' : ''}>Other</option>
-                </select>
-            `;
-
-            // Address text area element
-            const addressElement = document.getElementById('detail-address');
-            const currentAddress = addressElement.textContent.trim() === 'Waiting to edit' ? '' : addressElement.textContent.trim();
-            addressElement.innerHTML = `<textarea id="detail-address-input" rows="3" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;font-family:inherit;resize:vertical;">${currentAddress}</textarea>`;
-
-            document.getElementById('btn-edit-profile').textContent = '✅ Save';
-        }
-
-        async function saveProfileEdits() {
-            const phoneInput = document.getElementById('detail-phone-input');
-            const departmentInput = document.getElementById('detail-department-input');
-            const genderInput = document.getElementById('detail-gender-input');
-            const addressInput = document.getElementById('detail-address-input');
-
-            // Fallbacks gather values if inputs aren't generated yet
-            const phoneNumber = phoneInput ? phoneInput.value.trim() : (document.getElementById('detail-phone').textContent.trim() === 'Waiting to edit' ? '' : document.getElementById('detail-phone').textContent.trim());
-            const department = departmentInput ? departmentInput.value.trim() : (document.getElementById('detail-department').textContent.trim() === 'Waiting to edit' ? '' : document.getElementById('detail-department').textContent.trim());
-            const gender = genderInput ? genderInput.value : (document.getElementById('detail-gender').textContent.trim() === 'Waiting to edit' ? '' : document.getElementById('detail-gender').textContent.trim());
-            const address = addressInput ? addressInput.value.trim() : (document.getElementById('detail-address').textContent.trim() === 'Waiting to edit' ? '' : document.getElementById('detail-address').textContent.trim());
-
-            const response = await fetch('../../api/user/profile_data.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'same-origin',
-                body: JSON.stringify({
-                    phone_number: phoneNumber,
-                    department: department,
-                    gender: gender,
-                    address: address,
-                    avatar_base64: pendingAvatarBase64,
-                    utm_card_base64: pendingUtmCardBase64,
-                    utm_card_mime: pendingUtmCardMime
-                })
-            });
-
-            const result = await response.json();
-            if (!response.ok || !result.success) {
-                alert(result.message || 'Failed to update profile.');
-                return;
-            }
-
-            isEditMode = false;
-            document.getElementById('btn-edit-profile').textContent = '✏️ Edit Profile';
-            await loadProfileData();
-            pendingAvatarBase64 = '';
-            pendingUtmCardBase64 = '';
-            pendingUtmCardMime = '';
-            alert('Profile updated successfully.');
-        }
-
-        function triggerUtmCardUpload() {
-            document.getElementById('utm-card-input').click();
-        }
-
-        document.getElementById('utm-card-input').addEventListener('change', async function(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
-            if (!allowedTypes.includes(file.type)) {
-                alert('UTM card must be JPG, PNG, or WEBP.');
-                event.target.value = '';
-                return;
-            }
-            if (file.size > 2 * 1024 * 1024) {
-                alert('UTM card image must be 2MB or smaller.');
-                event.target.value = '';
-                return;
-            }
-
-            const dataUrl = await fileToDataUrl(file);
-            pendingUtmCardBase64 = String(dataUrl).split(',')[1] || '';
-            pendingUtmCardMime = file.type;
-            document.getElementById('utm-card-status').textContent = 'Uploading UTM card and updating verification status...';
-            event.target.value = '';
-            await saveProfileEdits();
-        });
-
-        function triggerAvatarUpload() {
-            document.getElementById('avatar-input').click();
-        }
-
-        document.getElementById('avatar-input').addEventListener('change', async function(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            const processed = await processAvatarFile(file);
-            if (!processed) {
-                event.target.value = '';
-                return;
-            }
-
-            pendingAvatarBase64 = processed.base64;
-            const avatarImg = document.getElementById('profile-avatar');
-            document.getElementById('profile-avatar-fallback').style.display = 'none';
-            avatarImg.src = `data:image/jpeg;base64,${processed.base64}`;
-            avatarImg.style.display = 'block';
-            event.target.value = '';
-        });
-
-        async function processAvatarFile(file) {
-            const dataUrl = await fileToDataUrl(file);
-            const source = await loadImage(dataUrl);
-            const canvas = document.createElement('canvas');
-            canvas.width = 413;
-            canvas.height = 591;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(source, 0, 0, 413, 591);
-
-            for (let quality = 0.9; quality >= 0.45; quality -= 0.05) {
-                const blob = await canvasToBlob(canvas, quality);
-                if (blob.size < 100 * 1024) {
-                    return { base64: await blobToBase64(blob) };
+                
+                // Enforced 5MB footprint verification rule
+                if (file.size > 5 * 1024 * 1024) {
+                    alert('UTM card image must be 5MB or smaller.');
+                    event.target.value = '';
+                    return;
                 }
+
+                const dataUrl = await fileToDataUrl(file);
+                const base64Str = String(dataUrl).split(',')[1] || '';
+
+                if (side === 'front') {
+                    pendingFrontCardBase64 = base64Str;
+                    pendingFrontCardMime = file.type;
+                } else {
+                    pendingBackCardBase64 = base64Str;
+                    pendingBackCardMime = file.type;
+                }
+
+                // UI Status Update & Live Preview Insertion
+                const previewImg = document.getElementById(`card-${side}-preview`);
+                const placeholder = document.getElementById(`${side}-placeholder`);
+                previewImg.src = dataUrl;
+                previewImg.style.display = 'block';
+                placeholder.style.display = 'none';
+            });
+        });
+    }
+
+    // Profile submission engine passing both images via JSON payload
+    async function submitUtmCards() {
+        if (!pendingFrontCardBase64 || !pendingBackCardBase64) {
+            alert('Please pick files for both Front and Back card boxes before submitting.');
+            return;
+        }
+
+        document.getElementById('utm-card-status').textContent = 'Uploading card channels and updating status...';
+
+        const phoneNumber = document.getElementById('detail-phone').textContent.trim() === 'Waiting to edit' ? '' : document.getElementById('detail-phone').textContent.trim();
+        const department = document.getElementById('detail-department').textContent.trim() === 'Waiting to edit' ? '' : document.getElementById('detail-department').textContent.trim();
+        const gender = document.getElementById('detail-gender').textContent.trim() === 'Waiting to edit' ? '' : document.getElementById('detail-gender').textContent.trim();
+        const address = document.getElementById('detail-address').textContent.trim() === 'Waiting to edit' ? '' : document.getElementById('detail-address').textContent.trim();
+
+        const response = await fetch('../../api/user/profile_data.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+                phone_number: phoneNumber,
+                department: department,
+                gender: gender,
+                address: address,
+                avatar_base64: pendingAvatarBase64,
+                card_front_base64: pendingFrontCardBase64,
+                card_front_mime: pendingFrontCardMime,
+                card_back_base64: pendingBackCardBase64,
+                card_back_mime: pendingBackCardMime
+            })
+        });
+
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+            alert(result.message || 'Failed to complete card verification update.');
+            return;
+        }
+
+        // Wipe parameters trace memory space upon success
+        pendingFrontCardBase64 = pendingFrontCardMime = pendingBackCardBase64 = pendingBackCardMime = '';
+        alert('UTM Card files submitted successfully!');
+        await loadProfileData();
+    }
+
+    // Trigger profile avatar handler context
+    function triggerAvatarUpload() {
+        document.getElementById('avatar-input').click();
+    }
+
+    document.getElementById('avatar-input').addEventListener('change', async function(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const processed = await processAvatarFile(file);
+        if (!processed) {
+            event.target.value = '';
+            return;
+        }
+
+        pendingAvatarBase64 = processed.base64;
+        const avatarImg = document.getElementById('profile-avatar');
+        document.getElementById('profile-avatar-fallback').style.display = 'none';
+        avatarImg.src = `data:image/jpeg;base64,${processed.base64}`;
+        avatarImg.style.display = 'block';
+        event.target.value = '';
+    });
+
+    async function processAvatarFile(file) {
+        const dataUrl = await fileToDataUrl(file);
+        const source = await loadImage(dataUrl);
+        const canvas = document.createElement('canvas');
+        canvas.width = 413;
+        canvas.height = 591;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(source, 0, 0, 413, 591);
+
+        for (let quality = 0.9; quality >= 0.45; quality -= 0.05) {
+            const blob = await canvasToBlob(canvas, quality);
+            if (blob.size < 100 * 1024) {
+                return { base64: await blobToBase64(blob) };
             }
+        }
+        alert('Image is too complex. Please choose another photo.');
+        return null;
+    }
 
-            alert('Image is too complex. Please choose another photo.');
-            return null;
+    // Helper Promises Converters
+    function fileToDataUrl(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    }
+
+    function loadImage(src) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => resolve(img);
+            img.onerror = reject;
+            img.src = src;
+        });
+    }
+
+    function canvasToBlob(canvas, quality) {
+        return new Promise((resolve) => {
+            canvas.toBlob((blob) => resolve(blob), 'image/jpeg', quality);
+        });
+    }
+
+    function blobToBase64(blob) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result.split(',')[1]);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+    }
+
+    function toggleProfileEdit() {
+        if (!isEditMode) {
+            if (pendingAvatarBase64) { saveProfileEdits(); return; }
+            enterEditMode();
+        } else {
+            saveProfileEdits();
+        }
+    }
+
+    function enterEditMode() {
+        isEditMode = true;
+        ['detail-phone', 'detail-department'].forEach(id => {
+            const element = document.getElementById(id);
+            const value = element.textContent.trim() === 'Waiting to edit' ? '' : element.textContent.trim();
+            element.innerHTML = `<input type="text" id="${id}-input" value="${value}" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">`;
+        });
+
+        const genderElement = document.getElementById('detail-gender');
+        const currentGender = genderElement.textContent.trim();
+        genderElement.innerHTML = `
+            <select id="detail-gender-input" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;background:#fff;">
+                <option value="" ${currentGender === 'Waiting to edit' || currentGender === '' ? 'selected' : ''}>Select Gender</option>
+                <option value="Male" ${currentGender === 'Male' ? 'selected' : ''}>Male</option>
+                <option value="Female" ${currentGender === 'Female' ? 'selected' : ''}>Female</option>
+                <option value="Other" ${currentGender === 'Other' ? 'selected' : ''}>Other</option>
+            </select>
+        `;
+
+        const addressElement = document.getElementById('detail-address');
+        const currentAddress = addressElement.textContent.trim() === 'Waiting to edit' ? '' : addressElement.textContent.trim();
+        addressElement.innerHTML = `<textarea id="detail-address-input" rows="3" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;font-family:inherit;resize:vertical;">${currentAddress}</textarea>`;
+        document.getElementById('btn-edit-profile').textContent = '✅ Save';
+    }
+
+    async function saveProfileEdits() {
+        const phoneInput = document.getElementById('detail-phone-input');
+        const departmentInput = document.getElementById('detail-department-input');
+        const genderInput = document.getElementById('detail-gender-input');
+        const addressInput = document.getElementById('detail-address-input');
+
+        const phoneNumber = phoneInput ? phoneInput.value.trim() : (document.getElementById('detail-phone').textContent.trim() === 'Waiting to edit' ? '' : document.getElementById('detail-phone').textContent.trim());
+        const department = departmentInput ? departmentInput.value.trim() : (document.getElementById('detail-department').textContent.trim() === 'Waiting to edit' ? '' : document.getElementById('detail-department').textContent.trim());
+        const gender = genderInput ? genderInput.value : (document.getElementById('detail-gender').textContent.trim() === 'Waiting to edit' ? '' : document.getElementById('detail-gender').textContent.trim());
+        const address = addressInput ? addressInput.value.trim() : (document.getElementById('detail-address').textContent.trim() === 'Waiting to edit' ? '' : document.getElementById('detail-address').textContent.trim());
+
+        const response = await fetch('../../api/user/profile_data.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+                phone_number: phoneNumber,
+                department: department,
+                gender: gender,
+                address: address,
+                avatar_base64: pendingAvatarBase64
+            })
+        });
+
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+            alert(result.message || 'Failed to update profile.');
+            return;
         }
 
-        function fileToDataUrl(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.pointer = () => resolve(reader.result);
-                reader.onload = () => resolve(reader.result);
-                reader.onerror = reject;
-                reader.readAsDataURL(file);
-            });
-        }
+        isEditMode = false;
+        document.getElementById('btn-edit-profile').textContent = '✏️ Edit Profile';
+        await loadProfileData();
+        pendingAvatarBase64 = '';
+        alert('Profile updated successfully.');
+    }
 
-        function loadImage(src) {
-            return new Promise((resolve, reject) => {
-                const img = new Image();
-                img.onload = () => resolve(img);
-                img.onerror = reject;
-                img.src = src;
-            });
-        }
-
-        function canvasToBlob(canvas, quality) {
-            return new Promise((resolve) => {
-                canvas.toBlob((blob) => resolve(blob), 'image/jpeg', quality);
-            });
-        }
-
-        function blobToBase64(blob) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve(reader.result.split(',')[1]);
-                reader.onerror = reject;
-                reader.readAsDataURL(blob);
-            });
-        }
-
-        function navigateTo(page) {
-            alert('Navigating to ' + page);
-        }
-
-        function viewOlderHistory() {
-            window.location.href = 'booking-history.php';
-        }
-    </script>
+    function cancelBooking() {}
+    function navigateTo(page) { alert('Navigating to ' + page); }
+    function viewOlderHistory() { window.location.href = 'booking-history.php'; }
+</script>
 </body>
 </html>
