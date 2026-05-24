@@ -1,5 +1,7 @@
 <?php
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 header('Content-Type: application/json');
 
 if (!isset($_SESSION['user']['user_id'])) {
@@ -137,7 +139,7 @@ function processUtmCardImage(string $rawData, string $declaredMime = ''): array
 
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    $stmt = $pdo->prepare("SELECT user_id, full_name, email, utm_id, ic_no, phone_number, department, gender, address, verification_status, profile_image_base64, profile_image_mime, CASE WHEN utm_card_base64 IS NULL OR utm_card_base64 = '' THEN 0 ELSE 1 END AS has_utm_card FROM users WHERE user_id = :user_id LIMIT 1");
+    $stmt = $pdo->prepare("SELECT user_id, full_name, email, utm_id, ic_no, phone_number, department, gender, address, verification_status, profile_image_base64, profile_image_mime, CASE WHEN utm_card_base64 IS NULL OR utm_card_base64 = '' THEN 0 ELSE 1 END AS has_utm_card_front, CASE WHEN utm_card_back_base64 IS NULL OR utm_card_back_base64 = '' THEN 0 ELSE 1 END AS has_utm_card_back, CASE WHEN (utm_card_base64 IS NULL OR utm_card_base64 = '' OR utm_card_back_base64 IS NULL OR utm_card_back_base64 = '') THEN 0 ELSE 1 END AS has_utm_card FROM users WHERE user_id = :user_id LIMIT 1");
     $stmt->execute(['user_id' => $userId]);
     $user = $stmt->fetch();
 
@@ -170,8 +172,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $gender = trim($input['gender'] ?? '');
     $address = trim($input['address'] ?? '');
     $avatarBase64 = trim($input['avatar_base64'] ?? '');
-    $utmCardBase64 = trim($input['utm_card_base64'] ?? '');
-    $utmCardMime = trim($input['utm_card_mime'] ?? '');
+    $utmCardBase64 = trim($input['utm_card_base64'] ?? $input['utm_card_front_base64'] ?? '');
+    $utmCardMime = trim($input['utm_card_mime'] ?? $input['utm_card_front_mime'] ?? '');
+    $utmCardBackBase64 = trim($input['utm_card_back_base64'] ?? '');
+    $utmCardBackMime = trim($input['utm_card_back_mime'] ?? '');
 
     $allowedGenders = ['', 'Male', 'Female', 'Other'];
     if (!in_array($gender, $allowedGenders, true)) {
@@ -209,13 +213,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    if ($utmCardBase64 !== '') {
+    if ($utmCardBase64 !== '' || $utmCardBackBase64 !== '') {
+        if ($utmCardBase64 === '' || $utmCardBackBase64 === '') {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Please upload both front and back images of your UTM card.']);
+            exit;
+        }
         try {
             $cardPayload = processUtmCardImage($utmCardBase64, $utmCardMime);
+            $cardBackPayload = processUtmCardImage($utmCardBackBase64, $utmCardBackMime);
             $params['utm_card_base64'] = $cardPayload['utm_card_base64'];
             $params['utm_card_mime'] = $cardPayload['utm_card_mime'];
+            $params['utm_card_back_base64'] = $cardBackPayload['utm_card_base64'];
+            $params['utm_card_back_mime'] = $cardBackPayload['utm_card_mime'];
             $setParts[] = 'utm_card_base64 = :utm_card_base64';
             $setParts[] = 'utm_card_mime = :utm_card_mime';
+            $setParts[] = 'utm_card_back_base64 = :utm_card_back_base64';
+            $setParts[] = 'utm_card_back_mime = :utm_card_back_mime';
             $setParts[] = "verification_status = 'unverified'";
         } catch (RuntimeException $error) {
             http_response_code(422);

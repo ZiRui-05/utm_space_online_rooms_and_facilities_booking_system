@@ -132,6 +132,8 @@ CREATE TABLE `users` (
   `address` text DEFAULT NULL,
   `utm_card_base64` longtext DEFAULT NULL,
   `utm_card_mime` varchar(50) DEFAULT NULL,
+  `utm_card_back_base64` longtext DEFAULT NULL,
+  `utm_card_back_mime` varchar(50) DEFAULT NULL,
   `verification_status` enum('unverified','verified') NOT NULL DEFAULT 'unverified',
   `profile_image_base64` longtext DEFAULT NULL,
   `profile_image_mime` varchar(50) DEFAULT NULL,

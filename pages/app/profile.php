@@ -663,9 +663,11 @@
                     <div class="detail-item full-width-field">
                         <div class="detail-label">UTM Card</div>
                         <div class="utm-card-upload-box">
-                            <input type="file" id="utm-card-input" accept="image/jpeg,image/png,image/webp" style="display:none;">
-                            <button type="button" class="btn-upload-card" onclick="triggerUtmCardUpload()">🪪 Upload UTM Card</button>
-                            <div class="utm-card-status" id="utm-card-status">Upload a clear JPG, PNG, or WEBP image of your UTM card. Admin will verify it after upload.</div>
+                            <input type="file" id="utm-card-front-input" accept="image/jpeg,image/png,image/webp" style="display:none;">
+                            <input type="file" id="utm-card-back-input" accept="image/jpeg,image/png,image/webp" style="display:none;">
+                            <button type="button" class="btn-upload-card" onclick="triggerUtmCardUpload('front')">Upload Front</button>
+                            <button type="button" class="btn-upload-card" onclick="triggerUtmCardUpload('back')">Upload Back</button>
+                            <div class="utm-card-status" id="utm-card-status">Upload clear front and back JPG, PNG, or WEBP images of your UTM card. Admin will verify both sides after upload.</div>
                         </div>
                     </div>
                 </div>
@@ -704,8 +706,10 @@
     <script>
         let isEditMode = false;
         let pendingAvatarBase64 = "";
-        let pendingUtmCardBase64 = "";
-        let pendingUtmCardMime = "";
+        let pendingUtmCardFrontBase64 = "";
+        let pendingUtmCardFrontMime = "";
+        let pendingUtmCardBackBase64 = "";
+        let pendingUtmCardBackMime = "";
         
         // Load user data
         document.addEventListener('DOMContentLoaded', async function() {
@@ -761,9 +765,11 @@
             const verificationBadge = document.getElementById('detail-verification-status');
             verificationBadge.textContent = verificationStatus === 'verified' ? 'Verified' : 'Unverified';
             verificationBadge.className = 'verification-badge ' + verificationStatus;
-            document.getElementById('utm-card-status').textContent = Number(userData.has_utm_card) === 1
-                ? 'UTM card uploaded. Your profile is verified.'
-                : 'Upload a clear JPG, PNG, or WEBP image of your UTM card. Admin will verify it after upload.';
+            const hasFront = Number(userData.has_utm_card_front || 0) === 1;
+            const hasBack = Number(userData.has_utm_card_back || 0) === 1;
+            document.getElementById('utm-card-status').textContent = hasFront && hasBack
+                ? 'Front and back UTM card images uploaded. Admin will verify both sides.'
+                : 'Upload clear front and back JPG, PNG, or WEBP images of your UTM card. Admin will verify both sides after upload.';
             
             renderBookings(result.bookings || []);
         }
@@ -907,8 +913,10 @@
                     gender: gender,
                     address: address,
                     avatar_base64: pendingAvatarBase64,
-                    utm_card_base64: pendingUtmCardBase64,
-                    utm_card_mime: pendingUtmCardMime
+                    utm_card_base64: pendingUtmCardFrontBase64,
+                    utm_card_mime: pendingUtmCardFrontMime,
+                    utm_card_back_base64: pendingUtmCardBackBase64,
+                    utm_card_back_mime: pendingUtmCardBackMime
                 })
             });
 
@@ -922,16 +930,18 @@
             document.getElementById('btn-edit-profile').textContent = '✏️ Edit Profile';
             await loadProfileData();
             pendingAvatarBase64 = '';
-            pendingUtmCardBase64 = '';
-            pendingUtmCardMime = '';
+            pendingUtmCardFrontBase64 = '';
+            pendingUtmCardFrontMime = '';
+            pendingUtmCardBackBase64 = '';
+            pendingUtmCardBackMime = '';
             alert('Profile updated successfully.');
         }
 
-        function triggerUtmCardUpload() {
-            document.getElementById('utm-card-input').click();
+        function triggerUtmCardUpload(side) {
+            document.getElementById(side === 'back' ? 'utm-card-back-input' : 'utm-card-front-input').click();
         }
 
-        document.getElementById('utm-card-input').addEventListener('change', async function(event) {
+        async function handleUtmCardUpload(event, side) {
             const file = event.target.files[0];
             if (!file) return;
 
@@ -948,12 +958,23 @@
             }
 
             const dataUrl = await fileToDataUrl(file);
-            pendingUtmCardBase64 = String(dataUrl).split(',')[1] || '';
-            pendingUtmCardMime = file.type;
-            document.getElementById('utm-card-status').textContent = 'Uploading UTM card and sending to admin for verification...';
+            if (side === 'back') {
+                pendingUtmCardBackBase64 = String(dataUrl).split(',')[1] || '';
+                pendingUtmCardBackMime = file.type;
+            } else {
+                pendingUtmCardFrontBase64 = String(dataUrl).split(',')[1] || '';
+                pendingUtmCardFrontMime = file.type;
+            }
+            document.getElementById('utm-card-status').textContent = side === 'back' ? 'Back side selected. Upload the front side too, then both sides will be sent to admin.' : 'Front side selected. Upload the back side too, then both sides will be sent to admin.';
             event.target.value = '';
-            await saveProfileEdits();
-        });
+            if (pendingUtmCardFrontBase64 && pendingUtmCardBackBase64) {
+                document.getElementById('utm-card-status').textContent = 'Uploading both sides of your UTM card and sending to admin for verification...';
+                await saveProfileEdits();
+            }
+        }
+
+        document.getElementById('utm-card-front-input').addEventListener('change', (event) => handleUtmCardUpload(event, 'front'));
+        document.getElementById('utm-card-back-input').addEventListener('change', (event) => handleUtmCardUpload(event, 'back'));
 
         function triggerAvatarUpload() {
             document.getElementById('avatar-input').click();

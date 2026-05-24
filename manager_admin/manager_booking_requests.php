@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['booking_id'], $_POST[
 }
 $status = $_GET['status'] ?? 'all';
 $where = $status !== 'all' ? "WHERE b.booking_status='" . $conn->real_escape_string($status) . "'" : '';
-$list = $conn->query("SELECT b.*, u.full_name, u.email, COALESCE(r.room_name, f.facility_name) resource_name, COALESCE(r.location, f.location) location FROM bookings b JOIN users u ON u.user_id=b.user_id LEFT JOIN rooms r ON r.room_id=b.room_id LEFT JOIN facilities f ON f.facility_id=b.facility_id $where ORDER BY b.created_at DESC");
+$list = $conn->query("SELECT b.*, u.full_name, u.email, u.role, u.utm_id, u.phone_number, COALESCE(r.room_name, f.facility_name) resource_name, COALESCE(r.location, f.location) location FROM bookings b JOIN users u ON u.user_id=b.user_id LEFT JOIN rooms r ON r.room_id=b.room_id LEFT JOIN facilities f ON f.facility_id=b.facility_id $where ORDER BY b.created_at DESC");
 $page_title='Facility Manager Booking Requests'; $active_page='bookings'; include __DIR__ . '/includes/header.php';
 ?>
 <div class="mb-8 flex justify-between items-end">
@@ -27,7 +27,7 @@ $page_title='Facility Manager Booking Requests'; $active_page='bookings'; includ
 <?php while($b=$list->fetch_assoc()): ?>
 <tr>
 <td class="table-td font-bold">#<?= h($b['booking_id']) ?><p class="text-xs text-slate-500"><?= h($b['purpose']) ?></p></td>
-<td class="table-td"><?= h($b['full_name']) ?><p class="text-xs text-slate-500"><?= h($b['email']) ?></p></td>
+<td class="table-td"><?= h($b['full_name']) ?><p class="text-xs text-slate-500">Role: <?= h(ucwords(str_replace('_',' ',$b['role']))) ?></p><p class="text-xs text-slate-500">UTM ID: <?= h($b['utm_id']) ?></p><p class="text-xs text-slate-500">Email: <?= h($b['email']) ?></p><p class="text-xs text-slate-500">Contact: <?= h($b['phone_number'] ?: '-') ?></p></td>
 <td class="table-td"><?= h($b['resource_name']) ?><p class="text-xs text-slate-500"><?= h($b['location']) ?></p></td>
 <td class="table-td"><?= h($b['booking_start']) ?><p class="text-xs text-slate-500">to <?= h($b['booking_end']) ?></p></td>
 <td class="table-td"><?= h($b['payment_status']) ?><p class="text-xs text-slate-500">RM <?= number_format((float)$b['total_price'],2) ?></p></td>
