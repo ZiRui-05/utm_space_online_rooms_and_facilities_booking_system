@@ -29,6 +29,12 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
             color: var(--text-dark);
             background: var(--bg-light);
+            min-height: 100vh;
+        }
+
+        .footer {
+            width: 100%;
+            margin-top: 30px;
         }
 
         /* Breadcrumb */
@@ -229,6 +235,7 @@
             display: flex;
             flex-direction: column;
             gap: 24px;
+            min-width: 0;
         }
 
         /* Header Section */
@@ -448,12 +455,17 @@
             border-radius: 8px;
             padding: 24px;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            width: 100%;
+            max-width: 100%;
+            overflow-x: auto;
         }
 
         .booking-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
             margin-bottom: 20px;
             padding-bottom: 12px;
             border-bottom: 2px solid var(--border-light);
@@ -485,6 +497,7 @@
             width: 100%;
             border-collapse: collapse;
             font-size: 13px;
+            min-width: 640px;
         }
 
         .booking-table th {
@@ -764,6 +777,9 @@
         </div>
     </div>
 </div>
+
+                </div>
+            </div>
 
             <div class="booking-section">
                 <div class="booking-header">
