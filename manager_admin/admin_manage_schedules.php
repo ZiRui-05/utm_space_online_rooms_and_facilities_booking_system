@@ -2,6 +2,8 @@
 date_default_timezone_set('Asia/Kuala_Lumpur');
 require_once __DIR__ . '/includes/auth.php';
 $user = require_role(['admin']);
+header('Location: admin_dashboard.php?error=' . urlencode('Schedule management is only available for facility managers.'));
+exit;
 $self_file='admin_manage_schedules.php';
 $nowMalaysiaTs = time();
 $nowMalaysiaSql = date('Y-m-d H:i:s', $nowMalaysiaTs);

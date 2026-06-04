@@ -1,7 +1,5 @@
 <?php
-require_once __DIR__ . '/includes/auth.php';
-$user = require_role(['admin','facility_manager']);
-$prefix = $user['role'] === 'admin' ? 'admin' : 'manager';
-header('Location: ' . $prefix . '_manage_facilities.php');
+$query = $_SERVER['QUERY_STRING'] ?? '';
+header('Location: ../../manager_admin/manage_facilities.php' . ($query !== '' ? '?' . $query : ''));
 exit;
 ?>

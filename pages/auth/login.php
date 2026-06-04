@@ -573,12 +573,27 @@ $currentPage = '';
                     localStorage.removeItem('rememberLoginId');
                 }
 
-                window.location.href = '../../homepage.php';
+                window.location.href = getRoleBasedRedirect(result.user?.role);
             } catch (error) {
                 showError('signin', error.message || 'Unable to sign in.');
             } finally {
                 showLoading('signin', false);
             }
+        }
+
+
+        function getRoleBasedRedirect(role) {
+            const normalizedRole = (role || '').toLowerCase();
+
+            if (normalizedRole === 'admin') {
+                return '../app/admin_dashboard.php';
+            }
+
+            if (normalizedRole === 'manager' || normalizedRole === 'facility_manager') {
+                return '../app/facility_manager_dashboard.php';
+            }
+
+            return '../../homepage.php';
         }
 
         function handleSSO() {
@@ -671,7 +686,7 @@ $currentPage = '';
             if (response.ok) {
                 const sessionData = await response.json();
                 if (sessionData.authenticated) {
-                    window.location.href = '../../homepage.php';
+                    window.location.href = getRoleBasedRedirect(sessionData.user?.role);
                 }
             }
         });

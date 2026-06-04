@@ -62,11 +62,11 @@
 
         /* Main Container */
         .container {
-            max-width: 1200px;
+            max-width: 1420px;
             margin: 30px auto;
             padding: 0 30px;
             display: grid;
-            grid-template-columns: 1fr 2fr;
+            grid-template-columns: minmax(320px, 400px) minmax(0, 1fr);
             gap: 30px;
         }
 
@@ -497,7 +497,7 @@
             width: 100%;
             border-collapse: collapse;
             font-size: 13px;
-            min-width: 640px;
+            min-width: 780px;
         }
 
         .booking-table th {
@@ -559,6 +559,106 @@
         .status-cancelled {
             background: #ffebee;
             color: var(--danger);
+        }
+
+        .payment-unavailable {
+            color: var(--text-light);
+            font-weight: 600;
+        }
+
+        .payment-paid {
+            background: #e8f5e9;
+            color: var(--success);
+        }
+
+        .btn-payment {
+            background: var(--primary-color);
+            color: var(--white);
+            border: none;
+            padding: 7px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background 0.3s;
+        }
+
+        .btn-payment:hover {
+            background: var(--primary-hover);
+        }
+
+        .payment-modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.45);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            z-index: 1000;
+        }
+
+        .payment-modal {
+            width: min(520px, 100%);
+            background: var(--white);
+            border-radius: 8px;
+            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22);
+            padding: 24px;
+        }
+
+        .payment-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .payment-modal-header h3 {
+            font-size: 18px;
+            color: var(--text-dark);
+        }
+
+        .payment-modal-close {
+            width: 32px;
+            height: 32px;
+            border: none;
+            border-radius: 50%;
+            background: var(--bg-light);
+            color: var(--text-dark);
+            cursor: pointer;
+            font-size: 20px;
+            line-height: 1;
+        }
+
+        .payment-instruction {
+            color: var(--text-light);
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 18px;
+        }
+
+        .payment-reference {
+            background: var(--bg-light);
+            border: 1px solid var(--border-light);
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 18px;
+            font-size: 13px;
+            color: var(--text-dark);
+        }
+
+        .payment-modal-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .payment-upload-status {
+            color: var(--text-light);
+            font-size: 12px;
         }
 
         .action-link {
@@ -794,6 +894,7 @@
                             <th>Facility & ID</th>
                             <th>Date & Time</th>
                             <th>Status</th>
+                            <th>Payment</th>
                             <th>Action</th>
                         </tr>
                     </thead>
@@ -803,6 +904,26 @@
                 <div id="booking-empty" class="booking-empty" style="display: none;">You haven't booked any rooms and facilities yet.</div>
 
                 <div id="view-history" class="view-history" onclick="viewOlderHistory()">View Older History</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="payment-modal-backdrop" id="payment-modal-backdrop">
+        <div class="payment-modal" role="dialog" aria-modal="true" aria-labelledby="payment-modal-title">
+            <div class="payment-modal-header">
+                <h3 id="payment-modal-title">Complete Payment</h3>
+                <button type="button" class="payment-modal-close" onclick="closePaymentModal()" aria-label="Close payment dialog">×</button>
+            </div>
+            <p class="payment-instruction">
+                You may manually made a payment by transferring to official bank account number:
+                <strong>202620270382</strong> with reference:
+                <strong>"SPACEBOOK" + "booking_id"</strong>
+            </p>
+            <div class="payment-reference" id="payment-reference-text"></div>
+            <input type="file" id="payment-receipt-input" accept="image/jpeg,image/png,image/webp,application/pdf" style="display:none;">
+            <div class="payment-modal-actions">
+                <button type="button" class="btn-payment" onclick="triggerReceiptUpload()">Upload Receipt</button>
+                <span class="payment-upload-status" id="payment-upload-status">JPG, PNG, WEBP, or PDF. Max 5MB.</span>
             </div>
         </div>
     </div>
@@ -820,6 +941,8 @@
     let pendingFrontCardMime = "";
     let pendingBackCardBase64 = "";
     let pendingBackCardMime = "";
+    let currentVerificationStatus = 'unverified';
+    let activePaymentBookingId = null;
     
     // Initial Load Hook
     document.addEventListener('DOMContentLoaded', async function() {
@@ -829,6 +952,7 @@
         if (!sessionData.authenticated) { window.location.href = '../auth/login.php'; return; }
         await loadProfileData();
         setupCardListeners(); // Initialize modern side listeners safely
+        setupReceiptUpload();
     });
 
     async function loadProfileData() {
@@ -871,6 +995,7 @@
         document.getElementById('detail-address').textContent = userData.address || 'Waiting to edit';
 
         const verificationStatus = userData.verification_status === 'verified' ? 'verified' : 'unverified';
+        currentVerificationStatus = verificationStatus;
         const verificationBadge = document.getElementById('detail-verification-status');
         verificationBadge.textContent = verificationStatus === 'verified' ? 'Verified' : 'Unverified';
         verificationBadge.className = 'verification-badge ' + verificationStatus;
@@ -900,7 +1025,7 @@
         emptyMessage.style.display = 'none';
         viewHistory.style.display = 'block';
 
-        bookings.forEach((booking) => {
+        bookings.slice(0, 5).forEach((booking) => {
             const startDate = new Date(booking.booking_start);
             const endDate = new Date(booking.booking_end);
             const facilityName = booking.resource_type === 'room'
@@ -913,6 +1038,20 @@
             const actionHTML = canCancel
                 ? `<button type="button" class="action-link action-cancel" onclick="cancelBooking(${Number(booking.booking_id)})">Cancel Booking</button>`
                 : '<span class="action-link">-</span>';
+            const totalPrice = Number(booking.total_price || 0);
+            const paymentStatus = (booking.payment_status || '').toLowerCase();
+            let paymentHTML = '<span class="payment-unavailable">Unavailable</span>';
+            if (totalPrice > 0 && paymentStatus === 'paid') {
+                paymentHTML = '<span class="status-badge payment-paid">Paid</span>';
+            } else if (totalPrice > 0 && paymentStatus === 'unpaid') {
+                paymentHTML = `<button type="button" class="btn-payment" onclick="openPaymentModal(${Number(booking.booking_id)})">Complete Payment</button>`;
+            } else if (totalPrice > 0 && paymentStatus) {
+                const paymentLabel = paymentStatus
+                    .split('_')
+                    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                    .join(' ');
+                paymentHTML = `<span class="status-badge status-pending">${paymentLabel}</span>`;
+            }
 
             const row = document.createElement('tr');
             row.innerHTML = `
@@ -925,9 +1064,74 @@
                     <div style="color: var(--text-light);">${startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })} - ${endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}</div>
                 </td>
                 <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
+                <td>${paymentHTML}</td>
                 <td>${actionHTML}</td>
             `;
             tbody.appendChild(row);
+        });
+    }
+
+    function openPaymentModal(bookingId) {
+        activePaymentBookingId = bookingId;
+        document.getElementById('payment-reference-text').innerHTML =
+            `<strong>Booking ID:</strong> ${bookingId}<br><strong>Suggested reference:</strong> SPACEBOOK${bookingId}`;
+        document.getElementById('payment-upload-status').textContent = 'JPG, PNG, WEBP, or PDF. Max 5MB.';
+        document.getElementById('payment-receipt-input').value = '';
+        document.getElementById('payment-modal-backdrop').style.display = 'flex';
+    }
+
+    function closePaymentModal() {
+        activePaymentBookingId = null;
+        document.getElementById('payment-modal-backdrop').style.display = 'none';
+    }
+
+    function triggerReceiptUpload() {
+        if (!activePaymentBookingId) return;
+        document.getElementById('payment-receipt-input').click();
+    }
+
+    function setupReceiptUpload() {
+        const receiptInput = document.getElementById('payment-receipt-input');
+        receiptInput.addEventListener('change', async function(event) {
+            const file = event.target.files[0];
+            if (!file || !activePaymentBookingId) return;
+
+            const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+            if (!allowedTypes.includes(file.type)) {
+                alert('Receipt must be JPG, PNG, WEBP, or PDF.');
+                event.target.value = '';
+                return;
+            }
+
+            if (file.size > 5 * 1024 * 1024) {
+                alert('Receipt file must be 5MB or smaller.');
+                event.target.value = '';
+                return;
+            }
+
+            const uploadStatus = document.getElementById('payment-upload-status');
+            uploadStatus.textContent = 'Uploading receipt...';
+
+            const formData = new FormData();
+            formData.append('id', String(activePaymentBookingId));
+            formData.append('receipt', file);
+
+            const response = await fetch('../../api/booking/upload_receipt.php', {
+                method: 'POST',
+                credentials: 'same-origin',
+                body: formData
+            });
+            const result = await response.json();
+
+            if (!response.ok || !result.success) {
+                uploadStatus.textContent = 'Upload failed.';
+                alert(result.message || 'Failed to upload receipt.');
+                return;
+            }
+
+            uploadStatus.textContent = 'Receipt uploaded. Pending verification.';
+            await loadProfileData();
+            setTimeout(closePaymentModal, 600);
         });
     }
 
@@ -1111,11 +1315,39 @@
 
     function enterEditMode() {
         isEditMode = true;
-        ['detail-phone', 'detail-department'].forEach(id => {
-            const element = document.getElementById(id);
-            const value = element.textContent.trim() === 'Waiting to edit' ? '' : element.textContent.trim();
-            element.innerHTML = `<input type="text" id="${id}-input" value="${value}" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">`;
-        });
+
+        const phoneElement = document.getElementById('detail-phone');
+        const phoneValue = phoneElement.textContent.trim() === 'Waiting to edit' ? '' : phoneElement.textContent.trim();
+        phoneElement.innerHTML = `<input type="text" id="detail-phone-input" value="${phoneValue}" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">`;
+
+        const departmentElement = document.getElementById('detail-department');
+        const currentDepartment = departmentElement.textContent.trim();
+        if (currentVerificationStatus !== 'verified') {
+            const departments = [
+                'Faculty of Artificial Intelligence (FAI)',
+                'Faculty of Built Environment and Surveying',
+                'Faculty of Chemical & Energy Engineering',
+                'Faculty of Computing',
+                'Faculty of Educational Sciences and Technology (FEST)',
+                'Faculty of Electrical Engineering',
+                'Faculty of Management',
+                'Faculty of Mechanical Engineering',
+                'Faculty of Civil Engineering',
+                'Faculty of Science',
+                'Faculty of Social Sciences and Humanities',
+                'SPACE UTM (School of Professional and Continuing Education)'
+            ];
+            const departmentOptions = departments.map(department => {
+                const selected = currentDepartment === department ? 'selected' : '';
+                return `<option value="${department}" ${selected}>${department}</option>`;
+            }).join('');
+            departmentElement.innerHTML = `
+                <select id="detail-department-input" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;background:#fff;">
+                    <option value="" ${currentDepartment === 'Waiting to edit' || currentDepartment === '' ? 'selected' : ''}>Select Department</option>
+                    ${departmentOptions}
+                </select>
+            `;
+        }
 
         const genderElement = document.getElementById('detail-gender');
         const currentGender = genderElement.textContent.trim();

@@ -33,9 +33,48 @@ if (isset($_GET['check_slots'])) {
             return [
                 'start' => date('H:i', strtotime((string)$row['booking_start'])),
                 'end' => date('H:i', strtotime((string)$row['booking_end'])),
-                'status' => ucfirst((string)$row['booking_status']),
+                'status' => strtolower((string)$row['booking_status']),
+                'kind' => 'booking',
             ];
         }, $rows);
+
+        $scheduleSql = "SELECT start_time, end_time, status
+                        FROM schedules
+                        WHERE resource_type = ?
+                          AND {$idColumn} = ?
+                          AND status IN ('blocked', 'maintenance')
+                          AND DATE(start_time) = ?
+                        ORDER BY start_time ASC";
+        $scheduleStmt = $pdo->prepare($scheduleSql);
+        $scheduleStmt->execute([$resourceType, $resourceId, $date]);
+        $scheduleRows = $scheduleStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        foreach ($scheduleRows as $row) {
+            $slots[] = [
+                'start' => date('H:i', strtotime((string)$row['start_time'])),
+                'end' => date('H:i', strtotime((string)$row['end_time'])),
+                'status' => strtolower((string)$row['status']),
+                'kind' => 'schedule',
+            ];
+        }
+
+        $weekday = (int)(new DateTimeImmutable($date))->format('N');
+        $ruleSql = "SELECT start_hour, end_hour, status
+                    FROM weekly_schedule_rules
+                    WHERE resource_type = ?
+                      AND {$idColumn} = ?
+                      AND weekday = ?
+                      AND status IN ('blocked', 'maintenance')";
+        $ruleStmt = $pdo->prepare($ruleSql);
+        $ruleStmt->execute([$resourceType, $resourceId, $weekday]);
+        $ruleRows = $ruleStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        foreach ($ruleRows as $row) {
+            $slots[] = [
+                'start' => sprintf('%02d:00', (int)$row['start_hour']),
+                'end' => sprintf('%02d:00', (int)$row['end_hour']),
+                'status' => strtolower((string)$row['status']),
+                'kind' => 'weekly_rule',
+            ];
+        }
 
         echo json_encode(['success' => true, 'slots' => $slots]);
     } catch (Throwable $e) {
@@ -59,26 +98,30 @@ $selectedDateParam = trim($_GET['booking_date'] ?? '');
 $selectedStartParam = trim($_GET['start_time'] ?? '');
 $selectedEndParam = trim($_GET['end_time'] ?? '');
 $currentRole = 'guest';
+$currentDepartment = '';
+$spaceUtmDepartment = 'SPACE UTM (School of Professional and Continuing Education)';
 $resourceOptions = [];
 $selectedResource = null;
 
 try {
     require_once __DIR__ . '/../../config/db.php';
 
-    $stmt = $pdo->prepare('SELECT role FROM users WHERE user_id = ? LIMIT 1');
+    $stmt = $pdo->prepare('SELECT role, department FROM users WHERE user_id = ? LIMIT 1');
     if (session_status() !== PHP_SESSION_ACTIVE) {
         session_start();
     }
     $uid = (int)($_SESSION['user']['user_id'] ?? ($_SESSION['user_id'] ?? 0));
     if ($uid > 0) {
         $stmt->execute([$uid]);
-        $currentRole = strtolower((string)($stmt->fetchColumn() ?: 'guest'));
+        $currentUser = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+        $currentRole = strtolower((string)($currentUser['role'] ?? 'guest'));
+        $currentDepartment = trim((string)($currentUser['department'] ?? ''));
     }
 
     if ($resourceType === 'room') {
-        $rows = $pdo->query("SELECT room_id AS id, room_name AS name, room_type AS type, capacity, price_per_day FROM rooms ORDER BY room_name ASC")->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $rows = $pdo->query("SELECT room_id AS id, room_name AS name, room_type AS type, capacity, price_per_day, resource_status FROM rooms ORDER BY room_name ASC")->fetchAll(PDO::FETCH_ASSOC) ?: [];
     } else {
-        $rows = $pdo->query("SELECT facility_id AS id, facility_name AS name, facility_type AS type, capacity, price_per_day FROM facilities ORDER BY facility_name ASC")->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $rows = $pdo->query("SELECT facility_id AS id, facility_name AS name, facility_type AS type, capacity, price_per_day, resource_status FROM facilities ORDER BY facility_name ASC")->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
     foreach ($rows as $row) {
@@ -88,6 +131,7 @@ try {
             'type' => (string)$row['type'],
             'capacity' => (int)($row['capacity'] ?? 0),
             'price' => (float)($row['price_per_day'] ?? 0),
+            'status' => strtolower((string)($row['resource_status'] ?? 'available')),
         ];
     }
 } catch (Throwable $e) {
@@ -263,20 +307,124 @@ body{
     align-items:center;
 }
 
-/* SLOT */
-
-.slot-status{
-    padding:16px;
-    border:1px solid var(--border-light);
-    border-radius:6px;
-    background:var(--bg-light);
+.facility-item.is-unavailable{
+    background:#f7f7f7;
     color:var(--text-light);
-    line-height:1.6;
 }
 
-.slot-status ul{
-    margin-left:18px;
-    margin-top:8px;
+.resource-status-badge{
+    display:inline-block;
+    margin-top:6px;
+    padding:3px 8px;
+    border-radius:999px;
+    font-size:11px;
+    font-weight:700;
+    text-transform:uppercase;
+}
+
+.resource-status-badge.status-available{
+    background:#e8f5e9;
+    color:var(--success);
+}
+
+.resource-status-badge.status-unavailable,
+.resource-status-badge.status-maintenance{
+    background:#ffebee;
+    color:var(--danger);
+}
+
+/* TIME SLOTS */
+
+.time-slot-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(165px,1fr));
+    gap:10px;
+}
+
+.time-slot-card{
+    border:1px solid var(--border-light);
+    border-radius:8px;
+    background:#fff;
+    padding:12px;
+    cursor:pointer;
+    text-align:left;
+    transition:all .2s ease;
+}
+
+.time-slot-card:hover{
+    border-color:var(--primary-color);
+    transform:translateY(-1px);
+}
+
+.time-slot-card.is-selected{
+    border-color:var(--primary-color);
+    box-shadow:0 0 0 2px rgba(139,21,56,.15);
+    background:#fff8fb;
+}
+
+.time-slot-card.is-disabled{
+    opacity:.72;
+    cursor:not-allowed;
+}
+
+.time-slot-card.status-free{
+    background:#f1f8f3;
+}
+
+.time-slot-card.status-pending{
+    background:#fff8e1;
+    border-color:#efd58f;
+}
+
+.time-slot-card.status-booked,
+.time-slot-card.status-blocked,
+.time-slot-card.status-maintenance{
+    background:#ffebee;
+    border-color:#f2b8bd;
+}
+
+.time-slot-card.status-maintenance{
+    background:#eef0f3;
+}
+
+.time-slot-time{
+    font-size:14px;
+    font-weight:700;
+    margin-bottom:4px;
+}
+
+.time-slot-meta{
+    color:var(--text-light);
+    font-size:12px;
+    font-weight:700;
+}
+
+.slot-helper{
+    color:var(--text-light);
+    font-size:13px;
+    margin-top:10px;
+}
+
+.selection-result{
+    margin-top:14px;
+    padding:14px;
+    border-radius:8px;
+    border:1px solid var(--border-light);
+    background:var(--bg-light);
+    color:var(--text-light);
+    line-height:1.5;
+}
+
+.selection-result.success{
+    background:#e8f5e9;
+    border-color:#b7dfbb;
+    color:var(--success);
+}
+
+.selection-result.error{
+    background:#ffebee;
+    border-color:#f2b8bd;
+    color:var(--danger);
 }
 
 /* COST */
@@ -440,30 +588,15 @@ include __DIR__ . '/../../includes/header.php';
         <label>Date Picker</label>
         <div class="input-wrapper">
             <span class="input-icon">📅</span>
-            <input type="date" id="booking-date" required onchange="checkTimeSlots()">
+            <input type="date" id="booking-date" required>
         </div>
     </div>
 
-<div class="form-row">
     <div class="form-group">
-        <label>Start Time (24h)</label>
-        <div class="input-wrapper">
-            <span class="input-icon">🕐</span>
-            <select id="booking-time" class="time-select" required onchange="checkTimeSlots()"></select>
-        </div>
-    </div>
-    <div class="form-group">
-        <label>End Time (24h)</label>
-        <div class="input-wrapper">
-            <span class="input-icon">🕑</span>
-            <select id="booking-end-time" class="time-select" required onchange="checkTimeSlots()"></select>
-        </div>
-    </div>
-</div>
-
-    <div class="form-group">
-        <label>Time Slot Check</label>
-        <div id="slot-check" class="slot-status">Select date/time to check slot availability.</div>
+        <label>Time Slots</label>
+        <div id="time-slot-grid" class="time-slot-grid"></div>
+        <div class="slot-helper" id="slot-helper">Choose continuous available slots only.</div>
+        <div id="selected-time-result" class="selection-result">No time selected yet.</div>
     </div>
 
 
@@ -542,19 +675,23 @@ const resourceLabel = resourceType === 'room' ? 'room' : 'facility';
 const options = <?= json_encode($resourceOptions, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 const initialSelectedId = <?= (int)($selectedResource['id'] ?? 0) ?>;
 const role = <?= json_encode($currentRole) ?>;
+const department = <?= json_encode($currentDepartment, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+const spaceUtmDepartment = <?= json_encode($spaceUtmDepartment, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 const normalizedRole = String(role || '').trim().toLowerCase();
+const normalizedDepartment = String(department || '').trim();
 const isNonGuestUser = normalizedRole !== '' && normalizedRole !== 'guest';
+const isSpaceUtmUser = normalizedDepartment === spaceUtmDepartment;
 const initialBookingDate = <?= json_encode($selectedDateParam) ?>;
 const initialStartTime = <?= json_encode($selectedStartParam) ?>;
 const initialEndTime = <?= json_encode($selectedEndParam) ?>;
+let slotStatusCache = [];
 
 document.addEventListener('DOMContentLoaded', () => {
     setupDateConstraints();
-    populateTimeDropdowns();
     renderResources();
     applyIncomingBookingSelection();
     updateCost();
-    checkTimeSlots();
+    renderTimeSlotCards();
 });
 
 function formatLocalDate(date) {
@@ -593,74 +730,15 @@ function setupDateConstraints() {
             alert('Booking date must be within 3 days including today.');
             dateInput.value = '';
         }
-        checkTimeSlots();
+        renderTimeSlotCards();
     });
-}
-
-function populateTimeDropdowns() {
-    const startSelect = document.getElementById('booking-time');
-    const endSelect = document.getElementById('booking-end-time');
-    if (!startSelect || !endSelect) return;
-
-    let startOptions = '<option value="">--:--</option>';
-    let endOptions = '<option value="">--:--</option>';
-
-    for (let minute = 8 * 60; minute <= 16 * 60; minute += 15) {
-        const value = formatTime(minute);
-        startOptions += `<option value="${value}">${value}</option>`;
-    }
-
-    for (let minute = 9 * 60; minute <= 17 * 60; minute += 15) {
-        const value = formatTime(minute);
-        endOptions += `<option value="${value}">${value}</option>`;
-    }
-
-    startSelect.innerHTML = startOptions;
-    endSelect.innerHTML = endOptions;
-    startSelect.addEventListener('change', () => {
-        syncEndTimeOptions();
-        checkTimeSlots();
-    });
-    endSelect.addEventListener('change', checkTimeSlots);
-    syncEndTimeOptions();
 }
 
 function applyIncomingBookingSelection() {
     const dateInput = document.getElementById('booking-date');
-    const startSelect = document.getElementById('booking-time');
-    const endSelect = document.getElementById('booking-end-time');
 
     if (dateInput && initialBookingDate && initialBookingDate >= dateInput.min && initialBookingDate <= dateInput.max) {
         dateInput.value = initialBookingDate;
-    }
-    if (startSelect && initialStartTime && [...startSelect.options].some(option => option.value === initialStartTime)) {
-        startSelect.value = initialStartTime;
-    }
-    syncEndTimeOptions();
-    if (endSelect && initialEndTime && [...endSelect.options].some(option => option.value === initialEndTime && !option.disabled)) {
-        endSelect.value = initialEndTime;
-    }
-}
-
-function syncEndTimeOptions() {
-    const startSelect = document.getElementById('booking-time');
-    const endSelect = document.getElementById('booking-end-time');
-    if (!startSelect || !endSelect) return;
-
-    const startMinutes = minutesFromTime(startSelect.value);
-    const minimumEnd = Number.isFinite(startMinutes) ? startMinutes + 60 : NaN;
-
-    [...endSelect.options].forEach(option => {
-        if (!option.value) {
-            option.disabled = false;
-            return;
-        }
-        const endMinutes = minutesFromTime(option.value);
-        option.disabled = Number.isFinite(minimumEnd) && endMinutes < minimumEnd;
-    });
-
-    if (endSelect.value && endSelect.selectedOptions[0]?.disabled) {
-        endSelect.value = '';
     }
 }
 
@@ -675,28 +753,33 @@ function renderResources() {
 
     container.innerHTML = options.map(option => {
         const checked = Number(option.id) === Number(initialSelectedId) ? 'checked' : '';
+        const status = String(option.status || 'available').toLowerCase();
+        const isAvailable = status === 'available';
+        const disabled = isAvailable ? '' : 'disabled';
+        const itemClass = isAvailable ? '' : 'is-unavailable';
         return `
-            <label class="facility-item">
-                <input type="radio" name="resource-option" value="${Number(option.id)}" ${checked}>
+            <label class="facility-item ${itemClass}">
+                <input type="radio" name="resource-option" value="${Number(option.id)}" ${checked} ${disabled}>
                 <div>
                     <strong>${escapeHtml(option.name)}</strong>
                     <div style="font-size:13px;color:var(--text-light);">
                         ${escapeHtml(option.type || resourceLabel)} · Capacity ${Number(option.capacity || 0)}
                     </div>
+                    <span class="resource-status-badge status-${escapeHtml(status)}">${escapeHtml(status)}</span>
                 </div>
             </label>
         `;
     }).join('');
 
     if (!document.querySelector('input[name="resource-option"]:checked')) {
-        const first = document.querySelector('input[name="resource-option"]');
+        const first = document.querySelector('input[name="resource-option"]:not(:disabled)');
         if (first) first.checked = true;
     }
 
     container.querySelectorAll('input[name="resource-option"]').forEach(input => {
         input.addEventListener('change', () => {
             updateCost();
-            checkTimeSlots();
+            renderTimeSlotCards();
         });
     });
 }
@@ -705,6 +788,10 @@ function selectedOption() {
     const checked = document.querySelector('input[name="resource-option"]:checked');
     if (!checked) return null;
     return options.find(option => Number(option.id) === Number(checked.value)) || null;
+}
+
+function isResourceAvailable(option) {
+    return String(option?.status || 'available').toLowerCase() === 'available';
 }
 
 function updateCost() {
@@ -716,7 +803,7 @@ function updateCost() {
     if (!totalCost || !originalPrice || !discountNote) return;
 
     if (!selected) {
-        if (isNonGuestUser) {
+        if (isSpaceUtmUser) {
             originalPrice.innerHTML = '<span style="text-decoration:line-through;">RM 0.00</span>';
             discountNote.innerHTML = '<span style="display:inline-block;background:#16a34a;color:#fff;padding:2px 8px;border-radius:999px;font-weight:600;">100% Discount</span>';
             totalCost.textContent = 'Free';
@@ -729,7 +816,7 @@ function updateCost() {
     }
 
     const rawPrice = Number(selected.price || 0);
-    if (isNonGuestUser) {
+    if (isSpaceUtmUser) {
         originalPrice.innerHTML = rawPrice > 0
             ? `<span style="text-decoration:line-through;">RM ${rawPrice.toFixed(2)}</span>`
             : '<span style="text-decoration:line-through;">RM 0.00</span>';
@@ -742,71 +829,182 @@ function updateCost() {
     }
 }
 
+async function loadSlotStatuses(date, selected) {
+    if (!date || !selected) {
+        slotStatusCache = [];
+        return;
+    }
+
+    try {
+        const response = await fetch(`booking.php?check_slots=1&resource_type=${encodeURIComponent(resourceType)}&resource_id=${encodeURIComponent(selected.id)}&date=${encodeURIComponent(date)}`);
+        const data = await response.json();
+        slotStatusCache = response.ok && data.success ? (data.slots || []) : [];
+    } catch (error) {
+        slotStatusCache = [];
+    }
+}
+
+async function renderTimeSlotCards() {
+    const grid = document.getElementById('time-slot-grid');
+    const resultBox = document.getElementById('selected-time-result');
+    const dateInput = document.getElementById('booking-date');
+    const selected = selectedOption();
+    const date = dateInput?.value || '';
+    if (!grid) return;
+
+    grid.innerHTML = '<div class="slot-helper">Loading time slots...</div>';
+    if (resultBox) {
+        resultBox.className = 'selection-result';
+        resultBox.textContent = 'No time selected yet.';
+    }
+
+    if (!selected || !date) {
+        slotStatusCache = [];
+        grid.innerHTML = `<div class="slot-helper">Select ${resourceLabel} and date to view time slots.</div>`;
+        return;
+    }
+
+    if (!isResourceAvailable(selected)) {
+        const statusLabel = String(selected.status || 'unavailable').toUpperCase();
+        slotStatusCache = [];
+        grid.innerHTML = `<div class="slot-helper">This ${resourceLabel} is ${escapeHtml(statusLabel)} and cannot be booked.</div>`;
+        if (resultBox) {
+            resultBox.className = 'selection-result error';
+            resultBox.textContent = `Booking is blocked because the selected ${resourceLabel} is not available.`;
+        }
+        return;
+    }
+
+    await loadSlotStatuses(date, selected);
+
+    let cards = '';
+    for (let minute = 8 * 60; minute <= 16 * 60; minute += 60) {
+        const start = formatTime(minute);
+        const end = formatTime(minute + 59);
+        const endExclusive = formatTime(minute + 60);
+        const status = getSlotStatus(start, endExclusive);
+        const disabled = status !== 'free' ? 'is-disabled' : '';
+        cards += `
+            <button type="button" class="time-slot-card status-${status} ${disabled}" data-minute="${minute}" data-start="${start}" data-end="${endExclusive}">
+                <div class="time-slot-time">${start} - ${end}</div>
+                <div class="time-slot-meta">${status.toUpperCase()}</div>
+            </button>
+        `;
+    }
+
+    grid.innerHTML = cards;
+    grid.querySelectorAll('.time-slot-card').forEach(card => card.addEventListener('click', () => handleSlotClick(card)));
+    applyIncomingTimeSelection();
+    renderSelectedTimePreview();
+}
+
+function getSlotStatus(startValue, endValue) {
+    const requestStart = minutesFromTime(startValue);
+    const requestEnd = minutesFromTime(endValue);
+
+    for (const slot of slotStatusCache) {
+        const slotStart = minutesFromTime(slot.start);
+        const slotEnd = minutesFromTime(slot.end);
+        if (slotStart < requestEnd && slotEnd > requestStart) {
+            const status = String(slot.status || '').toLowerCase();
+            if (status === 'pending') return 'pending';
+            if (status === 'blocked') return 'blocked';
+            if (status === 'maintenance') return 'maintenance';
+            return 'booked';
+        }
+    }
+
+    return 'free';
+}
+
+function applyIncomingTimeSelection() {
+    if (!initialStartTime || !initialEndTime) return;
+    const currentDate = document.getElementById('booking-date')?.value || '';
+    if (initialBookingDate && currentDate !== initialBookingDate) return;
+    const startMinute = minutesFromTime(initialStartTime);
+    const endMinute = minutesFromTime(initialEndTime);
+    if (!Number.isFinite(startMinute) || !Number.isFinite(endMinute)) return;
+
+    document.querySelectorAll('#time-slot-grid .time-slot-card.status-free').forEach(card => {
+        const cardMinute = Number(card.dataset.minute);
+        if (cardMinute >= startMinute && cardMinute < endMinute) {
+            card.classList.add('is-selected');
+        }
+    });
+}
+
+function handleSlotClick(clickedCard) {
+    if (!clickedCard || !clickedCard.classList.contains('status-free')) return;
+    const allCards = Array.from(document.querySelectorAll('#time-slot-grid .time-slot-card'));
+    const clickedMinute = Number(clickedCard.dataset.minute);
+    let selectedMinutes = allCards
+        .filter(card => card.classList.contains('is-selected'))
+        .map(card => Number(card.dataset.minute))
+        .sort((a, b) => a - b);
+
+    if (selectedMinutes.includes(clickedMinute)) {
+        clickedCard.classList.remove('is-selected');
+    } else if (selectedMinutes.length === 0) {
+        clickedCard.classList.add('is-selected');
+    } else {
+        const min = Math.min(...selectedMinutes);
+        const max = Math.max(...selectedMinutes);
+        if (clickedMinute === min - 60 || clickedMinute === max + 60) {
+            if (normalizedRole === 'student' && selectedMinutes.length >= 3) return;
+            clickedCard.classList.add('is-selected');
+        }
+    }
+
+    renderSelectedTimePreview();
+}
+
 function validateBookingSelection(showMessage = true) {
     const selected = selectedOption();
     const dateInput = document.getElementById('booking-date');
-    const startSelect = document.getElementById('booking-time');
-    const endSelect = document.getElementById('booking-end-time');
-    const el = document.getElementById('slot-check');
-
+    const resultBox = document.getElementById('selected-time-result');
     const date = dateInput?.value || '';
-    const start = startSelect?.value || '';
-    const end = endSelect?.value || '';
-    const startMinutes = minutesFromTime(start);
-    const endMinutes = minutesFromTime(end);
+    const selectedCards = Array.from(document.querySelectorAll('#time-slot-grid .time-slot-card.is-selected'));
 
     function fail(message) {
-        if (showMessage && el) el.innerHTML = `<span style="color:var(--danger)">${escapeHtml(message)}</span>`;
+        if (showMessage && resultBox) {
+            resultBox.className = 'selection-result error';
+            resultBox.textContent = message;
+        }
         return { valid: false, message };
     }
 
     if (!selected) return fail(`Select a ${resourceLabel} first.`);
+    if (!isResourceAvailable(selected)) return fail(`This ${resourceLabel} is not available for booking.`);
     if (!date || !dateInput || date < dateInput.min || date > dateInput.max) return fail('Choose a booking date within 3 days including today.');
-    if (!start || !end) return fail('Select start and end time.');
-    if (startMinutes < 8 * 60 || startMinutes > 16 * 60 || endMinutes < 9 * 60 || endMinutes > 17 * 60) return fail('Time must stay within 08:00 to 17:00.');
-    if (startMinutes % 15 !== 0 || endMinutes % 15 !== 0) return fail('Time must use 15-minute units only.');
-    if (endMinutes - startMinutes < 60) return fail('Minimum booking duration is 1 hour.');
 
+    const day = new Date(`${date}T00:00:00`).getDay();
+    if (day === 0 || day === 6) return fail('Bookings are only available on weekdays (Monday to Friday).');
+    if (!selectedCards.length) return fail('Please choose at least one available time slot.');
+    if (normalizedRole === 'student' && selectedCards.length > 3) return fail('Students can select at most 3 time slots.');
+
+    const minutes = selectedCards.map(card => Number(card.dataset.minute)).sort((a, b) => a - b);
+    for (let i = 1; i < minutes.length; i++) {
+        if (minutes[i] - minutes[i - 1] !== 60) return fail('Please select continuous time slots only.');
+    }
+
+    const start = formatTime(minutes[0]);
+    const end = formatTime(minutes[minutes.length - 1] + 60);
     return { valid: true, selected, date, start, end };
 }
 
-async function checkTimeSlots() {
-    const el = document.getElementById('slot-check');
-    if (!el) return;
+function renderSelectedTimePreview() {
+    const resultBox = document.getElementById('selected-time-result');
+    if (!resultBox) return;
 
     const selection = validateBookingSelection(false);
     if (!selection.valid) {
-        el.textContent = `Select ${resourceLabel}, date, start time, and end time to check slot availability.`;
+        resultBox.className = 'selection-result';
+        resultBox.textContent = 'No time selected yet.';
         return;
     }
 
-    el.textContent = 'Checking booked slots...';
-
-    try {
-        const response = await fetch(`booking.php?check_slots=1&resource_type=${encodeURIComponent(resourceType)}&resource_id=${encodeURIComponent(selection.selected.id)}&date=${encodeURIComponent(selection.date)}`);
-        const data = await response.json();
-        if (!response.ok || !data.success) {
-            el.textContent = 'Unable to check availability.';
-            return;
-        }
-
-        const requestStart = minutesFromTime(selection.start);
-        const requestEnd = minutesFromTime(selection.end);
-        const overlappingSlots = (data.slots || []).filter(slot => {
-            const slotStart = minutesFromTime(slot.start);
-            const slotEnd = minutesFromTime(slot.end);
-            return slotStart < requestEnd && slotEnd > requestStart;
-        });
-
-        if (!overlappingSlots.length) {
-            el.innerHTML = '<strong style="color:var(--success)">Available</strong><div>No booked or pending slot overlaps this requested time.</div>';
-            return;
-        }
-
-        el.innerHTML = `<strong style="color:var(--danger)">Time Conflict</strong><div>This slot overlaps:</div><ul>${overlappingSlots.map(slot => `<li>${escapeHtml(slot.start)} - ${escapeHtml(slot.end)} (${escapeHtml(slot.status || 'Booked')})</li>`).join('')}</ul>`;
-    } catch (error) {
-        el.textContent = 'Unable to check availability.';
-    }
+    resultBox.className = 'selection-result success';
+    resultBox.textContent = `Selected: ${selection.date} · ${selection.start} - ${selection.end}`;
 }
 
 async function submitBooking(event) {

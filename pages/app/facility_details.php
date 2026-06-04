@@ -64,6 +64,8 @@ $details = $fallbacks[$key] ?? [
 $dbLoaded = false;
 $resourceId = 0;
 $upcomingBookings = [];
+$manualSchedules = [];
+$weeklyScheduleRules = [];
 $availabilityMessage = 'Available for booking request.';
 $availabilityClass = 'available';
 
@@ -129,6 +131,27 @@ if ($dbLoaded) {
         $bookingStmt = $pdo->prepare($bookingSql);
         $bookingStmt->execute([$type, $resourceId]);
         $upcomingBookings = $bookingStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $resourceColumn = $type === 'room' ? 'room_id' : 'facility_id';
+        $scheduleSql = "SELECT start_time, end_time, status
+                        FROM schedules
+                        WHERE resource_type = ?
+                          AND " . $resourceColumn . " = ?
+                          AND status IN ('blocked','maintenance')
+                          AND end_time >= NOW()
+                        ORDER BY start_time ASC";
+        $scheduleStmt = $pdo->prepare($scheduleSql);
+        $scheduleStmt->execute([$type, $resourceId]);
+        $manualSchedules = $scheduleStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $ruleSql = "SELECT weekday, start_hour, end_hour, status
+                    FROM weekly_schedule_rules
+                    WHERE resource_type = ?
+                      AND " . $resourceColumn . " = ?
+                      AND status IN ('blocked','maintenance')";
+        $ruleStmt = $pdo->prepare($ruleSql);
+        $ruleStmt->execute([$type, $resourceId]);
+        $weeklyScheduleRules = $ruleStmt->fetchAll(PDO::FETCH_ASSOC);
     }
 }
 
@@ -368,6 +391,8 @@ $bookingUrl .= '&resource_name=' . urlencode($details['name']);
 
 <script>
     const dbBookingLogs = <?php echo json_encode($upcomingBookings, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
+    const dbManualSchedules = <?php echo json_encode($manualSchedules, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
+    const dbWeeklyRules = <?php echo json_encode($weeklyScheduleRules, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
     const resourceType = <?= json_encode($type) ?>;
     const continueBookingBaseUrl = <?= json_encode($bookingUrl, JSON_UNESCAPED_SLASHES) ?>;
     let currentUserRole = '';
@@ -449,6 +474,26 @@ $bookingUrl .= '&resource_name=' . urlencode($details['name']);
         if (!dateValue) return 'free';
         const slotStart = new Date(`${dateValue}T${startValue}:00`);
         const slotEnd = new Date(`${dateValue}T${formatTime(endMinuteExclusive)}:00`);
+
+        for (const schedule of (dbManualSchedules || [])) {
+            const scheduleStart = new Date(schedule.start_time);
+            const scheduleEnd = new Date(schedule.end_time);
+            if (scheduleStart < slotEnd && scheduleEnd > slotStart) {
+                return schedule.status === 'maintenance' ? 'maintenance' : 'blocked';
+            }
+        }
+
+        const weekday = new Date(`${dateValue}T00:00:00`).getDay();
+        const weekdayMondayFirst = weekday === 0 ? 7 : weekday;
+        const slotHour = Math.floor(endMinuteExclusive / 60) - 1;
+        for (const rule of (dbWeeklyRules || [])) {
+            const startHour = Number(rule.start_hour);
+            const endHour = Number(rule.end_hour);
+            if (Number(rule.weekday) === weekdayMondayFirst && slotHour >= startHour && slotHour < endHour) {
+                return rule.status === 'maintenance' ? 'maintenance' : 'blocked';
+            }
+        }
+
         for (const booking of (dbBookingLogs || [])) {
             const bookingStart = new Date(booking.booking_start);
             const bookingEnd = new Date(booking.booking_end);

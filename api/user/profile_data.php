@@ -112,8 +112,8 @@ function processUtmCardImage(string $rawData, string $declaredMime = ''): array
         throw new RuntimeException('Invalid UTM card image format.');
     }
 
-    if (strlen($decoded) > 2 * 1024 * 1024) {
-        throw new RuntimeException('UTM card image must be 2MB or smaller.');
+    if (strlen($decoded) > 5 * 1024 * 1024) {
+        throw new RuntimeException('UTM card image must be 5MB or smaller.');
     }
 
     $imageInfo = @getimagesizefromstring($decoded);
@@ -129,6 +129,79 @@ function processUtmCardImage(string $rawData, string $declaredMime = ''): array
 
     if ($declaredMime !== '' && !in_array($declaredMime, $allowedMimeTypes, true)) {
         throw new RuntimeException('Unsupported UTM card file type.');
+    }
+
+    $targetMaxWidth = 1600;
+    $targetMaxHeight = 1000;
+    $maxStoredBytes = 500 * 1024;
+
+    if (
+        function_exists('imagecreatefromstring') &&
+        function_exists('imagecreatetruecolor') &&
+        function_exists('imagecopyresampled') &&
+        function_exists('imagejpeg')
+    ) {
+        $source = @imagecreatefromstring($decoded);
+        if ($source === false) {
+            throw new RuntimeException('Failed to read UTM card image.');
+        }
+
+        $sourceWidth = imagesx($source);
+        $sourceHeight = imagesy($source);
+
+        $scale = min($targetMaxWidth / max(1, $sourceWidth), $targetMaxHeight / max(1, $sourceHeight), 1);
+        $targetWidth = max(1, (int) floor($sourceWidth * $scale));
+        $targetHeight = max(1, (int) floor($sourceHeight * $scale));
+
+        $target = imagecreatetruecolor($targetWidth, $targetHeight);
+        imagecopyresampled($target, $source, 0, 0, 0, 0, $targetWidth, $targetHeight, $sourceWidth, $sourceHeight);
+
+        $jpegData = null;
+        for ($quality = 85; $quality >= 25; $quality -= 5) {
+            ob_start();
+            imagejpeg($target, null, $quality);
+            $candidate = ob_get_clean();
+            if ($candidate !== false && strlen($candidate) <= $maxStoredBytes) {
+                $jpegData = $candidate;
+                break;
+            }
+        }
+
+        if ($jpegData === null) {
+            $fallbackWidth = max(1, (int) floor($targetWidth * 0.8));
+            $fallbackHeight = max(1, (int) floor($targetHeight * 0.8));
+            $fallback = imagecreatetruecolor($fallbackWidth, $fallbackHeight);
+            imagecopyresampled($fallback, $target, 0, 0, 0, 0, $fallbackWidth, $fallbackHeight, $targetWidth, $targetHeight);
+
+            for ($quality = 75; $quality >= 20; $quality -= 5) {
+                ob_start();
+                imagejpeg($fallback, null, $quality);
+                $candidate = ob_get_clean();
+                if ($candidate !== false && strlen($candidate) <= $maxStoredBytes) {
+                    $jpegData = $candidate;
+                    break;
+                }
+            }
+
+            imagedestroy($fallback);
+        }
+
+        imagedestroy($source);
+        imagedestroy($target);
+
+        if ($jpegData === null) {
+            throw new RuntimeException('UTM card image is too large after processing. Please crop card area before upload.');
+        }
+
+        return [
+            'utm_card_base64' => base64_encode($jpegData),
+            'utm_card_mime' => 'image/jpeg',
+        ];
+    }
+
+    $maxStoredBytesWithoutGd = 2 * 1024 * 1024;
+    if (strlen($decoded) > $maxStoredBytesWithoutGd) {
+        throw new RuntimeException('UTM card image is too large to store in current server mode (GD not available). Please upload a 2MB-or-smaller image or enable GD compression on server.');
     }
 
     return [
@@ -150,13 +223,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     }
 
     $bookingStmt = $pdo->prepare(
-        'SELECT b.booking_id, b.resource_type, b.booking_start, b.booking_end, b.booking_status, b.created_at,
+        'SELECT b.booking_id, b.resource_type, b.booking_start, b.booking_end, b.booking_status,
+                b.payment_status, b.total_price, b.created_at,
                 r.room_name, f.facility_name
          FROM bookings b
          LEFT JOIN rooms r ON b.room_id = r.room_id
          LEFT JOIN facilities f ON b.facility_id = f.facility_id
          WHERE b.user_id = :user_id
-         ORDER BY b.booking_start DESC, b.created_at DESC'
+         ORDER BY b.booking_start DESC, b.created_at DESC
+         LIMIT 5'
     );
     $bookingStmt->execute(['user_id' => $userId]);
     $bookings = $bookingStmt->fetchAll();
@@ -172,10 +247,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $gender = trim($input['gender'] ?? '');
     $address = trim($input['address'] ?? '');
     $avatarBase64 = trim($input['avatar_base64'] ?? '');
-    $utmCardBase64 = trim($input['utm_card_base64'] ?? $input['utm_card_front_base64'] ?? '');
-    $utmCardMime = trim($input['utm_card_mime'] ?? $input['utm_card_front_mime'] ?? '');
-    $utmCardBackBase64 = trim($input['utm_card_back_base64'] ?? '');
-    $utmCardBackMime = trim($input['utm_card_back_mime'] ?? '');
+    $utmCardBase64 = trim($input['utm_card_base64'] ?? $input['utm_card_front_base64'] ?? $input['card_front_base64'] ?? '');
+    $utmCardMime = trim($input['utm_card_mime'] ?? $input['utm_card_front_mime'] ?? $input['card_front_mime'] ?? '');
+    $utmCardBackBase64 = trim($input['utm_card_back_base64'] ?? $input['card_back_base64'] ?? '');
+    $utmCardBackMime = trim($input['utm_card_back_mime'] ?? $input['card_back_mime'] ?? '');
+
+    $currentStmt = $pdo->prepare('SELECT department, verification_status FROM users WHERE user_id = :user_id LIMIT 1');
+    $currentStmt->execute(['user_id' => $userId]);
+    $currentUser = $currentStmt->fetch();
+
+    if (!$currentUser) {
+        http_response_code(404);
+        echo json_encode(['success' => false, 'message' => 'User not found']);
+        exit;
+    }
+
+    if (($currentUser['verification_status'] ?? 'unverified') === 'verified') {
+        $department = (string)($currentUser['department'] ?? '');
+    }
 
     $allowedGenders = ['', 'Male', 'Female', 'Other'];
     if (!in_array($gender, $allowedGenders, true)) {
@@ -214,22 +303,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($utmCardBase64 !== '' || $utmCardBackBase64 !== '') {
-        if ($utmCardBase64 === '' || $utmCardBackBase64 === '') {
-            http_response_code(422);
-            echo json_encode(['success' => false, 'message' => 'Please upload both front and back images of your UTM card.']);
-            exit;
-        }
         try {
-            $cardPayload = processUtmCardImage($utmCardBase64, $utmCardMime);
-            $cardBackPayload = processUtmCardImage($utmCardBackBase64, $utmCardBackMime);
-            $params['utm_card_base64'] = $cardPayload['utm_card_base64'];
-            $params['utm_card_mime'] = $cardPayload['utm_card_mime'];
-            $params['utm_card_back_base64'] = $cardBackPayload['utm_card_base64'];
-            $params['utm_card_back_mime'] = $cardBackPayload['utm_card_mime'];
-            $setParts[] = 'utm_card_base64 = :utm_card_base64';
-            $setParts[] = 'utm_card_mime = :utm_card_mime';
-            $setParts[] = 'utm_card_back_base64 = :utm_card_back_base64';
-            $setParts[] = 'utm_card_back_mime = :utm_card_back_mime';
+            if ($utmCardBase64 !== '') {
+                $cardPayload = processUtmCardImage($utmCardBase64, $utmCardMime);
+                $params['utm_card_base64'] = $cardPayload['utm_card_base64'];
+                $params['utm_card_mime'] = $cardPayload['utm_card_mime'];
+                $setParts[] = 'utm_card_base64 = :utm_card_base64';
+                $setParts[] = 'utm_card_mime = :utm_card_mime';
+            }
+
+            if ($utmCardBackBase64 !== '') {
+                $cardBackPayload = processUtmCardImage($utmCardBackBase64, $utmCardBackMime);
+                $params['utm_card_back_base64'] = $cardBackPayload['utm_card_base64'];
+                $params['utm_card_back_mime'] = $cardBackPayload['utm_card_mime'];
+                $setParts[] = 'utm_card_back_base64 = :utm_card_back_base64';
+                $setParts[] = 'utm_card_back_mime = :utm_card_back_mime';
+            }
+
             $setParts[] = "verification_status = 'unverified'";
         } catch (RuntimeException $error) {
             http_response_code(422);
@@ -239,7 +329,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $stmt = $pdo->prepare('UPDATE users SET ' . implode(', ', $setParts) . ' WHERE user_id = :user_id');
-    $stmt->execute($params);
+
+    try {
+        $stmt->execute($params);
+    } catch (PDOException $error) {
+        if (strpos((string)$error->getMessage(), 'max_allowed_packet') !== false) {
+            http_response_code(413);
+            echo json_encode(['success' => false, 'message' => 'Uploaded images are too large for server database packet limits. Please use smaller/cropped card images.']);
+            exit;
+        }
+
+        throw $error;
+    }
 
     echo json_encode(['success' => true, 'message' => 'Profile updated']);
     exit;

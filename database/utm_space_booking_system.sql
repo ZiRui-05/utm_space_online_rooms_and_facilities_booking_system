@@ -78,6 +78,33 @@ CREATE TABLE `facilities` (
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `issue_reports`
+--
+
+CREATE TABLE `issue_reports` (
+  `issue_id` int(11) NOT NULL,
+  `reported_by` int(11) NOT NULL,
+  `issue_title` varchar(150) NOT NULL,
+  `issue_type` enum('maintenance','safety','cleanliness','equipment','access','other') NOT NULL,
+  `description` text NOT NULL,
+  `related_resource_type` enum('room','facility','none') NOT NULL DEFAULT 'none',
+  `room_id` int(11) DEFAULT NULL,
+  `facility_id` int(11) DEFAULT NULL,
+  `priority` enum('low','medium','high','urgent') NOT NULL DEFAULT 'medium',
+  `issue_status` enum('pending','in_review','resolved','closed') NOT NULL DEFAULT 'pending',
+  `attachment_name` varchar(255) DEFAULT NULL,
+  `attachment_mime` varchar(100) DEFAULT NULL,
+  `attachment_base64` longtext DEFAULT NULL,
+  `admin_remarks` text DEFAULT NULL,
+  `reviewed_by` int(11) DEFAULT NULL,
+  `reviewed_at` datetime DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `password_reset_otps`
 --
 
@@ -165,6 +192,18 @@ ALTER TABLE `facilities`
   ADD UNIQUE KEY `facility_code` (`facility_code`);
 
 --
+-- Indexes for table `issue_reports`
+--
+ALTER TABLE `issue_reports`
+  ADD PRIMARY KEY (`issue_id`),
+  ADD KEY `reported_by` (`reported_by`),
+  ADD KEY `room_id` (`room_id`),
+  ADD KEY `facility_id` (`facility_id`),
+  ADD KEY `reviewed_by` (`reviewed_by`),
+  ADD KEY `issue_status` (`issue_status`),
+  ADD KEY `priority` (`priority`);
+
+--
 -- Indexes for table `password_reset_otps`
 --
 ALTER TABLE `password_reset_otps`
@@ -205,6 +244,12 @@ ALTER TABLE `facilities`
   MODIFY `facility_id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
+-- AUTO_INCREMENT for table `issue_reports`
+--
+ALTER TABLE `issue_reports`
+  MODIFY `issue_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
 -- AUTO_INCREMENT for table `password_reset_otps`
 --
 ALTER TABLE `password_reset_otps`
@@ -234,6 +279,15 @@ ALTER TABLE `bookings`
   ADD CONSTRAINT `bookings_ibfk_2` FOREIGN KEY (`room_id`) REFERENCES `rooms` (`room_id`) ON DELETE SET NULL ON UPDATE CASCADE,
   ADD CONSTRAINT `bookings_ibfk_3` FOREIGN KEY (`facility_id`) REFERENCES `facilities` (`facility_id`) ON DELETE SET NULL ON UPDATE CASCADE,
   ADD CONSTRAINT `bookings_ibfk_4` FOREIGN KEY (`reviewed_by`) REFERENCES `users` (`user_id`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+--
+-- Constraints for table `issue_reports`
+--
+ALTER TABLE `issue_reports`
+  ADD CONSTRAINT `issue_reports_ibfk_1` FOREIGN KEY (`reported_by`) REFERENCES `users` (`user_id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `issue_reports_ibfk_2` FOREIGN KEY (`room_id`) REFERENCES `rooms` (`room_id`) ON DELETE SET NULL ON UPDATE CASCADE,
+  ADD CONSTRAINT `issue_reports_ibfk_3` FOREIGN KEY (`facility_id`) REFERENCES `facilities` (`facility_id`) ON DELETE SET NULL ON UPDATE CASCADE,
+  ADD CONSTRAINT `issue_reports_ibfk_4` FOREIGN KEY (`reviewed_by`) REFERENCES `users` (`user_id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 --
 -- Constraints for table `password_reset_otps`

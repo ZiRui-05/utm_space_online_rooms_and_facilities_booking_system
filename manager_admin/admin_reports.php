@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/includes/auth.php';
-$user = require_role(['admin']);
+$user = require_role(['admin','facility_manager']);
 
 $from = $_GET['from'] ?? date('Y-m-01');
 $to = $_GET['to'] ?? date('Y-m-d');

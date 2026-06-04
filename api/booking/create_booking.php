@@ -15,6 +15,7 @@ $startTime = trim($_POST['start_time'] ?? '');
 $endTime = trim($_POST['end_time'] ?? '');
 $remarks = trim($_POST['comments'] ?? '');
 $purpose = trim($_POST['purpose'] ?? 'General booking request');
+$spaceUtmDepartment = 'SPACE UTM (School of Professional and Continuing Education)';
 
 if (!in_array($resourceType, ['room', 'facility'], true)) {
     http_response_code(400);
@@ -96,10 +97,31 @@ if ($selectedDayOfWeek > 5) {
 try {
 
     $stmtProfile = $pdo->prepare(
-        'SELECT full_name, utm_id, ic_no, phone_number, department, gender, address FROM users WHERE user_id = ? LIMIT 1'
+        'SELECT full_name, utm_id, ic_no, phone_number, department, gender, address, role, verification_status, account_status FROM users WHERE user_id = ? LIMIT 1'
     );
     $stmtProfile->execute([$userId]);
     $profile = $stmtProfile->fetch(PDO::FETCH_ASSOC) ?: [];
+
+    $accountStatus = strtolower((string)($profile['account_status'] ?? 'inactive'));
+    $verificationStatus = strtolower((string)($profile['verification_status'] ?? 'unverified'));
+
+    if ($accountStatus === 'suspended' || $accountStatus === 'suspend') {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'message' => 'Your account is under suspend, kindly contact to admin for further help.']);
+        exit;
+    }
+
+    if ($accountStatus !== 'active') {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'message' => 'Your account is not active. Please contact admin for further help.']);
+        exit;
+    }
+
+    if ($verificationStatus !== 'verified') {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'message' => 'Only verified accounts can submit booking requests.']);
+        exit;
+    }
 
     $requiredProfileFields = [
         'full_name' => 'Full name',
@@ -128,10 +150,9 @@ try {
         exit;
     }
 
-    $stmtRole = $pdo->prepare('SELECT role FROM users WHERE user_id = ? LIMIT 1');
-    $stmtRole->execute([$userId]);
-    $role = strtolower((string)($stmtRole->fetchColumn() ?: 'guest'));
-    $isFree = in_array($role, ['student', 'staff', 'admin', 'facility_manager'], true);
+    $role = strtolower((string)($profile['role'] ?? 'guest'));
+    $department = trim((string)($profile['department'] ?? ''));
+    $isFree = $department === $spaceUtmDepartment;
 
     if ($role === 'student' && ($endMinutes - $startMinutes) > (3 * 60)) {
         http_response_code(400);
@@ -159,18 +180,86 @@ try {
     $table = $resourceType === 'room' ? 'rooms' : 'facilities';
     $idCol = $resourceType === 'room' ? 'room_id' : 'facility_id';
 
-    $stmtPrice = $pdo->prepare("SELECT price_per_day FROM {$table} WHERE {$idCol} = ? LIMIT 1");
-    $stmtPrice->execute([$resourceId]);
-    $pricePerDay = (float)($stmtPrice->fetchColumn() ?? 0);
+    $stmtResource = $pdo->prepare("SELECT price_per_day, resource_status FROM {$table} WHERE {$idCol} = ? LIMIT 1");
+    $stmtResource->execute([$resourceId]);
+    $resource = $stmtResource->fetch(PDO::FETCH_ASSOC);
+
+    if (!$resource) {
+        http_response_code(404);
+        echo json_encode(['success' => false, 'message' => 'Selected resource was not found']);
+        exit;
+    }
+
+    $resourceStatus = strtolower((string)($resource['resource_status'] ?? 'unavailable'));
+    if ($resourceStatus !== 'available') {
+        http_response_code(409);
+        echo json_encode(['success' => false, 'message' => 'Selected resource is currently ' . $resourceStatus . ' and cannot be booked.']);
+        exit;
+    }
+
+    $pricePerDay = (float)($resource['price_per_day'] ?? 0);
 
     $totalPrice = $isFree ? 0.0 : $pricePerDay;
+    $paymentStatus = $isFree ? 'paid' : 'unpaid';
 
     $roomId = $resourceType === 'room' ? $resourceId : null;
     $facilityId = $resourceType === 'facility' ? $resourceId : null;
 
+    $stmtConflict = $pdo->prepare(
+        "SELECT booking_id, booking_status FROM bookings
+         WHERE resource_type = ?
+           AND {$idCol} = ?
+           AND booking_status IN ('pending', 'approved')
+           AND booking_start < ?
+           AND booking_end > ?
+         LIMIT 1"
+    );
+    $stmtConflict->execute([$resourceType, $resourceId, $bookingEnd, $bookingStart]);
+    $conflictingBooking = $stmtConflict->fetch(PDO::FETCH_ASSOC);
+    if ($conflictingBooking) {
+        http_response_code(409);
+        echo json_encode(['success' => false, 'message' => 'Selected time slot is already ' . strtolower((string)$conflictingBooking['booking_status']) . '.']);
+        exit;
+    }
+
+    $stmtSchedule = $pdo->prepare(
+        "SELECT status FROM schedules
+         WHERE resource_type = ?
+           AND {$idCol} = ?
+           AND status IN ('blocked', 'maintenance')
+           AND start_time < ?
+           AND end_time > ?
+         LIMIT 1"
+    );
+    $stmtSchedule->execute([$resourceType, $resourceId, $bookingEnd, $bookingStart]);
+    $conflictingSchedule = $stmtSchedule->fetch(PDO::FETCH_ASSOC);
+    if ($conflictingSchedule) {
+        http_response_code(409);
+        echo json_encode(['success' => false, 'message' => 'Selected time slot is ' . strtolower((string)$conflictingSchedule['status']) . '.']);
+        exit;
+    }
+
+    $stmtWeeklyRule = $pdo->prepare(
+        "SELECT status FROM weekly_schedule_rules
+         WHERE resource_type = ?
+           AND {$idCol} = ?
+           AND weekday = ?
+           AND status IN ('blocked', 'maintenance')
+           AND start_hour < ?
+           AND end_hour > ?
+         LIMIT 1"
+    );
+    $stmtWeeklyRule->execute([$resourceType, $resourceId, $selectedDayOfWeek, (int)ceil($endMinutes / 60), (int)floor($startMinutes / 60)]);
+    $conflictingWeeklyRule = $stmtWeeklyRule->fetch(PDO::FETCH_ASSOC);
+    if ($conflictingWeeklyRule) {
+        http_response_code(409);
+        echo json_encode(['success' => false, 'message' => 'Selected time slot is ' . strtolower((string)$conflictingWeeklyRule['status']) . '.']);
+        exit;
+    }
+
     $sql = "INSERT INTO bookings
     (user_id, resource_type, room_id, facility_id, booking_start, booking_end, purpose, remarks, price_per_day, total_price, booking_status, payment_status)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'unpaid')";
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)";
 
     $stmt = $pdo->prepare($sql);
     $stmt->execute([
@@ -184,6 +273,7 @@ try {
         $remarks,
         $pricePerDay,
         $totalPrice,
+        $paymentStatus,
     ]);
 
     echo json_encode([

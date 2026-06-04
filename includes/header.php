@@ -9,17 +9,22 @@ $toRoot = static fn(string $path): string => $prefix . ltrim($path, '/');
     .navbar {
         background: var(--primary-color);
         padding: 16px 30px;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
         display: flex;
         justify-content: space-between;
         align-items: center;
+        flex-wrap: wrap;
+        gap: 16px;
         position: sticky;
         top: 0;
         z-index: 100;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     }
-    .navbar-left { display: flex; align-items: center; gap: 40px; }
+    .navbar-left { display: flex; align-items: center; gap: 40px; min-width: 0; }
     .navbar-logo { font-size: 18px; font-weight: 700; color: var(--white); letter-spacing: 1px; margin: 0; }
-    .nav-links { display: flex; gap: 30px; }
+    .nav-links { display: flex; gap: 30px; flex-wrap: wrap; min-width: 0; }
     .nav-link {
         color: var(--white);
         text-decoration: none;
@@ -38,7 +43,7 @@ $toRoot = static fn(string $path): string => $prefix . ltrim($path, '/');
         height: 2px;
         background: var(--accent-color);
     }
-    .navbar-right { display: flex; align-items: center; gap: 20px; }
+    .navbar-right { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; min-width: 0; }
     .icon-button { background: none; border: none; font-size: 20px; cursor: pointer; transition: transform 0.3s; color: var(--white); display: block; }
     .icon-button:hover { transform: scale(1.1); }
     .btn-book-now {

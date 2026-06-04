@@ -21,6 +21,8 @@ if ($conn->connect_error) {
     exit('Database connection failed.');
 }
 $conn->set_charset('utf8mb4');
+require_once __DIR__ . '/../../includes/booking_expiry.php';
+expire_stale_bookings_mysqli($conn);
 
 function require_role(array $allowedRoles): array
 {

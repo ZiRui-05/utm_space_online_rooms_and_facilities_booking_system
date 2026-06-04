@@ -1,6 +1,5 @@
 <?php
-require_once __DIR__ . '/includes/auth.php';
-require_role(['admin']);
-header('Location: admin_dashboard.php?error=' . urlencode('Room and facility inventory is managed by Facility Manager only.'));
+$query = $_SERVER['QUERY_STRING'] ?? '';
+header('Location: ../../manager_admin/admin_manage_rooms.php' . ($query !== '' ? '?' . $query : ''));
 exit;
 ?>
