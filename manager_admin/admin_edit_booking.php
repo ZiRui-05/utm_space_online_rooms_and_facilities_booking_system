@@ -20,10 +20,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt->execute();
     header('Location: admin_booking_requests.php?success=' . urlencode('Booking updated successfully')); exit;
 }
-$stmt=$conn->prepare("SELECT b.*, u.full_name, u.email, u.phone_number, u.utm_id, u.role, u.profile_image_base64, u.profile_image_mime, u.utm_card_base64, u.utm_card_mime, u.utm_card_back_base64, u.utm_card_back_mime, COALESCE(r.room_name, f.facility_name) resource_name, COALESCE(r.location, f.location) location FROM bookings b JOIN users u ON u.user_id=b.user_id LEFT JOIN rooms r ON r.room_id=b.room_id LEFT JOIN facilities f ON f.facility_id=b.facility_id WHERE b.booking_id=? LIMIT 1");
+$stmt=$conn->prepare("SELECT b.booking_id, b.user_id, b.booking_start, b.booking_end, b.purpose, b.total_price, b.booking_status, b.payment_status, b.review_remarks,
+    u.full_name, u.email, u.phone_number, u.utm_id, u.role,
+    CASE WHEN u.profile_image_base64 IS NULL OR u.profile_image_base64 = '' THEN 0 ELSE 1 END has_profile_image,
+    CASE WHEN u.utm_card_base64 IS NULL OR u.utm_card_base64 = '' THEN 0 ELSE 1 END has_utm_card_front,
+    CASE WHEN u.utm_card_back_base64 IS NULL OR u.utm_card_back_base64 = '' THEN 0 ELSE 1 END has_utm_card_back,
+    COALESCE(r.room_name, f.facility_name) resource_name, COALESCE(r.location, f.location) location
+    FROM bookings b JOIN users u ON u.user_id=b.user_id LEFT JOIN rooms r ON r.room_id=b.room_id LEFT JOIN facilities f ON f.facility_id=b.facility_id WHERE b.booking_id=? LIMIT 1");
 $stmt->bind_param('i',$id); $stmt->execute(); $booking=$stmt->get_result()->fetch_assoc();
 if(!$booking) { header('Location: admin_booking_requests.php?error=' . urlencode('Booking not found')); exit; }
-$profile = !empty($booking['profile_image_base64']) ? 'data:' . h($booking['profile_image_mime'] ?: 'image/png') . ';base64,' . $booking['profile_image_base64'] : 'https://ui-avatars.com/api/?name=' . urlencode($booking['full_name'] ?? 'User') . '&background=5c001f&color=fff';
+$placeholder = 'data:image/gif;base64,R0lGODlhAQABAAAAACw=';
+$profile = (int)$booking['has_profile_image'] === 1 ? 'user_image.php?id=' . (int)$booking['user_id'] . '&kind=profile' : 'https://ui-avatars.com/api/?name=' . urlencode($booking['full_name'] ?? 'User') . '&background=5c001f&color=fff';
 $page_title='Admin Edit Booking'; $active_page='bookings'; include __DIR__ . '/includes/header.php';
 ?>
 <div class="mb-8"><h1 class="text-4xl font-black text-[#36000f]">Booking Request Details</h1><p class="text-slate-500 mt-2">Review requester and booking details before approving or rejecting.</p></div>
@@ -36,7 +43,7 @@ $page_title='Admin Edit Booking'; $active_page='bookings'; include __DIR__ . '/i
         <div class="grid lg:grid-cols-4 gap-4">
             <div class="bg-[#fff7f8] border border-[#dcc0c2] rounded-lg p-3">
                 <p class="text-xs uppercase font-bold text-slate-500 mb-2">Profile Picture</p>
-                <img src="<?= $profile ?>" class="w-full h-36 object-cover rounded-lg border" alt="Profile picture">
+                <img src="<?= $placeholder ?>" data-async-src="<?= h($profile) ?>" loading="lazy" decoding="async" class="w-full h-36 object-cover rounded-lg border" alt="Profile picture">
             </div>
             <div class="lg:col-span-2 grid sm:grid-cols-2 gap-3 text-sm">
                 <div><p class="text-xs uppercase font-bold text-slate-500">Name</p><p class="font-bold"><?= h($booking['full_name']) ?></p></div>
@@ -51,16 +58,16 @@ $page_title='Admin Edit Booking'; $active_page='bookings'; include __DIR__ . '/i
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                         <p class="text-xs uppercase font-bold text-slate-500 mb-1">Front</p>
-                        <?php if(!empty($booking['utm_card_base64'])): ?>
-                            <img src="data:<?= h($booking['utm_card_mime'] ?: 'image/png') ?>;base64,<?= $booking['utm_card_base64'] ?>" class="w-full h-36 object-contain rounded-lg border bg-white" alt="UTM card front">
+                        <?php if((int)$booking['has_utm_card_front'] === 1): ?>
+                            <img src="<?= $placeholder ?>" data-async-src="user_image.php?id=<?= h($booking['user_id']) ?>&kind=utm_front" loading="lazy" decoding="async" class="w-full h-36 object-contain rounded-lg border bg-white" alt="UTM card front">
                         <?php else: ?>
                             <p class="text-slate-500 text-sm">No front card uploaded.</p>
                         <?php endif; ?>
                     </div>
                     <div>
                         <p class="text-xs uppercase font-bold text-slate-500 mb-1">Back</p>
-                        <?php if(!empty($booking['utm_card_back_base64'])): ?>
-                            <img src="data:<?= h($booking['utm_card_back_mime'] ?: 'image/png') ?>;base64,<?= $booking['utm_card_back_base64'] ?>" class="w-full h-36 object-contain rounded-lg border bg-white" alt="UTM card back">
+                        <?php if((int)$booking['has_utm_card_back'] === 1): ?>
+                            <img src="<?= $placeholder ?>" data-async-src="user_image.php?id=<?= h($booking['user_id']) ?>&kind=utm_back" loading="lazy" decoding="async" class="w-full h-36 object-contain rounded-lg border bg-white" alt="UTM card back">
                         <?php else: ?>
                             <p class="text-slate-500 text-sm">No back card uploaded.</p>
                         <?php endif; ?>

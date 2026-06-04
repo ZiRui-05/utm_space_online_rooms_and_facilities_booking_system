@@ -23,7 +23,7 @@ if($payment !== 'all'){ $where[]='b.payment_status=?'; $types.='s'; $params[]=$p
 if($date !== ''){ $where[]='DATE(b.booking_start)=?'; $types.='s'; $params[]=$date; }
 $orderMap=['newest'=>'b.created_at DESC','oldest'=>'b.created_at ASC','date_asc'=>'b.booking_start ASC','date_desc'=>'b.booking_start DESC','price_high'=>'b.total_price DESC','price_low'=>'b.total_price ASC'];
 $order=$orderMap[$sort] ?? $orderMap['newest'];
-$sql="SELECT b.*, u.full_name, u.email, COALESCE(r.room_name, f.facility_name) resource_name, COALESCE(r.location, f.location) location FROM bookings b JOIN users u ON u.user_id=b.user_id LEFT JOIN rooms r ON r.room_id=b.room_id LEFT JOIN facilities f ON f.facility_id=b.facility_id" . ($where ? ' WHERE '.implode(' AND ', $where) : '') . " ORDER BY $order";
+$sql="SELECT b.booking_id, b.booking_start, b.booking_end, b.purpose, b.total_price, b.booking_status, b.payment_status, b.review_remarks, u.full_name, u.email, COALESCE(r.room_name, f.facility_name) resource_name, COALESCE(r.location, f.location) location FROM bookings b JOIN users u ON u.user_id=b.user_id LEFT JOIN rooms r ON r.room_id=b.room_id LEFT JOIN facilities f ON f.facility_id=b.facility_id" . ($where ? ' WHERE '.implode(' AND ', $where) : '') . " ORDER BY $order";
 $stmt=$conn->prepare($sql); if($types) $stmt->bind_param($types, ...$params); $stmt->execute(); $list=$stmt->get_result();
 $page_title='Facility Manager Booking Requests'; $active_page='bookings'; include __DIR__ . '/includes/header.php';
 ?>

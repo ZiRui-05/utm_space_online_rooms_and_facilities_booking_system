@@ -6,10 +6,10 @@ ensure_issue_reports_table($conn);
 $page_title = 'Facility Manager Dashboard'; $active_page = 'dashboard';
 $today = date('Y-m-d');
 $pending = $conn->query("SELECT COUNT(*) c FROM bookings WHERE booking_status='pending'")->fetch_assoc()['c'];
-$pendingIssues = $conn->query("SELECT COUNT(*) c FROM issue_reports WHERE issue_status='pending'")->fetch_assoc()['c'];
+$pendingIssues = $conn->query("SELECT COUNT(*) c FROM issue_reports WHERE issue_status='pending' AND issue_hidden=0")->fetch_assoc()['c'];
 $approvedToday = $conn->query("SELECT COUNT(*) c FROM bookings WHERE booking_status='approved' AND DATE(booking_start)='$today'")->fetch_assoc()['c'];
 $maintenance = $conn->query("SELECT (SELECT COUNT(*) FROM rooms WHERE resource_status='maintenance') + (SELECT COUNT(*) FROM facilities WHERE resource_status='maintenance') c")->fetch_assoc()['c'];
-$next = $conn->query("SELECT b.*, u.full_name, COALESCE(CASE WHEN RIGHT(COALESCE(r.room_code, r.room_name), 2) = '05' THEN CONCAT(r.room_name, ', T05') WHEN RIGHT(COALESCE(r.room_code, r.room_name), 2) = '06' THEN CONCAT(r.room_name, ', T06') ELSE r.room_name END, f.facility_name) resource_name FROM bookings b JOIN users u ON u.user_id=b.user_id LEFT JOIN rooms r ON r.room_id=b.room_id LEFT JOIN facilities f ON f.facility_id=b.facility_id WHERE b.booking_status IN ('pending','approved') ORDER BY b.booking_start ASC LIMIT 8");
+$next = $conn->query("SELECT b.booking_id, b.booking_start, b.booking_end, b.booking_status, u.full_name, COALESCE(CASE WHEN RIGHT(COALESCE(r.room_code, r.room_name), 2) = '05' THEN CONCAT(r.room_name, ', T05') WHEN RIGHT(COALESCE(r.room_code, r.room_name), 2) = '06' THEN CONCAT(r.room_name, ', T06') ELSE r.room_name END, f.facility_name) resource_name FROM bookings b JOIN users u ON u.user_id=b.user_id LEFT JOIN rooms r ON r.room_id=b.room_id LEFT JOIN facilities f ON f.facility_id=b.facility_id WHERE b.booking_status IN ('pending','approved') ORDER BY b.booking_start ASC LIMIT 8");
 include __DIR__ . '/includes/header.php';
 ?>
 <div class="mb-8 flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4"><div><h1 class="text-4xl font-black text-[#36000f]">Facility Manager Dashboard</h1><p class="text-slate-500 mt-2">Daily operations for rooms, facilities, schedules and booking approval.</p></div><a class="btn-warning" href="manager_issue_reports.php">Submit Issue Report</a></div>

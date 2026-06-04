@@ -8,13 +8,13 @@ $stats = [];
 foreach ([
     'users' => 'SELECT COUNT(*) c FROM users',
     'pending_bookings' => "SELECT COUNT(*) c FROM bookings WHERE booking_status='pending'",
-    'pending_issues' => "SELECT COUNT(*) c FROM issue_reports WHERE issue_status='pending'",
+    'pending_issues' => "SELECT COUNT(*) c FROM issue_reports WHERE issue_status='pending' AND issue_hidden=0",
     'rooms' => 'SELECT COUNT(*) c FROM rooms',
     'facilities' => 'SELECT COUNT(*) c FROM facilities',
     'revenue' => "SELECT COALESCE(SUM(total_price),0) c FROM bookings WHERE payment_status='paid'",
     'pending_cards' => "SELECT COUNT(*) c FROM users WHERE utm_card_base64 IS NOT NULL AND utm_card_base64 <> '' AND utm_card_back_base64 IS NOT NULL AND utm_card_back_base64 <> '' AND verification_status='unverified'"
 ] as $key => $sql) { $stats[$key] = $conn->query($sql)->fetch_assoc()['c']; }
-$recent = $conn->query("SELECT b.*, u.full_name, COALESCE(CASE WHEN RIGHT(COALESCE(r.room_code, r.room_name), 2) = '05' THEN CONCAT(r.room_name, ', T05') WHEN RIGHT(COALESCE(r.room_code, r.room_name), 2) = '06' THEN CONCAT(r.room_name, ', T06') ELSE r.room_name END, f.facility_name) resource_name FROM bookings b JOIN users u ON u.user_id=b.user_id LEFT JOIN rooms r ON r.room_id=b.room_id LEFT JOIN facilities f ON f.facility_id=b.facility_id ORDER BY b.created_at DESC LIMIT 6");
+$recent = $conn->query("SELECT b.booking_id, b.booking_start, b.booking_status, u.full_name, COALESCE(CASE WHEN RIGHT(COALESCE(r.room_code, r.room_name), 2) = '05' THEN CONCAT(r.room_name, ', T05') WHEN RIGHT(COALESCE(r.room_code, r.room_name), 2) = '06' THEN CONCAT(r.room_name, ', T06') ELSE r.room_name END, f.facility_name) resource_name FROM bookings b JOIN users u ON u.user_id=b.user_id LEFT JOIN rooms r ON r.room_id=b.room_id LEFT JOIN facilities f ON f.facility_id=b.facility_id ORDER BY b.created_at DESC LIMIT 6");
 include __DIR__ . '/includes/header.php';
 ?>
 <div class="mb-8 flex justify-between items-end"><div><h1 class="text-4xl font-black text-[#36000f]">Admin Dashboard</h1><p class="text-slate-500 mt-2">Overall control for booking requests, users and reports.</p></div><a class="btn-warning" href="admin_reports.php">Generate Reports</a></div>

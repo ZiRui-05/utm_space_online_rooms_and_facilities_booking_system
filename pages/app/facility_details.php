@@ -78,7 +78,7 @@ try {
 
 if ($dbLoaded) {
     if ($type === 'room') {
-        $sql = "SELECT room_id AS id, room_name AS resource_name, room_code AS code, room_type AS resource_type, location, capacity, description, price_per_day, room_image_base64 AS image_base64, room_image_mime AS image_mime, resource_status FROM rooms WHERE ";
+        $sql = "SELECT room_id AS id, room_name AS resource_name, room_code AS code, room_type AS resource_type, location, capacity, description, price_per_day, CASE WHEN room_image_base64 IS NULL OR room_image_base64 = '' THEN 0 ELSE 1 END has_image, resource_status FROM rooms WHERE ";
         $params = [];
         if ($id > 0) {
             $sql .= "room_id = ? LIMIT 1";
@@ -89,7 +89,7 @@ if ($dbLoaded) {
             $params[] = '%' . $name . '%';
         }
     } else {
-        $sql = "SELECT facility_id AS id, facility_name AS resource_name, facility_code AS code, facility_type AS resource_type, location, capacity, description, price_per_day, facility_image_base64 AS image_base64, facility_image_mime AS image_mime, resource_status FROM facilities WHERE ";
+        $sql = "SELECT facility_id AS id, facility_name AS resource_name, facility_code AS code, facility_type AS resource_type, location, capacity, description, price_per_day, CASE WHEN facility_image_base64 IS NULL OR facility_image_base64 = '' THEN 0 ELSE 1 END has_image, resource_status FROM facilities WHERE ";
         $params = [];
         if ($id > 0) {
             $sql .= "facility_id = ? LIMIT 1";
@@ -116,8 +116,8 @@ if ($dbLoaded) {
         $details['price_per_day'] = (float)$row['price_per_day'];
         $details['price_label'] = ((float)$row['price_per_day'] <= 0) ? 'Free' : 'RM ' . number_format((float)$row['price_per_day'], 2) . ' / day';
         $details['status'] = $row['resource_status'] ?? $details['status'];
-        if (!empty($row['image_base64']) && !empty($row['image_mime'])) {
-            $details['image'] = 'data:' . $row['image_mime'] . ';base64,' . $row['image_base64'];
+        if ((int)($row['has_image'] ?? 0) === 1) {
+            $details['image'] = ($type === 'room' ? 'room_image.php?id=' : 'facility_image.php?id=') . (int)$row['id'];
         }
 
         $bookingSql = "SELECT booking_start, booking_end, booking_status, purpose
@@ -281,7 +281,7 @@ $bookingUrl .= '&resource_name=' . urlencode($details['name']);
     <section class="details-card">
         <div class="details-image">
             <?php if (!empty($details['image'])): ?>
-                <img src="<?= h($details['image']) ?>" alt="<?= h($details['name']) ?>">
+                <img src="<?= h($details['image']) ?>" loading="lazy" decoding="async" alt="<?= h($details['name']) ?>">
             <?php else: ?>
                 <div class="image-placeholder"><?= strtoupper(substr($details['name'], 0, 1)) ?></div>
             <?php endif; ?>

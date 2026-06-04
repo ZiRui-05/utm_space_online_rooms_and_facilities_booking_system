@@ -92,6 +92,9 @@ CREATE TABLE `issue_reports` (
   `facility_id` int(11) DEFAULT NULL,
   `priority` enum('low','medium','high','urgent') NOT NULL DEFAULT 'medium',
   `issue_status` enum('pending','in_review','resolved','closed') NOT NULL DEFAULT 'pending',
+  `issue_hidden` tinyint(1) NOT NULL DEFAULT 0,
+  `hidden_by` int(11) DEFAULT NULL,
+  `hidden_at` datetime DEFAULT NULL,
   `attachment_name` varchar(255) DEFAULT NULL,
   `attachment_mime` varchar(100) DEFAULT NULL,
   `attachment_base64` longtext DEFAULT NULL,
@@ -201,6 +204,7 @@ ALTER TABLE `issue_reports`
   ADD KEY `facility_id` (`facility_id`),
   ADD KEY `reviewed_by` (`reviewed_by`),
   ADD KEY `issue_status` (`issue_status`),
+  ADD KEY `issue_hidden` (`issue_hidden`),
   ADD KEY `priority` (`priority`);
 
 --

@@ -20,13 +20,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt->execute();
     header('Location: manager_booking_requests.php?success=' . urlencode('Booking updated successfully')); exit;
 }
-$stmt=$conn->prepare("SELECT b.*, u.full_name, u.email, u.phone_number, u.utm_id, u.role, u.profile_image_base64, u.profile_image_mime, u.utm_card_base64, u.utm_card_mime, u.utm_card_back_base64, u.utm_card_back_mime, COALESCE(r.room_name, f.facility_name) resource_name, COALESCE(r.location, f.location) location FROM bookings b JOIN users u ON u.user_id=b.user_id LEFT JOIN rooms r ON r.room_id=b.room_id LEFT JOIN facilities f ON f.facility_id=b.facility_id WHERE b.booking_id=? LIMIT 1");
+$stmt=$conn->prepare("SELECT b.booking_id, b.user_id, b.booking_start, b.booking_end, b.purpose, b.total_price, b.booking_status, b.payment_status, b.payment_proof_mime, b.review_remarks,
+    CASE WHEN b.payment_proof_base64 IS NULL OR b.payment_proof_base64 = '' THEN 0 ELSE 1 END has_payment_attachment,
+    u.full_name, u.email, u.phone_number, u.utm_id, u.role,
+    CASE WHEN u.profile_image_base64 IS NULL OR u.profile_image_base64 = '' THEN 0 ELSE 1 END has_profile_image,
+    CASE WHEN u.utm_card_base64 IS NULL OR u.utm_card_base64 = '' THEN 0 ELSE 1 END has_utm_card_front,
+    CASE WHEN u.utm_card_back_base64 IS NULL OR u.utm_card_back_base64 = '' THEN 0 ELSE 1 END has_utm_card_back,
+    COALESCE(r.room_name, f.facility_name) resource_name, COALESCE(r.location, f.location) location
+    FROM bookings b JOIN users u ON u.user_id=b.user_id LEFT JOIN rooms r ON r.room_id=b.room_id LEFT JOIN facilities f ON f.facility_id=b.facility_id WHERE b.booking_id=? LIMIT 1");
 $stmt->bind_param('i',$id); $stmt->execute(); $booking=$stmt->get_result()->fetch_assoc();
 if(!$booking) { header('Location: manager_booking_requests.php?error=' . urlencode('Booking not found')); exit; }
-$profile = !empty($booking['profile_image_base64']) ? 'data:' . h($booking['profile_image_mime'] ?: 'image/png') . ';base64,' . $booking['profile_image_base64'] : 'https://ui-avatars.com/api/?name=' . urlencode($booking['full_name'] ?? 'User') . '&background=5c001f&color=fff';
-$hasPaymentAttachment = !empty($booking['payment_proof_base64']) && !empty($booking['payment_proof_mime']);
+$placeholder = 'data:image/gif;base64,R0lGODlhAQABAAAAACw=';
+$profile = (int)$booking['has_profile_image'] === 1 ? 'user_image.php?id=' . (int)$booking['user_id'] . '&kind=profile' : 'https://ui-avatars.com/api/?name=' . urlencode($booking['full_name'] ?? 'User') . '&background=5c001f&color=fff';
+$hasPaymentAttachment = (int)($booking['has_payment_attachment'] ?? 0) === 1 && !empty($booking['payment_proof_mime']);
 $paymentAttachmentMime = (string)($booking['payment_proof_mime'] ?? '');
-$paymentAttachmentSrc = $hasPaymentAttachment ? 'data:' . h($paymentAttachmentMime) . ';base64,' . $booking['payment_proof_base64'] : '';
+$paymentAttachmentSrc = $hasPaymentAttachment ? 'booking_attachment.php?id=' . (int)$booking['booking_id'] : '';
 $isPaymentAttachmentImage = str_starts_with($paymentAttachmentMime, 'image/');
 $isPaymentAttachmentPdf = $paymentAttachmentMime === 'application/pdf';
 $page_title='Facility Manager Edit Booking'; $active_page='bookings'; include __DIR__ . '/includes/header.php';
@@ -42,23 +50,23 @@ $page_title='Facility Manager Edit Booking'; $active_page='bookings'; include __
             <div class="lg:col-span-2 space-y-4">
                 <div class="bg-[#fff7f8] border border-[#dcc0c2] rounded-lg p-3">
                     <p class="text-xs uppercase font-bold text-slate-500 mb-2">Profile Picture</p>
-                    <img src="<?= $profile ?>" class="w-full h-36 object-contain rounded-lg border bg-white" alt="Profile picture">
+                    <img src="<?= $placeholder ?>" data-async-src="<?= h($profile) ?>" loading="lazy" decoding="async" class="w-full h-36 object-contain rounded-lg border bg-white" alt="Profile picture">
                 </div>
                 <div class="bg-[#fff7f8] border border-[#dcc0c2] rounded-lg p-3">
                     <p class="text-xs uppercase font-bold text-slate-500 mb-2">UTM Card</p>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                             <p class="text-xs uppercase font-bold text-slate-500 mb-1">Front</p>
-                            <?php if(!empty($booking['utm_card_base64'])): ?>
-                                <img src="data:<?= h($booking['utm_card_mime'] ?: 'image/png') ?>;base64,<?= $booking['utm_card_base64'] ?>" class="w-full h-36 object-contain rounded-lg border bg-white" alt="UTM card front">
+                            <?php if((int)$booking['has_utm_card_front'] === 1): ?>
+                                <img src="<?= $placeholder ?>" data-async-src="user_image.php?id=<?= h($booking['user_id']) ?>&kind=utm_front" loading="lazy" decoding="async" class="w-full h-36 object-contain rounded-lg border bg-white" alt="UTM card front">
                             <?php else: ?>
                                 <p class="text-slate-500 text-sm">No front card uploaded.</p>
                             <?php endif; ?>
                         </div>
                         <div>
                             <p class="text-xs uppercase font-bold text-slate-500 mb-1">Back</p>
-                            <?php if(!empty($booking['utm_card_back_base64'])): ?>
-                                <img src="data:<?= h($booking['utm_card_back_mime'] ?: 'image/png') ?>;base64,<?= $booking['utm_card_back_base64'] ?>" class="w-full h-36 object-contain rounded-lg border bg-white" alt="UTM card back">
+                            <?php if((int)$booking['has_utm_card_back'] === 1): ?>
+                                <img src="<?= $placeholder ?>" data-async-src="user_image.php?id=<?= h($booking['user_id']) ?>&kind=utm_back" loading="lazy" decoding="async" class="w-full h-36 object-contain rounded-lg border bg-white" alt="UTM card back">
                             <?php else: ?>
                                 <p class="text-slate-500 text-sm">No back card uploaded.</p>
                             <?php endif; ?>
@@ -110,9 +118,9 @@ $page_title='Facility Manager Edit Booking'; $active_page='bookings'; include __
         </div>
         <div class="p-4 bg-slate-50">
             <?php if ($hasPaymentAttachment && $isPaymentAttachmentImage): ?>
-                <img src="<?= $paymentAttachmentSrc ?>" class="mx-auto max-h-[70vh] w-auto max-w-full object-contain rounded-lg border bg-white" alt="Payment receipt attachment">
+                <img src="<?= $placeholder ?>" data-async-src="<?= h($paymentAttachmentSrc) ?>" loading="lazy" decoding="async" class="mx-auto max-h-[70vh] w-auto max-w-full object-contain rounded-lg border bg-white" alt="Payment receipt attachment">
             <?php elseif ($hasPaymentAttachment && $isPaymentAttachmentPdf): ?>
-                <iframe src="<?= $paymentAttachmentSrc ?>" class="h-[70vh] w-full rounded-lg border bg-white" title="Payment receipt attachment"></iframe>
+                <iframe data-async-src="<?= h($paymentAttachmentSrc) ?>" class="h-[70vh] w-full rounded-lg border bg-white" title="Payment receipt attachment"></iframe>
             <?php else: ?>
                 <div class="rounded-lg border bg-white p-8 text-center text-slate-500">No payment attachment uploaded.</div>
             <?php endif; ?>
@@ -127,6 +135,10 @@ function openPaymentAttachment() {
     <?php endif; ?>
     document.getElementById('payment-attachment-modal').classList.remove('hidden');
     document.getElementById('payment-attachment-modal').classList.add('flex');
+    const modal = document.getElementById('payment-attachment-modal');
+    const deferredFrame = modal.querySelector('iframe[data-async-src]:not([src])');
+    if (deferredFrame) deferredFrame.src = deferredFrame.dataset.asyncSrc;
+    if (window.chunkedImageLoader) window.chunkedImageLoader.enqueue(modal);
 }
 
 function closePaymentAttachment() {

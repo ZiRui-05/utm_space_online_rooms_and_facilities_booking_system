@@ -42,7 +42,7 @@ $stmt = $conn->prepare("SELECT b.booking_status, COUNT(*) total, COALESCE(SUM(b.
 bind_report_params($stmt, $types, $params); $stmt->execute(); $byStatus=$stmt->get_result();
 $stmt = $conn->prepare("SELECT COALESCE(r.room_name,f.facility_name) resource_name, COALESCE(r.location,f.location) location, COUNT(*) total FROM bookings b LEFT JOIN rooms r ON r.room_id=b.room_id LEFT JOIN facilities f ON f.facility_id=b.facility_id WHERE $whereSql GROUP BY resource_name, location ORDER BY total DESC LIMIT 10");
 bind_report_params($stmt, $types, $params); $stmt->execute(); $popular=$stmt->get_result();
-$stmt = $conn->prepare("SELECT b.*, u.full_name, u.email, COALESCE(r.room_name,f.facility_name) resource_name, COALESCE(r.location,f.location) location FROM bookings b JOIN users u ON u.user_id=b.user_id LEFT JOIN rooms r ON r.room_id=b.room_id LEFT JOIN facilities f ON f.facility_id=b.facility_id WHERE $whereSql ORDER BY b.created_at DESC");
+$stmt = $conn->prepare("SELECT b.booking_id, b.created_at, b.booking_start, b.booking_end, b.total_price, b.booking_status, b.payment_status, u.full_name, u.email, COALESCE(r.room_name,f.facility_name) resource_name, COALESCE(r.location,f.location) location FROM bookings b JOIN users u ON u.user_id=b.user_id LEFT JOIN rooms r ON r.room_id=b.room_id LEFT JOIN facilities f ON f.facility_id=b.facility_id WHERE $whereSql ORDER BY b.created_at DESC");
 bind_report_params($stmt, $types, $params); $stmt->execute(); $details=$stmt->get_result();
 
 $page_title='Admin Formal Booking Report'; $active_page='reports'; include __DIR__ . '/includes/header.php';

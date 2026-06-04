@@ -9,9 +9,26 @@ $self_file = 'manager_issue_reports.php';
 $attachment_file = 'issue_report_attachment.php';
 $issueTypes = ['maintenance' => 'Maintenance', 'safety' => 'Safety', 'cleanliness' => 'Cleanliness', 'equipment' => 'Equipment', 'access' => 'Access', 'other' => 'Other'];
 $priorities = ['low' => 'Low', 'medium' => 'Medium', 'high' => 'High', 'urgent' => 'Urgent'];
+$statuses = ['pending' => 'Pending', 'in_review' => 'In Review', 'resolved' => 'Resolved', 'closed' => 'Closed'];
 
 $rooms = $conn->query("SELECT room_id, room_name, room_code, location FROM rooms ORDER BY room_name");
 $facilities = $conn->query("SELECT facility_id, facility_name, facility_code, location FROM facilities ORDER BY facility_name");
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['issue_id'], $_POST['issue_status'])) {
+    $issueId = (int)$_POST['issue_id'];
+    $status = $_POST['issue_status'];
+    $remarks = trim($_POST['admin_remarks'] ?? '');
+    if (!array_key_exists($status, $statuses)) {
+        header('Location: ' . $self_file . '?error=' . urlencode('Invalid issue status.'));
+        exit;
+    }
+    $reviewedBy = (int)$user['user_id'];
+    $stmt = $conn->prepare('UPDATE issue_reports SET issue_status = ?, admin_remarks = ?, reviewed_by = ?, reviewed_at = NOW() WHERE issue_id = ? AND issue_hidden = 0');
+    $stmt->bind_param('ssii', $status, $remarks, $reviewedBy, $issueId);
+    $stmt->execute();
+    header('Location: ' . $self_file . '?success=' . urlencode('Issue report updated.'));
+    exit;
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $title = trim($_POST['issue_title'] ?? '');
@@ -76,17 +93,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt = $conn->prepare('INSERT INTO issue_reports (reported_by, issue_title, issue_type, description, related_resource_type, room_id, facility_id, priority, attachment_name, attachment_mime, attachment_base64) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
     $stmt->bind_param('issssiissss', $reportedBy, $title, $issueType, $description, $resourceType, $roomId, $facilityId, $priority, $attachmentName, $attachmentMime, $attachmentBase64);
     $stmt->execute();
-    header('Location: ' . $self_file . '?success=' . urlencode('Issue report submitted to Admin. Status is Pending.'));
+    header('Location: ' . $self_file . '?success=' . urlencode('Issue report submitted. Status is Pending.'));
     exit;
 }
 
-$stmt = $conn->prepare("SELECT ir.*, COALESCE(r.room_name, f.facility_name) resource_name, COALESCE(r.location, f.location) resource_location
+$stmt = $conn->prepare("SELECT ir.issue_id, ir.issue_title, ir.issue_type, ir.description, ir.priority, ir.issue_status, ir.admin_remarks, ir.created_at, ir.attachment_name,
+    CASE WHEN ir.attachment_base64 IS NULL OR ir.attachment_base64 = '' THEN 0 ELSE 1 END has_attachment,
+    u.full_name, u.email, reviewer.full_name reviewed_name, COALESCE(r.room_name, f.facility_name) resource_name, COALESCE(r.location, f.location) resource_location
     FROM issue_reports ir
+    JOIN users u ON u.user_id = ir.reported_by
+    LEFT JOIN users reviewer ON reviewer.user_id = ir.reviewed_by
     LEFT JOIN rooms r ON r.room_id = ir.room_id
     LEFT JOIN facilities f ON f.facility_id = ir.facility_id
-    WHERE ir.reported_by = ?
+    WHERE ir.issue_hidden = 0
     ORDER BY ir.created_at DESC");
-$stmt->bind_param('i', $user['user_id']);
 $stmt->execute();
 $reports = $stmt->get_result();
 
@@ -97,7 +117,7 @@ include __DIR__ . '/includes/header.php';
 <div class="mb-8 flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
     <div>
         <h1 class="text-4xl font-black text-[#36000f]">Issue Reports</h1>
-        <p class="text-slate-500 mt-2">Submit room and facility problems for Admin review and resolution tracking.</p>
+        <p class="text-slate-500 mt-2">Submit, view and resolve shared room and facility issues across the manager team.</p>
     </div>
     <a class="btn-light" href="facility_manager_dashboard.php">Back to Dashboard</a>
 </div>
@@ -106,7 +126,7 @@ include __DIR__ . '/includes/header.php';
     <form method="post" enctype="multipart/form-data" class="bg-white rounded-xl border border-[#dcc0c2] p-6 shadow-sm space-y-4">
         <div>
             <h2 class="text-xl font-black text-[#36000f]">New Issue Report</h2>
-            <p class="text-sm text-slate-500 mt-1">Submitted reports are created with Pending status.</p>
+            <p class="text-sm text-slate-500 mt-1">Submitted reports are visible to all facility managers.</p>
         </div>
         <div>
             <label class="text-sm font-bold text-slate-600">Issue Title</label>
@@ -160,17 +180,27 @@ include __DIR__ . '/includes/header.php';
             <span class="text-sm text-slate-500"><?= h($reports->num_rows) ?> total</span>
         </div>
         <table class="w-full">
-            <thead><tr><th class="table-th">Issue</th><th class="table-th">Related To</th><th class="table-th">Priority</th><th class="table-th">Status</th><th class="table-th">Attachment</th><th class="table-th">Admin Remarks</th></tr></thead>
+            <thead><tr><th class="table-th">Issue</th><th class="table-th">Reporter</th><th class="table-th">Related To</th><th class="table-th">Priority</th><th class="table-th">Status</th><th class="table-th">Attachment</th><th class="table-th">Manager Action</th></tr></thead>
             <tbody>
-            <?php if ($reports->num_rows === 0): ?><tr><td class="table-td text-center text-slate-500" colspan="6">No issue reports submitted yet.</td></tr><?php endif; ?>
+            <?php if ($reports->num_rows === 0): ?><tr><td class="table-td text-center text-slate-500" colspan="7">No visible issue reports submitted yet.</td></tr><?php endif; ?>
             <?php while ($report = $reports->fetch_assoc()): ?>
                 <tr>
                     <td class="table-td font-bold">#<?= h($report['issue_id']) ?> <?= h($report['issue_title']) ?><p class="text-xs text-slate-500 mt-1"><?= h($issueTypes[$report['issue_type']] ?? $report['issue_type']) ?> · <?= h(date('d M Y, h:i A', strtotime($report['created_at']))) ?></p><p class="text-sm text-slate-600 mt-2"><?= h($report['description']) ?></p></td>
+                    <td class="table-td"><?= h($report['full_name']) ?><p class="text-xs text-slate-500"><?= h($report['email']) ?></p></td>
                     <td class="table-td"><?= h($report['resource_name'] ?: 'Not specified') ?><p class="text-xs text-slate-500"><?= h($report['resource_location'] ?: '') ?></p></td>
                     <td class="table-td"><span class="badge badge-<?= h($report['priority'] === 'urgent' ? 'rejected' : ($report['priority'] === 'high' ? 'pending' : 'maintenance')) ?>"><?= h(ucfirst($report['priority'])) ?></span></td>
-                    <td class="table-td"><span class="badge badge-<?= h($report['issue_status']) ?>"><?= h(ucwords(str_replace('_', ' ', $report['issue_status']))) ?></span></td>
-                    <td class="table-td"><?php if ($report['attachment_base64']): ?><a class="text-red-900 font-bold" href="<?= h($attachment_file) ?>?id=<?= h($report['issue_id']) ?>">Download</a><p class="text-xs text-slate-500"><?= h($report['attachment_name']) ?></p><?php else: ?><span class="text-xs text-slate-400">No attachment</span><?php endif; ?></td>
-                    <td class="table-td"><?= $report['admin_remarks'] ? h($report['admin_remarks']) : '<span class="text-xs text-slate-400">No remarks yet</span>' ?></td>
+                    <td class="table-td"><span class="badge badge-<?= h($report['issue_status']) ?>"><?= h(ucwords(str_replace('_', ' ', $report['issue_status']))) ?></span><?php if ($report['reviewed_name']): ?><p class="text-xs text-slate-500 mt-1">By <?= h($report['reviewed_name']) ?></p><?php endif; ?></td>
+                    <td class="table-td"><?php if ((int)$report['has_attachment'] === 1): ?><a class="text-red-900 font-bold" href="<?= h($attachment_file) ?>?id=<?= h($report['issue_id']) ?>">Download</a><p class="text-xs text-slate-500"><?= h($report['attachment_name']) ?></p><?php else: ?><span class="text-xs text-slate-400">No attachment</span><?php endif; ?></td>
+                    <td class="table-td min-w-[250px]">
+                        <form method="post" class="space-y-2">
+                            <input type="hidden" name="issue_id" value="<?= h($report['issue_id']) ?>">
+                            <select class="input text-xs" name="issue_status">
+                                <?php foreach ($statuses as $value => $label): ?><option value="<?= h($value) ?>" <?= $report['issue_status'] === $value ? 'selected' : '' ?>><?= h($label) ?></option><?php endforeach; ?>
+                            </select>
+                            <textarea class="input text-xs min-h-[80px]" name="admin_remarks" placeholder="Resolution notes or next action"><?= h($report['admin_remarks'] ?? '') ?></textarea>
+                            <button class="btn-primary text-xs py-2">Update Report</button>
+                        </form>
+                    </td>
                 </tr>
             <?php endwhile; ?>
             </tbody>
