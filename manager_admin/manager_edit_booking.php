@@ -18,6 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt = $conn->prepare('UPDATE bookings SET booking_status=?, payment_status=?, booking_start=?, booking_end=?, purpose=?, total_price=?, reviewed_by=?, reviewed_at=NOW(), review_remarks=? WHERE booking_id=?');
     $stmt->bind_param('sssssdisi', $status, $payment, $start, $end, $purpose, $total, $user['user_id'], $remarks, $id);
     $stmt->execute();
+    suspend_users_with_missed_payments_mysqli($conn);
     header('Location: manager_booking_requests.php?success=' . urlencode('Booking updated successfully')); exit;
 }
 $stmt=$conn->prepare("SELECT b.booking_id, b.user_id, b.booking_start, b.booking_end, b.purpose, b.total_price, b.booking_status, b.payment_status, b.payment_proof_mime, b.review_remarks,

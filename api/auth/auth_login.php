@@ -31,6 +31,12 @@ if (!$user || !password_verify($password, $user['password_hash'])) {
     exit;
 }
 
+if ($user['account_status'] === 'suspended') {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'message' => 'Account is suspended. Please contact admin for further help.']);
+    exit;
+}
+
 if ($user['account_status'] !== 'active') {
     http_response_code(403);
     echo json_encode(['success' => false, 'message' => 'Account is not active']);
