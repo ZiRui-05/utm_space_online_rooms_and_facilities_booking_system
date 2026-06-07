@@ -147,6 +147,50 @@ $toRoot = static fn(string $path): string => $prefix . ltrim($path, '/');
         .navbar-right { width: 100%; justify-content: space-between; }
         .nav-links { flex-direction: column; gap: 8px; }
         .noti-menu { right: auto; left: 0; width: calc(100vw - 32px); }
+
+    @media (max-width:768px){
+
+    .navbar{
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        padding:20px;
+        gap:20px;
+    }
+
+    .navbar-left{
+        width:100%;
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+    }
+
+    .navbar-logo{
+        margin-bottom:15px;
+        text-align:center;
+    }
+
+    .nav-links{
+        width:100%;
+        display:flex;
+        flex-direction:row;
+        justify-content:space-around;
+        align-items:center;
+    }
+
+    .navbar-right{
+        width:100%;
+        display:flex;
+        justify-content:space-around;
+        align-items:center;
+        position:static !important;
+    }
+
+    .btn-book-now{
+        width:auto;
+        margin:0;
+    }
+}
     }
 </style>
 

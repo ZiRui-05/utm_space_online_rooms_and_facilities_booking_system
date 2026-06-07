@@ -1,5 +1,5 @@
 <?php
-$currentPage = 'booking';
+$currentPage = 'room';
 $rooms = [];
 
 try {
@@ -46,6 +46,81 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Roboto','Oxygen','
 .room-footer{display:flex;gap:12px;padding-top:16px;border-top:1px solid var(--border-light)}.btn-view-details,.btn-book{flex:1;padding:10px;border-radius:4px;font-weight:600;font-size:13px;cursor:pointer;text-align:center;text-decoration:none}
 .btn-view-details{border:1px solid var(--primary-color);color:var(--primary-color)}.btn-book{background:var(--primary-color);color:#fff;border:none}.btn-book:disabled{background:#ccc;cursor:not-allowed}
 .no-results{background:var(--white);border-radius:8px;padding:40px;text-align:center;display:none}
+
+.nav-link {
+    color: white;
+    text-decoration: none;
+    position: relative;
+    padding-bottom: 8px;
+}
+
+.nav-link.active {
+    color: #ffc107 !important;
+    border-bottom: 2px solid #ffc107;
+    padding-bottom: 5px;
+}
+
+
+.nav-link.active::after {
+    content: '';
+    position: absolute;
+    left: -5px;
+    bottom: -5px;
+    width: calc(100% + 10px);
+    height: 3px;
+    background: #ffc107;
+}
+
+/* Mobile Responsive */
+@media screen and (max-width: 768px) {
+
+    .main-container {
+        flex-direction: column;
+        padding: 0 15px;
+        gap: 20px;
+    }
+
+    .sidebar {
+        flex: none;
+        width: 100%;
+    }
+
+    .content-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+
+    .sort-controls {
+        width: 100%;
+    }
+
+    .sort-select,
+    .sort-order-btn {
+        width: 100%;
+    }
+
+    .room-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .room-footer {
+        flex-direction: column;
+    }
+
+    .btn-view-details,
+    .btn-book {
+        width: 100%;
+    }
+
+    .content-title {
+        font-size: 24px;
+    }
+
+    .breadcrumb {
+        padding: 12px 15px;
+    }
+}
 </style></head><body>
 <?php include '../../includes/header.php'; ?>
 <div class="breadcrumb"><a href="/homepage.php">Home</a><span> > </span><span>Room Availability</span></div>

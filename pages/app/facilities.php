@@ -80,6 +80,67 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Roboto','Oxygen','
 .btn-book:disabled{background:#ccc;cursor:not-allowed}
 .no-results{background:var(--white);border-radius:8px;padding:40px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.08)}
 .no-results-icon{font-size:48px;margin-bottom:12px}
+
+@media screen and (max-width: 768px) {
+
+    .main-container {
+        flex-direction: column;
+        padding: 0 15px;
+        gap: 20px;
+    }
+
+    .sidebar {
+        flex: none !important;
+        width: 100% !important;
+    }
+
+    .content-area {
+        width: 100% !important;
+    }
+
+    .content-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+
+    .sort-container {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+
+    .sort-select,
+    .btn-sort-dir {
+        width: 100%;
+    }
+
+    /* Facility cards */
+    #facility-grid {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+    }
+
+    .facility-card {
+        width: 100% !important;
+    }
+
+    .facility-actions {
+        flex-direction: column;
+    }
+
+    .facility-actions button,
+    .facility-actions a {
+        width: 100%;
+    }
+
+    .breadcrumb {
+        padding: 12px 15px;
+    }
+
+    .content-title {
+        font-size: 24px;
+    }
+}
 </style></head>
 <body>
 <?php include '../../includes/header.php'; ?>
