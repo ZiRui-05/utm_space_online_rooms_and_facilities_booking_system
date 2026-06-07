@@ -56,7 +56,7 @@
     <div class="footer-content">
         <div class="footer-section">
             <h5>SPACEBOOK</h5>
-            <p>© 2024 University Facilities Management. All rights reserved.</p>
+            <p>© 2026 University Facilities Management. All rights reserved.</p>
         </div>
         <div class="footer-section">
             <a href="#">Terms of Service</a>
