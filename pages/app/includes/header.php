@@ -27,77 +27,8 @@ function role_url($page) { global $prefix; return $prefix . '_' . $page . '.php'
 </head>
 <body class="antialiased text-slate-900">
 <header class="no-print flex justify-between items-center w-full px-10 py-4 sticky top-0 z-50 bg-white border-b border-slate-200">
-    <div class="flex items-center gap-8">
-        <span class="text-xl font-bold tracking-tight text-red-900 uppercase">SPACEBOOK</span>
-        <nav class="hidden md:flex gap-6 text-sm font-medium">
-            <a class="text-slate-600 hover:text-red-900" href="../../homepage.php">Home</a>
-            <a class="text-slate-600 hover:text-red-900" href="<?= h($dashboardLink) ?>"><?= h($dashboardLabel) ?></a>
-            <?php if($isAdmin): ?>
-                <a class="text-slate-600 hover:text-red-900" href="admin_booking_requests.php">Bookings</a>
-            <?php else: ?>
-                <a class="text-slate-600 hover:text-red-900" href="manager_booking_requests.php">Bookings</a>
-            <?php endif; ?>
-            <a class="text-slate-600 hover:text-red-900" href="<?= h(role_url('issue_reports')) ?>">Issue Reports</a>
-            <a class="text-slate-600 hover:text-red-900" href="admin_reports.php">Reports</a>
-        </nav>
-    </div>
-
-    <div class="flex items-center gap-4">
-        <button class="relative p-2 text-slate-600 hover:text-red-900 transition-colors">
-            <span class="material-symbols-outlined">notifications</span>
-            <span class="absolute top-1 right-1 bg-amber-500 text-white font-bold text-[10px] w-4 h-4 flex items-center justify-center rounded-full">2</span>
-        </button>
-
-        <a href="#" class="bg-amber-500 hover:bg-amber-600 text-slate-900 text-sm font-bold px-4 py-2 rounded-md transition-colors shadow-sm">
-            Book Now
-        </a>
-
-        <span class="hidden sm:block text-sm text-slate-600">
-            <?= $user ? h($user['full_name']) . ' · ' . h(ucwords(str_replace('_',' ', $user['role']))) : 'Guest' ?>
-        </span>
-
-        <div class="relative inline-block text-left">
-            <button id="profileDropdownBtn" class="h-9 w-9 rounded-full overflow-hidden border border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-900 transition-all flex items-center justify-center">
-                <img src="https://ui-avatars.com/api/?name=<?= urlencode($user['full_name'] ?? 'User') ?>&background=5c001f&color=fff" class="h-full w-full object-cover" alt="Avatar">
-            </button>
-
-            <div id="profileDropdownMenu" class="hidden absolute right-0 mt-2 w-56 rounded-xl bg-white shadow-xl border border-slate-100 py-2 z-50 origin-top-right transition-all">
-                
-                <a href="profile.php" class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors">
-                    <span class="material-symbols-outlined text-purple-600 text-xl">person</span>
-                    <span>My Profile</span>
-                </a>
-
-                <a href="<?= h($dashboardLink) ?>" class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors">
-                    <span class="material-symbols-outlined text-blue-500 text-xl">shield</span>
-                    <span><?= h($dashboardLabel) ?></span>
-                </a>
-
-                <a href="<?php echo $isAdmin ? 'admin_booking_requests.php' : 'manager_booking_requests.php'; ?>" class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors">
-                    <span class="material-symbols-outlined text-orange-400 text-xl">description</span>
-                    <span>My Bookings</span>
-                </a>
-
-                <a href="settings.php" class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors">
-                    <span class="material-symbols-outlined text-slate-400 text-xl">settings</span>
-                    <span>Settings</span>
-                </a>
-
-                <a href="about.php" class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors">
-                    <span class="material-symbols-outlined text-pink-500 text-xl">help</span>
-                    <span>About</span>
-                </a>
-
-                <hr class="my-1 border-slate-100">
-
-                <a href="logout.php" class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors">
-                    <span class="material-symbols-outlined text-amber-700 text-xl">logout</span>
-                    <span>Logout</span>
-                </a>
-
-            </div>
-        </div>
-    </div>
+    <div class="flex items-center gap-8"><span class="text-xl font-bold tracking-tight text-red-900 uppercase">SPACEBOOK</span><nav class="hidden md:flex gap-6 text-sm font-medium"><a class="text-slate-600 hover:text-red-900" href="../../homepage.php">Home</a><a class="text-slate-600 hover:text-red-900" href="<?= h($dashboardLink) ?>"><?= h($dashboardLabel) ?></a><?php if($isAdmin): ?><a class="text-slate-600 hover:text-red-900" href="admin_booking_requests.php">Bookings</a><?php else: ?><a class="text-slate-600 hover:text-red-900" href="manager_booking_requests.php">Bookings</a><?php endif; ?><a class="text-slate-600 hover:text-red-900" href="<?= h(role_url('issue_reports')) ?>">Issue Reports</a><a class="text-slate-600 hover:text-red-900" href="admin_reports.php">Reports</a></nav></div>
+    <div class="flex items-center gap-4"><span class="hidden sm:block text-sm text-slate-600"><?= $user ? h($user['full_name']) . ' · ' . h(ucwords(str_replace('_',' ', $user['role']))) : 'Guest' ?></span><a class="btn-light py-2" href="logout.php">Logout</a><div class="h-9 w-9 rounded-full overflow-hidden border border-slate-200"><img src="https://ui-avatars.com/api/?name=<?= urlencode($user['full_name'] ?? 'User') ?>&background=5c001f&color=fff" class="h-full w-full object-cover" alt="Avatar"></div></div>
 </header>
 <div class="flex min-h-screen">
 <aside class="no-print flex flex-col fixed left-0 top-0 pt-20 pb-8 px-4 z-40 bg-slate-50 h-screen w-64 border-r border-slate-200">
@@ -123,23 +54,3 @@ function role_url($page) { global $prefix; return $prefix . '_' . $page . '.php'
 <main class="ml-64 min-w-0 max-w-[calc(100vw-16rem)] flex-1 overflow-hidden p-6 lg:p-10">
 <?php if (!empty($_GET['success'])): ?><div class="no-print mb-5 rounded-lg bg-green-50 border border-green-200 text-green-800 p-4 font-semibold"><?= h($_GET['success']) ?></div><?php endif; ?>
 <?php if (!empty($_GET['error'])): ?><div class="no-print mb-5 rounded-lg bg-red-50 border border-red-200 text-red-800 p-4 font-semibold"><?= h($_GET['error']) ?></div><?php endif; ?>
-
-    <script>
-document.addEventListener('DOMContentLoaded', function () {
-    const dropdownBtn = document.getElementById('profileDropdownBtn');
-    const dropdownMenu = document.getElementById('profileDropdownMenu');
-
-    // Toggle dropdown on avatar click
-    dropdownBtn.addEventListener('click', function (event) {
-        event.stopPropagation();
-        dropdownMenu.classList.toggle('hidden');
-    });
-
-    // Close dropdown if user clicks outside of it
-    document.addEventListener('click', function (event) {
-        if (!dropdownBtn.contains(event.target) && !dropdownMenu.contains(event.target)) {
-            dropdownMenu.classList.add('hidden');
-        }
-    });
-});
-</script>
