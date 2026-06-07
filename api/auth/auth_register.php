@@ -7,6 +7,15 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
+function is_strong_password(string $password): bool
+{
+    return strlen($password) >= 8
+        && preg_match('/[A-Z]/', $password)
+        && preg_match('/[a-z]/', $password)
+        && preg_match('/[0-9]/', $password)
+        && preg_match('/[^A-Za-z0-9]/', $password);
+}
+
 $input = json_decode(file_get_contents('php://input'), true);
 $fullName = trim($input['full_name'] ?? '');
 $utmId = trim($input['utm_id'] ?? '');
@@ -53,9 +62,9 @@ if ($icDigits === '') {
 $lastDigit = (int)substr($icDigits, -1);
 $gender = ($lastDigit % 2 === 0) ? 'Female' : 'Male';
 
-if (strlen($password) < 8) {
+if (!is_strong_password((string)$password)) {
     http_response_code(422);
-    echo json_encode(['success' => false, 'message' => 'Password must be at least 8 characters']);
+    echo json_encode(['success' => false, 'message' => 'Password must be at least 8 characters and include uppercase, lowercase, number and symbol.']);
     exit;
 }
 

@@ -7,14 +7,23 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
+function is_strong_password(string $password): bool
+{
+    return strlen($password) >= 8
+        && preg_match('/[A-Z]/', $password)
+        && preg_match('/[a-z]/', $password)
+        && preg_match('/[0-9]/', $password)
+        && preg_match('/[^A-Za-z0-9]/', $password);
+}
+
 $input = json_decode(file_get_contents('php://input'), true);
 $email = trim((string)($input['email'] ?? ''));
 $password = (string)($input['password'] ?? '');
 $otp = trim((string)($input['otp'] ?? ''));
 
-if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($password) < 8 || !preg_match('/^\d{6}$/', $otp)) {
+if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || !is_strong_password($password) || !preg_match('/^\d{6}$/', $otp)) {
     http_response_code(422);
-    echo json_encode(['success' => false, 'message' => 'Email, 6-digit OTP and valid password are required']);
+    echo json_encode(['success' => false, 'message' => 'Email, 6-digit OTP and strong password are required']);
     exit;
 }
 

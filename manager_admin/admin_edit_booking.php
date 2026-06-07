@@ -1,9 +1,16 @@
 <?php
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/../includes/notifications.php';
 $user = require_role(['admin']);
 $id = (int)($_GET['id'] ?? $_POST['booking_id'] ?? 0);
 if ($id <= 0) { header('Location: admin_booking_requests.php?error=' . urlencode('Missing booking ID')); exit; }
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $beforeStmt = $conn->prepare("SELECT b.booking_id, b.user_id, b.booking_status, b.payment_status, COALESCE(r.room_name, f.facility_name) resource_name FROM bookings b LEFT JOIN rooms r ON r.room_id=b.room_id LEFT JOIN facilities f ON f.facility_id=b.facility_id WHERE b.booking_id=? LIMIT 1");
+    $beforeStmt->bind_param('i', $id);
+    $beforeStmt->execute();
+    $beforeBooking = $beforeStmt->get_result()->fetch_assoc();
+    if (!$beforeBooking) { header('Location: admin_booking_requests.php?error=' . urlencode('Booking not found')); exit; }
+
     $status = $_POST['booking_status'];
     $payment = $_POST['payment_status'];
     $start = $_POST['booking_start'];
@@ -18,6 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt = $conn->prepare('UPDATE bookings SET booking_status=?, payment_status=?, booking_start=?, booking_end=?, purpose=?, total_price=?, reviewed_by=?, reviewed_at=NOW(), review_remarks=? WHERE booking_id=?');
     $stmt->bind_param('sssssdisi', $status, $payment, $start, $end, $purpose, $total, $user['user_id'], $remarks, $id);
     $stmt->execute();
+    notify_booking_status_change_mysqli($conn, $beforeBooking, $status, $payment);
     suspend_users_with_missed_payments_mysqli($conn);
     header('Location: admin_booking_requests.php?success=' . urlencode('Booking updated successfully')); exit;
 }

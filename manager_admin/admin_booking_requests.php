@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/../includes/notifications.php';
 $user = require_role(['admin']);
 $self_file = 'admin_booking_requests.php';
 $edit_file = 'manager_edit_booking.php';
@@ -7,10 +8,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['booking_id'], $_POST[
     $booking_id = (int)$_POST['booking_id'];
     $decision = $_POST['decision'] === 'approved' ? 'approved' : 'rejected';
     $remarks = trim($_POST['review_remarks'] ?? '');
+    $beforeStmt = $conn->prepare("SELECT b.booking_id, b.user_id, b.booking_status, b.payment_status, COALESCE(r.room_name, f.facility_name) resource_name FROM bookings b LEFT JOIN rooms r ON r.room_id=b.room_id LEFT JOIN facilities f ON f.facility_id=b.facility_id WHERE b.booking_id=? AND b.booking_status='pending' LIMIT 1");
+    $beforeStmt->bind_param('i', $booking_id);
+    $beforeStmt->execute();
+    $beforeBooking = $beforeStmt->get_result()->fetch_assoc();
+
     $stmt = $conn->prepare("UPDATE bookings SET booking_status=?, payment_status=CASE WHEN ?='rejected' AND payment_status IN ('paid','pending_verification') THEN 'refunded' ELSE payment_status END, reviewed_by=?, reviewed_at=NOW(), review_remarks=? WHERE booking_id=? AND booking_status='pending'");
     $stmt->bind_param('ssisi', $decision, $decision, $user['user_id'], $remarks, $booking_id);
     $stmt->execute();
-    $msg = $stmt->affected_rows ? 'Booking status changed to ' . $decision : 'Booking is no longer pending and cannot be changed from this list.';
+    if ($stmt->affected_rows && $beforeBooking) {
+        $newPaymentStatus = (string)($beforeBooking['payment_status'] ?? 'unpaid');
+        if ($decision === 'rejected' && in_array($newPaymentStatus, ['paid', 'pending_verification'], true)) {
+            $newPaymentStatus = 'refunded';
+        }
+        notify_booking_status_change_mysqli($conn, $beforeBooking, $decision, $newPaymentStatus);
+    }
+    $msg = $stmt->affected_rows ? 'Booking status changed to ' . $decision . ' and student notified.' : 'Booking is no longer pending and cannot be changed from this list.';
     header('Location: ' . $self_file . '?success=' . urlencode($msg)); exit;
 }
 $status = $_GET['status'] ?? 'all';

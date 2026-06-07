@@ -230,8 +230,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
          LEFT JOIN rooms r ON b.room_id = r.room_id
          LEFT JOIN facilities f ON b.facility_id = f.facility_id
          WHERE b.user_id = :user_id
-         ORDER BY b.booking_start DESC, b.created_at DESC
-         LIMIT 5'
+         ORDER BY b.created_at DESC, b.booking_start DESC
+         LIMIT 3'
     );
     $bookingStmt->execute(['user_id' => $userId]);
     $bookings = $bookingStmt->fetchAll();

@@ -403,7 +403,7 @@
         .utm-upload-card-box {
             flex: 1;
             min-width: 240px;
-            height: 150px;
+            height: 190px;
             border: 2px dashed var(--utm-maroon);
             border-radius: 8px;
             background: #fff8f9;
@@ -432,10 +432,12 @@
         .card-preview-img {
             width: 100%;
             height: 100%;
-            object-fit: cover;
+            object-fit: contain;
             position: absolute;
             top: 0; left: 0;
             display: none;
+            background: #fff;
+            padding: 6px;
         }
         .btn-upload-card-maroon {
             background-color: var(--utm-maroon);
@@ -700,6 +702,123 @@
             font-size: 14px;
         }
 
+
+        .issue-modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.48);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            z-index: 1100;
+        }
+
+        .issue-modal {
+            width: min(680px, 100%);
+            max-height: 92vh;
+            overflow-y: auto;
+            background: var(--white);
+            border-radius: 12px;
+            box-shadow: 0 20px 50px rgba(0,0,0,.24);
+            padding: 24px;
+        }
+
+        .issue-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 16px;
+            margin-bottom: 18px;
+            padding-bottom: 14px;
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .issue-modal-header h3 {
+            color: var(--primary-color);
+            font-size: 20px;
+            margin-bottom: 4px;
+        }
+
+        .issue-modal-header p {
+            color: var(--text-light);
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .issue-modal-close {
+            width: 34px;
+            height: 34px;
+            border: none;
+            border-radius: 50%;
+            background: var(--bg-light);
+            cursor: pointer;
+            font-size: 20px;
+        }
+
+        .issue-form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+
+        .issue-form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+            margin-bottom: 14px;
+        }
+
+        .issue-form-group.full {
+            grid-column: span 2;
+        }
+
+        .issue-form-group label {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-dark);
+        }
+
+        .issue-form-group input,
+        .issue-form-group select,
+        .issue-form-group textarea {
+            width: 100%;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            padding: 11px 12px;
+            font: inherit;
+            background: #fff;
+        }
+
+        .issue-form-group textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+
+        .issue-modal-actions {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }
+
+        .issue-status-text {
+            color: var(--text-light);
+            font-size: 13px;
+        }
+
+        .btn-secondary-link {
+            color: var(--primary-color);
+            font-size: 13px;
+            font-weight: 700;
+            text-decoration: none;
+        }
+
+        .btn-secondary-link:hover {
+            text-decoration: underline;
+        }
         /* Responsive */
         @media (max-width: 768px) {
             .container {
@@ -791,6 +910,13 @@
                     <div class="settings-item-label">
                         <span class="settings-item-icon">🔒</span>
                         <span>Privacy & Security</span>
+                    </div>
+                    <span class="settings-item-arrow">›</span>
+                </div>
+                <div class="settings-item" onclick="openIssueReportModal()">
+                    <div class="settings-item-label">
+                        <span class="settings-item-icon">🛠️</span>
+                        <span>Report Issue</span>
                     </div>
                     <span class="settings-item-arrow">›</span>
                 </div>
@@ -886,7 +1012,7 @@
                     <h3>Booking Status & History</h3>
                     <button class="btn-all-requests" onclick="window.location.href='booking-history.php'">All Requests</button>
                 </div>
-                <p style="font-size: 13px; color: var(--text-light); margin-bottom: 16px;">Manage your current and previous facility reservations.</p>
+                <p style="font-size: 13px; color: var(--text-light); margin-bottom: 16px;">Quick view of your latest booking requests. Use All Requests for full history.</p>
 
                 <table class="booking-table">
                     <thead>
@@ -925,6 +1051,62 @@
                 <button type="button" class="btn-payment" onclick="triggerReceiptUpload()">Upload Receipt</button>
                 <span class="payment-upload-status" id="payment-upload-status">JPG, PNG, WEBP, or PDF. Max 5MB.</span>
             </div>
+        </div>
+    </div>
+
+
+    <div class="issue-modal-backdrop" id="issue-modal-backdrop">
+        <div class="issue-modal" role="dialog" aria-modal="true" aria-labelledby="issue-modal-title">
+            <div class="issue-modal-header">
+                <div>
+                    <h3 id="issue-modal-title">Report an Issue</h3>
+                    <p>Send problems about booking, payment, facilities, cleanliness, safety, or general system issues to the management team.</p>
+                </div>
+                <button type="button" class="issue-modal-close" onclick="closeIssueReportModal()" aria-label="Close issue report dialog">×</button>
+            </div>
+            <form id="issue-report-form" onsubmit="submitIssueReport(event)">
+                <div class="issue-form-grid">
+                    <div class="issue-form-group full">
+                        <label for="issue-title">Issue Title</label>
+                        <input id="issue-title" name="issue_title" maxlength="150" required placeholder="Example: Booking status not updated">
+                    </div>
+                    <div class="issue-form-group">
+                        <label for="issue-type">Issue Type</label>
+                        <select id="issue-type" name="issue_type" required>
+                            <option value="general">General</option>
+                            <option value="booking">Booking</option>
+                            <option value="payment">Payment</option>
+                            <option value="maintenance">Maintenance</option>
+                            <option value="cleanliness">Cleanliness</option>
+                            <option value="safety">Safety</option>
+                        </select>
+                    </div>
+                    <div class="issue-form-group">
+                        <label for="issue-priority">Priority</label>
+                        <select id="issue-priority" name="priority" required>
+                            <option value="low">Low</option>
+                            <option value="medium" selected>Medium</option>
+                            <option value="high">High</option>
+                            <option value="urgent">Urgent</option>
+                        </select>
+                    </div>
+                    <div class="issue-form-group full">
+                        <label for="issue-description">Description</label>
+                        <textarea id="issue-description" name="description" required placeholder="Explain what happened, where it happened, and what help you need."></textarea>
+                    </div>
+                    <div class="issue-form-group full">
+                        <label for="issue-attachment">Supporting Image / Document</label>
+                        <input id="issue-attachment" name="attachment" type="file" accept="image/*,.pdf,.doc,.docx">
+                    </div>
+                </div>
+                <div class="issue-modal-actions">
+                    <div>
+                        <button type="submit" class="btn-payment">Submit Issue Report</button>
+                        <a class="btn-secondary-link" href="issue_report_history.php">View Report History</a>
+                    </div>
+                    <span class="issue-status-text" id="issue-report-status">Accepted: images, PDF, DOC, DOCX. Maximum 5MB.</span>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -1005,6 +1187,43 @@
             : 'Upload clear front and back images of your UTM card (Max 5MB each).';
         
         renderBookings(result.bookings || []);
+        await loadSavedUtmCards(userData);
+    }
+
+    async function loadSavedUtmCards(userData) {
+        await Promise.all([
+            loadSavedUtmCardSide('front', Number(userData.has_utm_card_front) === 1),
+            loadSavedUtmCardSide('back', Number(userData.has_utm_card_back) === 1)
+        ]);
+    }
+
+    async function loadSavedUtmCardSide(side, hasImage) {
+        const previewImg = document.getElementById(`card-${side}-preview`);
+        const placeholder = document.getElementById(`${side}-placeholder`);
+        if (!previewImg || !placeholder) return;
+
+        if (!hasImage) {
+            previewImg.removeAttribute('src');
+            previewImg.style.display = 'none';
+            placeholder.style.display = 'flex';
+            return;
+        }
+
+        try {
+            const response = await fetch(`../../api/user/profile_card_image.php?kind=${side === 'back' ? 'back' : 'front'}`, { credentials: 'same-origin' });
+            if (!response.ok) throw new Error('Card image not available');
+            const blob = await response.blob();
+            const objectUrl = URL.createObjectURL(blob);
+            if (previewImg.dataset.objectUrl) URL.revokeObjectURL(previewImg.dataset.objectUrl);
+            previewImg.dataset.objectUrl = objectUrl;
+            previewImg.src = objectUrl;
+            previewImg.style.display = 'block';
+            placeholder.style.display = 'none';
+        } catch (error) {
+            previewImg.removeAttribute('src');
+            previewImg.style.display = 'none';
+            placeholder.style.display = 'flex';
+        }
     }
 
     function renderBookings(bookings) {
@@ -1014,7 +1233,16 @@
         const viewHistory = document.getElementById('view-history');
         tbody.innerHTML = '';
 
-        if (!bookings.length) {
+        const uniqueBookings = [];
+        const seenBookingIds = new Set();
+        bookings.forEach((booking) => {
+            const bookingId = Number(booking.booking_id);
+            if (!bookingId || seenBookingIds.has(bookingId)) return;
+            seenBookingIds.add(bookingId);
+            uniqueBookings.push(booking);
+        });
+
+        if (!uniqueBookings.length) {
             bookingTable.style.display = 'none';
             emptyMessage.style.display = 'flex';
             viewHistory.style.display = 'none';
@@ -1025,7 +1253,7 @@
         emptyMessage.style.display = 'none';
         viewHistory.style.display = 'block';
 
-        bookings.slice(0, 5).forEach((booking) => {
+        uniqueBookings.slice(0, 3).forEach((booking) => {
             const startDate = new Date(booking.booking_start);
             const endDate = new Date(booking.booking_end);
             const facilityName = booking.resource_type === 'room'
@@ -1083,6 +1311,43 @@
     function closePaymentModal() {
         activePaymentBookingId = null;
         document.getElementById('payment-modal-backdrop').style.display = 'none';
+    }
+
+    function openIssueReportModal() {
+        document.getElementById('issue-report-form').reset();
+        document.getElementById('issue-report-status').textContent = 'Accepted: images, PDF, DOC, DOCX. Maximum 5MB.';
+        document.getElementById('issue-modal-backdrop').style.display = 'flex';
+    }
+
+    function closeIssueReportModal() {
+        document.getElementById('issue-modal-backdrop').style.display = 'none';
+    }
+
+    async function submitIssueReport(event) {
+        event.preventDefault();
+        const statusText = document.getElementById('issue-report-status');
+        const form = document.getElementById('issue-report-form');
+        const formData = new FormData(form);
+        const attachment = document.getElementById('issue-attachment').files[0];
+        if (attachment && attachment.size > 5 * 1024 * 1024) {
+            alert('Attachment must be 5MB or smaller.');
+            return;
+        }
+
+        statusText.textContent = 'Submitting issue report...';
+        const response = await fetch('../../api/user/submit_issue_report.php', {
+            method: 'POST',
+            credentials: 'same-origin',
+            body: formData
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+            statusText.textContent = 'Submission failed.';
+            alert(result.message || 'Failed to submit issue report.');
+            return;
+        }
+        statusText.textContent = 'Issue report submitted successfully.';
+        setTimeout(closeIssueReportModal, 700);
     }
 
     function triggerReceiptUpload() {
@@ -1404,7 +1669,10 @@
     }
 
     function cancelBooking() {}
-    function navigateTo(page) { alert('Navigating to ' + page); }
+    function navigateTo(page) {
+        if (page === 'notifications') { window.location.href = 'all_notifications.php'; return; }
+        if (page === 'privacy') { window.location.href = '../auth/forgot-password.html'; return; }
+    }
     function viewOlderHistory() { window.location.href = 'booking-history.php'; }
 </script>
 </body>
