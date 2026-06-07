@@ -123,3 +123,23 @@ function role_url($page) { global $prefix; return $prefix . '_' . $page . '.php'
 <main class="ml-64 min-w-0 max-w-[calc(100vw-16rem)] flex-1 overflow-hidden p-6 lg:p-10">
 <?php if (!empty($_GET['success'])): ?><div class="no-print mb-5 rounded-lg bg-green-50 border border-green-200 text-green-800 p-4 font-semibold"><?= h($_GET['success']) ?></div><?php endif; ?>
 <?php if (!empty($_GET['error'])): ?><div class="no-print mb-5 rounded-lg bg-red-50 border border-red-200 text-red-800 p-4 font-semibold"><?= h($_GET['error']) ?></div><?php endif; ?>
+
+    <script>
+document.addEventListener('DOMContentLoaded', function () {
+    const dropdownBtn = document.getElementById('profileDropdownBtn');
+    const dropdownMenu = document.getElementById('profileDropdownMenu');
+
+    // Toggle dropdown on avatar click
+    dropdownBtn.addEventListener('click', function (event) {
+        event.stopPropagation();
+        dropdownMenu.classList.toggle('hidden');
+    });
+
+    // Close dropdown if user clicks outside of it
+    document.addEventListener('click', function (event) {
+        if (!dropdownBtn.contains(event.target) && !dropdownMenu.contains(event.target)) {
+            dropdownMenu.classList.add('hidden');
+        }
+    });
+});
+</script>
