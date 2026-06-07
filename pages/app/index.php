@@ -1,5 +1,9 @@
 <?php
-$query = $_SERVER['QUERY_STRING'] ?? '';
-header('Location: ../../manager_admin/index.php' . ($query !== '' ? '?' . $query : ''));
+require_once __DIR__ . '/includes/auth.php';
+$user = current_user();
+if ($user) {
+    redirect_by_role($user);
+}
+header('Location: ../auth/login.html');
 exit;
 ?>
