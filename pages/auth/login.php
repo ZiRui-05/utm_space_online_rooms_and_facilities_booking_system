@@ -661,11 +661,11 @@ $currentPage = '';
             const normalizedRole = (role || '').toLowerCase();
 
             if (normalizedRole === 'admin') {
-                return '../app/admin_dashboard.php';
+                return '../../manager_admin/admin_dashboard.php';
             }
 
             if (normalizedRole === 'manager' || normalizedRole === 'facility_manager') {
-                return '../app/facility_manager_dashboard.php';
+                return '../../manager_admin/facility_manager_dashboard.php';
             }
 
             return '../../homepage.php';

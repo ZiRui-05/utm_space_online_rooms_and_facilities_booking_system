@@ -176,6 +176,7 @@
         .categories-section {
             padding: 50px 30px;
             background: var(--white);
+            width: 100%;
             max-width: 1200px;
             margin: 0 auto;
         }
@@ -266,6 +267,7 @@
         .featured-section {
             padding: 50px 30px;
             background: var(--bg-light);
+            width: 100%;
             max-width: 1200px;
             margin: 0 auto;
         }
@@ -438,6 +440,7 @@
             padding: 50px 30px;
             background: var(--white);
             text-align: center;
+            width: 100%;
             max-width: 1200px;
             margin: 0 auto;
         }
