@@ -8,7 +8,25 @@ if (!function_exists('ensure_user_notifications_table_mysqli')) {
             booking_id INT NULL,
             title VARCHAR(150) NOT NULL,
             message TEXT NOT NULL,
-            notification_type VARCHAR(40) NOT NULL DEFAULT 'booking_status',
+            notification_type VARCHAR(40) NOT NULL DEFAULT 'account',
+            is_read TINYINT(1) NOT NULL DEFAULT 0,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_user_read_created (user_id, is_read, created_at),
+            INDEX idx_booking (booking_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+    }
+}
+
+if (!function_exists('ensure_user_notifications_table_pdo')) {
+    function ensure_user_notifications_table_pdo(PDO $pdo): void
+    {
+        $pdo->exec("CREATE TABLE IF NOT EXISTS user_notifications (
+            notification_id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            booking_id INT NULL,
+            title VARCHAR(150) NOT NULL,
+            message TEXT NOT NULL,
+            notification_type VARCHAR(40) NOT NULL DEFAULT 'account',
             is_read TINYINT(1) NOT NULL DEFAULT 0,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             INDEX idx_user_read_created (user_id, is_read, created_at),
@@ -18,12 +36,31 @@ if (!function_exists('ensure_user_notifications_table_mysqli')) {
 }
 
 if (!function_exists('create_user_notification_mysqli')) {
-    function create_user_notification_mysqli(mysqli $conn, int $userId, ?int $bookingId, string $title, string $message, string $type = 'booking_status'): void
+    function create_user_notification_mysqli(mysqli $conn, int $userId, ?int $bookingId, string $title, string $message, string $type = 'account'): void
     {
+        if ($userId <= 0) return;
         ensure_user_notifications_table_mysqli($conn);
+        $type = substr($type, 0, 40);
+        $title = substr($title, 0, 150);
         $stmt = $conn->prepare('INSERT INTO user_notifications (user_id, booking_id, title, message, notification_type) VALUES (?, ?, ?, ?, ?)');
         $stmt->bind_param('iisss', $userId, $bookingId, $title, $message, $type);
         $stmt->execute();
+    }
+}
+
+if (!function_exists('create_user_notification_pdo')) {
+    function create_user_notification_pdo(PDO $pdo, int $userId, ?int $bookingId, string $title, string $message, string $type = 'account'): void
+    {
+        if ($userId <= 0) return;
+        ensure_user_notifications_table_pdo($pdo);
+        $stmt = $pdo->prepare('INSERT INTO user_notifications (user_id, booking_id, title, message, notification_type) VALUES (:user_id, :booking_id, :title, :message, :notification_type)');
+        $stmt->execute([
+            'user_id' => $userId,
+            'booking_id' => $bookingId,
+            'title' => substr($title, 0, 150),
+            'message' => $message,
+            'notification_type' => substr($type, 0, 40),
+        ]);
     }
 }
 

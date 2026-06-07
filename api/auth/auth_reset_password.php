@@ -28,6 +28,7 @@ if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || !is_strong_pa
 }
 
 require __DIR__ . '/../../config/db.php';
+require_once __DIR__ . '/../../includes/notifications.php';
 $stmt = $pdo->prepare('SELECT user_id FROM users WHERE email = :email LIMIT 1');
 $stmt->execute(['email' => $email]);
 $user = $stmt->fetch();
@@ -74,5 +75,6 @@ $updateStmt->execute(['password_hash' => $passwordHash, 'user_id' => $user['user
 
 $deleteStmt = $pdo->prepare('DELETE FROM password_reset_otps WHERE user_id = :user_id');
 $deleteStmt->execute(['user_id' => $user['user_id']]);
+create_user_notification_pdo($pdo, (int)$user['user_id'], null, 'Password changed', 'Your account password was changed successfully.', 'security');
 
 echo json_encode(['success' => true, 'message' => 'Password updated successfully']);

@@ -6,6 +6,7 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 }
 
 require_once __DIR__ . '/../../config/db.php';
+require_once __DIR__ . '/../../includes/notifications.php';
 
 $userId = (int)($_SESSION['user']['user_id'] ?? ($_SESSION['user_id'] ?? 0));
 $resourceType = strtolower(trim($_POST['resource_type'] ?? 'facility'));
@@ -276,10 +277,13 @@ try {
         $paymentStatus,
     ]);
 
+    $newBookingId = (int)$pdo->lastInsertId();
+    create_user_notification_pdo($pdo, $userId, $newBookingId, 'Booking request submitted', 'Your booking request #' . $newBookingId . ' has been submitted and is waiting for approval.', 'booking_request');
+
     echo json_encode([
         'success' => true,
         'message' => 'Booking created successfully',
-        'booking_id' => (int)$pdo->lastInsertId(),
+        'booking_id' => $newBookingId,
     ]);
 } catch (Throwable $e) {
     http_response_code(500);

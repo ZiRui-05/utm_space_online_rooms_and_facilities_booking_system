@@ -11,6 +11,7 @@ if (!isset($_SESSION['user']['user_id'])) {
 }
 
 require __DIR__ . '/../../config/db.php';
+require_once __DIR__ . '/../../includes/notifications.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
@@ -100,6 +101,8 @@ try {
          WHERE booking_id = ? AND user_id = ?"
     );
     $update->execute([base64_encode($rawReceipt), $mime, $bookingId, $userId]);
+
+    create_user_notification_pdo($pdo, $userId, $bookingId, 'Payment receipt uploaded', 'Your payment receipt for booking #' . $bookingId . ' was uploaded and is pending verification.', 'payment');
 
     echo json_encode([
         'success' => true,

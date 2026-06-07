@@ -35,6 +35,7 @@ foreach ($notifications as $n) {
     if ((int)$n['is_read'] === 0) $unreadCount++;
 }
 function h($value): string { return htmlspecialchars((string)($value ?? ''), ENT_QUOTES, 'UTF-8'); }
+$currentPage = 'notifications';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -42,8 +43,9 @@ function h($value): string { return htmlspecialchars((string)($value ?? ''), ENT
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>All Notifications - SPACEBOOK</title>
 <style>
-:root{--primary:#8b1538;--border:#e5e7eb;--bg:#f5f5f5;--text:#333;--muted:#6b7280;--white:#fff;--success:#047857}
+:root{--primary:#8b1538;--primary-color:#8b1538;--primary-hover:#a01d48;--accent-color:#ffc107;--border:#e5e7eb;--border-light:#e5e7eb;--bg:#f5f5f5;--bg-light:#f8fafc;--text:#333;--text-dark:#2b0010;--text-light:#6b7280;--muted:#6b7280;--white:#fff;--danger:#dc2626;--success:#047857}
 *{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text)}
+.navbar{background:var(--primary-color)!important}.navbar-logo,.nav-link,.icon-button{color:var(--white)!important}.footer{background:var(--text-dark)!important;color:var(--white)!important;width:100%}.footer a{color:var(--white)!important}
 .breadcrumb{padding:16px 30px;background:#fff;border-bottom:1px solid var(--border);font-size:13px}.breadcrumb a{color:var(--primary);text-decoration:none}
 .container{max-width:1050px;margin:30px auto;padding:0 24px}.card{background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);overflow:hidden}.header{padding:22px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}.header h2{color:#2b0010}.header p{font-size:14px;color:var(--muted);margin-top:6px}.btn{border:0;border-radius:8px;background:var(--primary);color:#fff;font-weight:700;padding:10px 14px;cursor:pointer}.list{display:flex;flex-direction:column}.item{padding:18px 24px;border-bottom:1px solid var(--border);display:grid;grid-template-columns:14px 1fr auto;gap:14px;align-items:start}.dot{width:10px;height:10px;border-radius:50%;background:var(--primary);margin-top:7px}.item.read .dot{background:#d1d5db}.title{font-weight:800;color:#2b0010}.message{font-size:14px;color:#4b5563;margin-top:5px;line-height:1.5}.meta{font-size:12px;color:var(--muted);white-space:nowrap}.badge{display:inline-block;font-size:11px;border-radius:999px;background:#fff7ed;color:#9a3412;padding:4px 9px;margin-top:8px}.empty{padding:34px;text-align:center;color:var(--muted)}
 @media(max-width:700px){.item{grid-template-columns:12px 1fr}.meta{grid-column:2;white-space:normal}.container{padding:0 14px}}

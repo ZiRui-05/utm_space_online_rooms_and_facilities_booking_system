@@ -1,4 +1,7 @@
 <style>
+    html { min-height: 100%; }
+    body { min-height: 100vh; display: flex; flex-direction: column; }
+    .footer { margin-top: auto; flex-shrink: 0; }
     .footer {
         background: var(--text-dark);
         color: var(--white);

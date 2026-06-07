@@ -11,6 +11,7 @@ if (!isset($_SESSION['user']['user_id'])) {
 }
 
 require __DIR__ . '/../../config/db.php';
+require_once __DIR__ . '/../../includes/notifications.php';
 
 $userId = (int)$_SESSION['user']['user_id'];
 
@@ -332,6 +333,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     try {
         $stmt->execute($params);
+        if ($utmCardBase64 !== '' || $utmCardBackBase64 !== '') {
+            create_user_notification_pdo($pdo, $userId, null, 'UTM card submitted', 'Your UTM card was uploaded and is pending verification by admin.', 'profile');
+        } else {
+            create_user_notification_pdo($pdo, $userId, null, 'Profile updated', 'Your profile information was updated successfully.', 'profile');
+        }
     } catch (PDOException $error) {
         if (strpos((string)$error->getMessage(), 'max_allowed_packet') !== false) {
             http_response_code(413);

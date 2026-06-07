@@ -102,6 +102,7 @@ $toRoot = static fn(string $path): string => $prefix . ltrim($path, '/');
     .noti-item.unread { background: #f0f7ff; }
     .noti-item-icon { font-size: 16px; margin-top: 2px; }
     .noti-item-content p { margin: 0 0 4px 0; font-size: 12px; color: var(--text-dark); line-height: 1.4; text-align: left; }
+    .noti-item-content strong { display:block; font-size:12px; color:var(--text-dark); margin-bottom:3px; }
     .noti-item-time { font-size: 10px; color: #a0aec0; display: block; }
     
     .noti-footer { padding: 10px; text-align: center; background: var(--bg-light, #f8f9fa); border-top: 1px solid var(--border-light, #edf2f7); }
@@ -207,7 +208,7 @@ $toRoot = static fn(string $path): string => $prefix . ltrim($path, '/');
     <div class="navbar-right">
         <div class="noti-dropdown-container" id="noti-container">
             <button class="icon-button" id="noti-btn" onclick="toggleNotiMenu(event)" title="Notification">
-                🔔<span class="noti-badge">2</span>
+                🔔<span class="noti-badge" id="noti-badge" style="display:none;">0</span>
             </button>
             
             <div class="noti-menu" id="noti-menu" style="display:none;">
@@ -215,24 +216,17 @@ $toRoot = static fn(string $path): string => $prefix . ltrim($path, '/');
                     <h3>Notifications</h3>
                     <button class="noti-clear-btn" onclick="markAllNotificationsAsRead()">Mark all as read</button>
                 </div>
-                <div class="noti-body">
-                    <div class="noti-item unread">
-                        <span class="noti-item-icon">✨</span>
-                        <div class="noti-item-content">
-                            <p>Your reservation structural request for <strong>Room T05</strong> has been successfully booked.</p>
-                            <span class="noti-item-time">Just now</span>
-                        </div>
-                    </div>
+                <div class="noti-body" id="noti-body">
                     <div class="noti-item">
-                        <span class="noti-item-icon">📅</span>
+                        <span class="noti-item-icon">🔔</span>
                         <div class="noti-item-content">
-                            <p>System maintenance scheduled for this weekend. Some facility selectors may experience structural updates.</p>
-                            <span class="noti-item-time">2 hours ago</span>
+                            <p>Loading notifications...</p>
+                            <span class="noti-item-time">Please wait</span>
                         </div>
                     </div>
                 </div>
                 <div class="noti-footer">
-                    <a href="#">View All System Activity</a>
+                    <a href="<?= htmlspecialchars($toRoot('pages/app/all_notifications.php'), ENT_QUOTES, 'UTF-8') ?>">View All Notifications</a>
                 </div>
             </div>
         </div>
@@ -327,6 +321,7 @@ $toRoot = static fn(string $path): string => $prefix . ltrim($path, '/');
                 }
 
                 setAuthenticatedView();
+                loadUserNotifications();
                 const adminProfileLinkEarly = document.getElementById('admin-profile-link');
                 const facilityManagerDashboardLinkEarly = document.getElementById('facility-manager-dashboard-link');
                 if (adminProfileLinkEarly && sessionData.user?.role === 'admin') {
@@ -390,11 +385,65 @@ $toRoot = static fn(string $path): string => $prefix . ltrim($path, '/');
             }
         };
 
-        window.markAllNotificationsAsRead = function markAllNotificationsAsRead() {
-            document.querySelectorAll('.noti-item.unread').forEach(item => {
-                item.classList.remove('unread');
-            });
-            const badge = document.querySelector('.noti-badge');
+        function notificationIcon(type) {
+            const map = { booking_status: '📅', booking_request: '📅', account: '👤', security: '🔐', payment: '💳', issue_report: '⚠️', profile: '🪪' };
+            return map[type] || '🔔';
+        }
+
+        function timeLabel(value) {
+            if (!value) return '';
+            const date = new Date(String(value).replace(' ', 'T'));
+            return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+        }
+
+        function renderNotifications(payload) {
+            const body = document.getElementById('noti-body');
+            const badge = document.getElementById('noti-badge');
+            if (!body || !badge) return;
+            const unreadCount = Number(payload?.unread_count || 0);
+            badge.textContent = unreadCount > 99 ? '99+' : String(unreadCount);
+            badge.style.display = unreadCount > 0 ? 'inline-block' : 'none';
+            const items = Array.isArray(payload?.notifications) ? payload.notifications : [];
+            if (items.length === 0) {
+                body.innerHTML = '<div class="noti-item"><span class="noti-item-icon">🔔</span><div class="noti-item-content"><p>No notifications yet.</p><span class="noti-item-time">Account activity will appear here.</span></div></div>';
+                return;
+            }
+            body.innerHTML = items.map(item => `
+                <a class="noti-item ${Number(item.is_read) === 0 ? 'unread' : ''}" href="<?= htmlspecialchars($toRoot('pages/app/all_notifications.php'), ENT_QUOTES, 'UTF-8') ?>">
+                    <span class="noti-item-icon">${notificationIcon(item.notification_type)}</span>
+                    <div class="noti-item-content">
+                        <strong>${String(item.title || 'Notification').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}</strong>
+                        <p>${String(item.message || '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}</p>
+                        <span class="noti-item-time">${timeLabel(item.created_at)}</span>
+                    </div>
+                </a>
+            `).join('');
+        }
+
+        async function loadUserNotifications() {
+            try {
+                const response = await fetch('<?= htmlspecialchars($toRoot('api/user/notifications.php'), ENT_QUOTES, 'UTF-8') ?>', { credentials: 'same-origin' });
+                if (!response.ok) return;
+                const data = await response.json();
+                if (data?.success) renderNotifications(data);
+            } catch (error) {
+                console.warn('Unable to load notifications.', error);
+            }
+        }
+
+        window.markAllNotificationsAsRead = async function markAllNotificationsAsRead() {
+            try {
+                await fetch('<?= htmlspecialchars($toRoot('api/user/notifications.php'), ENT_QUOTES, 'UTF-8') ?>', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ action: 'mark_all_read' })
+                });
+            } catch (error) {
+                console.warn('Unable to mark notifications as read.', error);
+            }
+            document.querySelectorAll('.noti-item.unread').forEach(item => item.classList.remove('unread'));
+            const badge = document.getElementById('noti-badge');
             if (badge) badge.style.display = 'none';
         };
 

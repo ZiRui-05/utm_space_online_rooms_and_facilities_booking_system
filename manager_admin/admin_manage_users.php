@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/../includes/notifications.php';
 $user = require_role(['admin']);
 $self_file='admin_manage_users.php'; $detail_file='admin_user_detail.php';
 $roles=['student','staff','facility_manager','admin'];
@@ -59,13 +60,25 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     catch (RuntimeException $e) { header('Location: '.$self_file.'?error='.urlencode($e->getMessage())); exit; }
 
     if($id>0){
+        $beforeStmt=$conn->prepare('SELECT full_name,email,role,account_status FROM users WHERE user_id=? LIMIT 1');
+        $beforeStmt->bind_param('i',$id);
+        $beforeStmt->execute();
+        $beforeUser=$beforeStmt->get_result()->fetch_assoc() ?: [];
         $set=['full_name=?','email=?','utm_id=?','ic_no=?','role=?','phone_number=?','department=?','account_status=?'];
         $types='ssssssss';
         $params=[$name,$email,$utmId,$icNo,$role,$phone,$department,$status];
         if($pass!==''){ $hash=password_hash($pass,PASSWORD_DEFAULT); $set[]='password_hash=?'; $types.='s'; $params[]=$hash; }
         if($profileImage){ $set[]='profile_image_base64=?'; $set[]='profile_image_mime=?'; $types.='ss'; $params[]=$profileImage['base64']; $params[]=$profileImage['mime']; }
         $sql='UPDATE users SET '.implode(', ',$set).' WHERE user_id=?'; $types.='i'; $params[]=$id;
-        $stmt=$conn->prepare($sql); $stmt->bind_param($types, ...$params); $stmt->execute(); $msg='Account updated';
+        $stmt=$conn->prepare($sql); $stmt->bind_param($types, ...$params); $stmt->execute();
+        $changes=[];
+        if(($beforeUser['role']??'') !== $role) $changes[]='role changed to '.ucwords(str_replace('_',' ',$role));
+        if(($beforeUser['account_status']??'') !== $status) $changes[]='account status changed to '.$status;
+        if($pass!=='') $changes[]='password reset by admin';
+        if($profileImage) $changes[]='profile picture updated by admin';
+        $detail=$changes ? implode(', ', $changes) : 'your account details were updated';
+        create_user_notification_mysqli($conn,$id,null,'Account updated','Admin updated your account: '.$detail.'.','account');
+        $msg='Account updated';
     } else {
         $hash=password_hash($pass ?: 'password123', PASSWORD_DEFAULT);
         if($profileImage){
@@ -75,7 +88,10 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
             $stmt=$conn->prepare('INSERT INTO users(utm_id,ic_no,full_name,email,password_hash,role,phone_number,department,email_verified,verification_status,account_status) VALUES(?,?,?,?,?,?,?,?,1,\'unverified\',?)');
             $stmt->bind_param('sssssssss',$utmId,$icNo,$name,$email,$hash,$role,$phone,$department,$status);
         }
-        $stmt->execute(); $msg='User account added';
+        $stmt->execute();
+        $newUserId=(int)$conn->insert_id;
+        create_user_notification_mysqli($conn,$newUserId,null,'Account created','Your SPACEBOOK account has been created. Please sign in and complete your profile.','account');
+        $msg='User account added';
     }
     header('Location: '.$self_file.'?success='.urlencode($msg)); exit;
 }

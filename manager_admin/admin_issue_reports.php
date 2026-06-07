@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/../includes/issue_reports_schema.php';
+require_once __DIR__ . '/../includes/notifications.php';
 
 $user = require_role(['admin']);
 ensure_issue_reports_table($conn);
@@ -18,7 +19,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['issue_id'], $_POST['a
         header('Location: ' . $self_file . '?error=' . urlencode('Invalid issue action.'));
         exit;
     }
+    $reportStmt = $conn->prepare('SELECT reported_by, issue_title FROM issue_reports WHERE issue_id = ? LIMIT 1');
+    $reportStmt->bind_param('i', $issueId);
+    $reportStmt->execute();
+    $reportBefore = $reportStmt->get_result()->fetch_assoc() ?: [];
     if ($action === 'delete') {
+        if (!empty($reportBefore['reported_by'])) {
+            create_user_notification_mysqli($conn, (int)$reportBefore['reported_by'], null, 'Issue report removed', 'Your issue report #' . $issueId . ' was removed by admin.', 'issue_report');
+        }
         $stmt = $conn->prepare('DELETE FROM issue_reports WHERE issue_id = ?');
         $stmt->bind_param('i', $issueId);
         $stmt->execute();
@@ -30,6 +38,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['issue_id'], $_POST['a
     $stmt = $conn->prepare('UPDATE issue_reports SET issue_hidden = ?, hidden_by = ?, hidden_at = ' . ($hidden ? 'NOW()' : 'NULL') . ' WHERE issue_id = ?');
     $stmt->bind_param('iii', $hidden, $hiddenBy, $issueId);
     $stmt->execute();
+    if ($stmt->affected_rows > 0 && !empty($reportBefore['reported_by'])) {
+        create_user_notification_mysqli($conn, (int)$reportBefore['reported_by'], null, $hidden ? 'Issue report hidden' : 'Issue report restored', 'Your issue report #' . $issueId . ' was ' . ($hidden ? 'hidden from manager view by admin.' : 'restored to manager view by admin.'), 'issue_report');
+    }
     header('Location: ' . $self_file . '?success=' . urlencode($hidden ? 'Issue report hidden from managers.' : 'Issue report restored for managers.'));
     exit;
 }

@@ -17,6 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 require __DIR__ . '/../../config/db.php';
+require_once __DIR__ . '/../../includes/notifications.php';
 
 $userId = (int)$_SESSION['user']['user_id'];
 $title = trim((string)($_POST['issue_title'] ?? ''));
@@ -80,5 +81,7 @@ $stmt->execute([
     'attachment_mime' => $attachmentMime,
     'attachment_base64' => $attachmentBase64,
 ]);
+$issueId = (int)$pdo->lastInsertId();
+create_user_notification_pdo($pdo, $userId, null, 'Issue report submitted', 'Your issue report #' . $issueId . ' has been submitted. You can check report history for updates.', 'issue_report');
 
 echo json_encode(['success' => true, 'message' => 'Issue report submitted.']);

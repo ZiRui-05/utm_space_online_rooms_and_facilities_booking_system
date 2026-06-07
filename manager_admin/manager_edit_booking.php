@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/../includes/notifications.php';
+require_once __DIR__ . '/../includes/booking_expiry.php';
 $user = require_role(['facility_manager', 'admin']);
 $id = (int)($_GET['id'] ?? $_POST['booking_id'] ?? 0);
 if ($id <= 0) { header('Location: manager_booking_requests.php?error=' . urlencode('Missing booking ID')); exit; }
@@ -11,23 +12,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $beforeBooking = $beforeStmt->get_result()->fetch_assoc();
     if (!$beforeBooking) { header('Location: manager_booking_requests.php?error=' . urlencode('Booking not found')); exit; }
 
-    $status = $_POST['booking_status'];
-    $payment = $_POST['payment_status'];
-    $start = $_POST['booking_start'];
-    $end = $_POST['booking_end'];
-    $purpose = trim($_POST['purpose']);
-    $remarks = trim($_POST['review_remarks']);
-    $total = (float)$_POST['total_price'];
-    if (strtotime($end) <= strtotime($start)) { header('Location: manager_edit_booking.php?id=' . $id . '&error=' . urlencode('End date/time must be after start date/time')); exit; }
-    if (in_array($status, ['rejected', 'expired'], true) && in_array($payment, ['paid', 'pending_verification'], true)) {
-        $payment = 'refunded';
+    $allowedBookingStatuses = ['pending', 'approved', 'rejected', 'cancelled', 'completed', 'expired'];
+    $allowedPaymentStatuses = ['unpaid', 'pending_verification', 'paid', 'payment_rejected', 'refunded'];
+    $quickStatus = trim((string)($_POST['quick_status'] ?? ''));
+    $postedStatus = $quickStatus !== '' ? $quickStatus : trim((string)($_POST['booking_status'] ?? ''));
+    $postedPayment = trim((string)($_POST['payment_status'] ?? ''));
+    $status = in_array($postedStatus, $allowedBookingStatuses, true) ? $postedStatus : (string)$beforeBooking['booking_status'];
+    $payment = in_array($postedPayment, $allowedPaymentStatuses, true) ? $postedPayment : (string)$beforeBooking['payment_status'];
+
+    $start = trim((string)($_POST['booking_start'] ?? ''));
+    $end = trim((string)($_POST['booking_end'] ?? ''));
+    $purpose = trim((string)($_POST['purpose'] ?? ''));
+    $remarks = trim((string)($_POST['review_remarks'] ?? ''));
+    $total = (float)($_POST['total_price'] ?? 0);
+
+    if ($start === '' || $end === '' || strtotime($start) === false || strtotime($end) === false) {
+        header('Location: manager_edit_booking.php?id=' . $id . '&error=' . urlencode('Please enter a valid start and end date/time.')); exit;
     }
-    $stmt = $conn->prepare('UPDATE bookings SET booking_status=?, payment_status=?, booking_start=?, booking_end=?, purpose=?, total_price=?, reviewed_by=?, reviewed_at=NOW(), review_remarks=? WHERE booking_id=?');
+    if (strtotime($end) <= strtotime($start)) {
+        header('Location: manager_edit_booking.php?id=' . $id . '&error=' . urlencode('End date/time must be after start date/time')); exit;
+    }
+
+    // Keep status fully editable: approved/rejected/pending can be changed from any previous status.
+    // Only adjust payment when the selected booking status would otherwise conflict with the current payment state.
+    if ($status === 'rejected' && in_array($payment, ['paid', 'pending_verification'], true)) {
+        $payment = 'refunded';
+    } elseif ($status === 'approved' && $payment === 'refunded') {
+        $payment = 'unpaid';
+    }
+
+    $stmt = $conn->prepare('UPDATE bookings SET booking_status=?, payment_status=?, booking_start=?, booking_end=?, purpose=?, total_price=?, reviewed_by=?, reviewed_at=NOW(), review_remarks=? WHERE booking_id=? LIMIT 1');
     $stmt->bind_param('sssssdisi', $status, $payment, $start, $end, $purpose, $total, $user['user_id'], $remarks, $id);
     $stmt->execute();
+
     notify_booking_status_change_mysqli($conn, $beforeBooking, $status, $payment);
     suspend_users_with_missed_payments_mysqli($conn);
-    header('Location: manager_booking_requests.php?success=' . urlencode('Booking updated successfully')); exit;
+    header('Location: manager_booking_requests.php?success=' . urlencode('Booking #' . $id . ' updated to ' . $status . '.')); exit;
 }
 $stmt=$conn->prepare("SELECT b.booking_id, b.user_id, b.booking_start, b.booking_end, b.purpose, b.total_price, b.booking_status, b.payment_status, b.payment_proof_mime, b.review_remarks,
     CASE WHEN b.payment_proof_base64 IS NULL OR b.payment_proof_base64 = '' THEN 0 ELSE 1 END has_payment_attachment,
@@ -46,9 +66,11 @@ $paymentAttachmentMime = (string)($booking['payment_proof_mime'] ?? '');
 $paymentAttachmentSrc = $hasPaymentAttachment ? 'booking_attachment.php?id=' . (int)$booking['booking_id'] : '';
 $isPaymentAttachmentImage = str_starts_with($paymentAttachmentMime, 'image/');
 $isPaymentAttachmentPdf = $paymentAttachmentMime === 'application/pdf';
-$page_title='Facility Manager Edit Booking'; $active_page='bookings'; include __DIR__ . '/includes/header.php';
+$page_title='Facility Manager Edit Booking'; $active_page='bookings'; include __DIR__ . '/../includes/management_header.php';
 ?>
 <div class="mb-8"><h1 class="text-4xl font-black text-[#36000f]">Booking Request Details</h1><p class="text-slate-500 mt-2">Review requester and booking details before approving or rejecting.</p></div>
+<?php if (!empty($_GET['success'])): ?><div class="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-bold text-green-800"><?= h($_GET['success']) ?></div><?php endif; ?>
+<?php if (!empty($_GET['error'])): ?><div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-800"><?= h($_GET['error']) ?></div><?php endif; ?>
 <div class="grid grid-cols-1 gap-6">
     <div class="bg-white rounded-xl border border-[#dcc0c2] p-5 shadow-sm">
         <div class="flex justify-between items-start gap-4 mb-4">
@@ -93,7 +115,7 @@ $page_title='Facility Manager Edit Booking'; $active_page='bookings'; include __
             </div>
         </div>
     </div>
-    <form method="post" class="bg-white rounded-xl border border-[#dcc0c2] p-6 shadow-sm space-y-4">
+    <form id="booking-edit-form" method="post" class="bg-white rounded-xl border border-[#dcc0c2] p-6 shadow-sm space-y-4">
         <input type="hidden" name="booking_id" value="<?= h($booking['booking_id']) ?>">
         <h2 class="text-xl font-black text-[#36000f]">Booking Information</h2>
         <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -113,7 +135,19 @@ $page_title='Facility Manager Edit Booking'; $active_page='bookings'; include __
         </div>
         <div><label class="text-sm font-bold text-slate-600">Remarks / Purpose</label><textarea class="input mt-1" name="purpose" rows="3"><?= h($booking['purpose']) ?></textarea></div>
         <div><label class="text-sm font-bold text-slate-600">Review Remarks</label><textarea class="input mt-1" name="review_remarks" rows="3"><?= h($booking['review_remarks']) ?></textarea></div>
-        <button class="btn-primary">Save Booking Changes</button>
+        <div class="flex flex-wrap gap-3 pt-2">
+            <button type="submit" name="quick_status" value="approved" class="bg-green-700 text-white px-4 py-2 rounded-lg font-bold">Approve Booking</button>
+            <button type="submit" name="quick_status" value="rejected" class="bg-red-700 text-white px-4 py-2 rounded-lg font-bold">Reject Booking</button>
+            <button type="submit" class="btn-primary">Save Booking Changes</button>
+        </div>
+        <script>
+        function setBookingStatusAndSubmit(status) {
+            const select = document.querySelector('select[name="booking_status"]');
+            if (select) select.value = status;
+            const form = document.getElementById('booking-edit-form');
+            if (form) form.submit();
+        }
+        </script>
     </form>
 </div>
 <div id="payment-attachment-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 p-4">
@@ -155,4 +189,4 @@ function closePaymentAttachment() {
     document.getElementById('payment-attachment-modal').classList.remove('flex');
 }
 </script>
-<?php include __DIR__ . '/includes/footer.php'; ?>
+<?php include __DIR__ . '/../includes/management_footer.php'; ?>

@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/../includes/notifications.php';
 $user = require_role(['admin']);
 $back = 'admin_manage_users.php';
 $id = (int)($_GET['id'] ?? 0);
@@ -20,9 +21,17 @@ $departments = [
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $verification = in_array($_POST['verification_status'] ?? '', ['unverified','verified'], true) ? $_POST['verification_status'] : 'unverified';
     $department = in_array($_POST['department'] ?? '', $departments, true) ? $_POST['department'] : '';
+    $beforeStmt = $conn->prepare('SELECT verification_status, department FROM users WHERE user_id=? LIMIT 1');
+    $beforeStmt->bind_param('i', $id);
+    $beforeStmt->execute();
+    $beforeUser = $beforeStmt->get_result()->fetch_assoc() ?: [];
     $stmt = $conn->prepare('UPDATE users SET verification_status=?, department=? WHERE user_id=?');
     $stmt->bind_param('ssi', $verification, $department, $id);
     $stmt->execute();
+    $changes = [];
+    if (($beforeUser['verification_status'] ?? '') !== $verification) $changes[] = 'verification status changed to ' . $verification;
+    if (($beforeUser['department'] ?? '') !== $department) $changes[] = 'department updated';
+    if ($changes) create_user_notification_mysqli($conn, $id, null, 'Account verification updated', 'Admin updated your account: ' . implode(', ', $changes) . '.', 'account');
     header('Location: admin_user_detail.php?id=' . $id . '&success=' . urlencode('User details updated'));
     exit;
 }

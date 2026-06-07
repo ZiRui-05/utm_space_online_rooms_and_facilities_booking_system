@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/../includes/notifications.php';
 $user = require_role(['facility_manager']);
 $allowedRole = 'facility_manager';
 $back = 'manager_manage_users.php';
@@ -9,6 +10,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt = $conn->prepare('UPDATE users SET verification_status=? WHERE user_id=? AND role=?');
     $stmt->bind_param('sis', $verification, $id, $allowedRole);
     $stmt->execute();
+    if ($stmt->affected_rows > 0) {
+        create_user_notification_mysqli($conn, $id, null, 'Account verification updated', 'Your account verification status is now ' . $verification . '.', 'account');
+    }
     header('Location: manager_user_detail.php?id=' . $id . '&success=' . urlencode('Verification status updated'));
     exit;
 }

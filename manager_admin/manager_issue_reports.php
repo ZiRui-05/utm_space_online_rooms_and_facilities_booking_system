@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/../includes/issue_reports_schema.php';
+require_once __DIR__ . '/../includes/notifications.php';
 
 $user = require_role(['facility_manager']);
 ensure_issue_reports_table($conn);
@@ -23,9 +24,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['issue_id'], $_POST['i
         exit;
     }
     $reviewedBy = (int)$user['user_id'];
+    $reportStmt = $conn->prepare('SELECT reported_by, issue_status, issue_title FROM issue_reports WHERE issue_id = ? AND issue_hidden = 0 LIMIT 1');
+    $reportStmt->bind_param('i', $issueId);
+    $reportStmt->execute();
+    $reportBefore = $reportStmt->get_result()->fetch_assoc() ?: [];
     $stmt = $conn->prepare('UPDATE issue_reports SET issue_status = ?, admin_remarks = ?, reviewed_by = ?, reviewed_at = NOW() WHERE issue_id = ? AND issue_hidden = 0');
     $stmt->bind_param('ssii', $status, $remarks, $reviewedBy, $issueId);
     $stmt->execute();
+    if ($stmt->affected_rows > 0 && !empty($reportBefore['reported_by'])) {
+        create_user_notification_mysqli($conn, (int)$reportBefore['reported_by'], null, 'Issue report updated', 'Your issue report #' . $issueId . ' (' . ($reportBefore['issue_title'] ?? 'Issue') . ') is now ' . ucwords(str_replace('_', ' ', $status)) . '.', 'issue_report');
+    }
     header('Location: ' . $self_file . '?success=' . urlencode('Issue report updated.'));
     exit;
 }
@@ -93,6 +101,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt = $conn->prepare('INSERT INTO issue_reports (reported_by, issue_title, issue_type, description, related_resource_type, room_id, facility_id, priority, attachment_name, attachment_mime, attachment_base64) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
     $stmt->bind_param('issssiissss', $reportedBy, $title, $issueType, $description, $resourceType, $roomId, $facilityId, $priority, $attachmentName, $attachmentMime, $attachmentBase64);
     $stmt->execute();
+    $newIssueId = (int)$conn->insert_id;
+    create_user_notification_mysqli($conn, $reportedBy, null, 'Issue report submitted', 'Your issue report #' . $newIssueId . ' has been submitted. Status is Pending.', 'issue_report');
     header('Location: ' . $self_file . '?success=' . urlencode('Issue report submitted. Status is Pending.'));
     exit;
 }

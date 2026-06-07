@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/../includes/notifications.php';
 $user = require_role(['admin']);
 $self_file = 'admin_verify_cards.php';
 
@@ -9,6 +10,11 @@ if (isset($_GET['verify_card']) || isset($_GET['unverify_card'])) {
     $stmt = $conn->prepare("UPDATE users SET verification_status=? WHERE user_id=? AND utm_card_base64 IS NOT NULL AND utm_card_base64 <> '' AND utm_card_back_base64 IS NOT NULL AND utm_card_back_base64 <> ''");
     $stmt->bind_param('si', $newStatus, $id);
     $stmt->execute();
+    if ($stmt->affected_rows > 0) {
+        $title = $newStatus === 'verified' ? 'UTM card verified' : 'UTM card marked unverified';
+        $message = $newStatus === 'verified' ? 'Your UTM card has been verified. You can now submit booking requests if your account is active.' : 'Your UTM card verification was changed to unverified. Please check your card details or contact admin.';
+        create_user_notification_mysqli($conn, $id, null, $title, $message, 'profile');
+    }
     header('Location: admin_user_detail.php?id=' . $id . '&success=' . urlencode('Student card verification status updated'));
     exit;
 }
