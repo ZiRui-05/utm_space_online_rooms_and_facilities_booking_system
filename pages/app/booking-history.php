@@ -30,6 +30,17 @@ if (!isset($_SESSION['user']['user_id'])) {
         .status.approved{background:#ecfdf5;color:#047857}
         .status.rejected,.status.cancelled{background:#fef2f2;color:#b91c1c}
         .empty{padding:22px;text-align:center;color:var(--muted)}
+
+        @media (max-width: 768px) {
+            .container { padding: 0 12px; margin: 16px auto; }
+            .card { padding: 16px; overflow-x: auto; }
+            .header { flex-direction: column; align-items: flex-start; }
+            .filters { width: 100%; }
+            .filters select { flex: 1; min-width: 0; }
+            /* Force table wider than viewport so it scrolls inside .card */
+            table { min-width: 520px; }
+            th, td { padding: 10px 8px; }
+        }
     </style>
 </head>
 <body>

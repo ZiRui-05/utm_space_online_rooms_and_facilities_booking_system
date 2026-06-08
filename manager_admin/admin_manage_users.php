@@ -47,11 +47,11 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     }
 
     $id=(int)($_POST['user_id']??0);
-    $name=trim($_POST['full_name']??'');
+    $name=strtoupper(trim($_POST['full_name']??''));
     $email=trim($_POST['email']??'');
     $utmId=trim($_POST['utm_id']??'');
-    $icNo=trim($_POST['ic_no']??'');
-    $phone=trim($_POST['phone_number']??'');
+    $icNo=preg_replace('/[^A-Za-z0-9]/','',trim($_POST['ic_no']??''));
+    $phone=preg_replace('/[^0-9+]/', '', trim($_POST['phone_number']??''));
     $department=in_array($_POST['department']??'', $departments, true) ? $_POST['department'] : '';
     $status=in_array($_POST['account_status']??'', $accountStatuses, true) ? $_POST['account_status'] : 'active';
     $role=in_array($_POST['role']??'', $roles, true) ? $_POST['role'] : 'student';

@@ -17,9 +17,9 @@ function is_strong_password(string $password): bool
 }
 
 $input = json_decode(file_get_contents('php://input'), true);
-$fullName = trim($input['full_name'] ?? '');
+$fullName = strtoupper(trim($input['full_name'] ?? ''));
 $utmId = trim($input['utm_id'] ?? '');
-$icNo = trim($input['ic_no'] ?? '');
+$icNo = preg_replace('/[^A-Za-z0-9]/', '', trim($input['ic_no'] ?? ''));
 $email = trim($input['email'] ?? '');
 $password = $input['password'] ?? '';
 

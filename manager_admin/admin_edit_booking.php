@@ -6,13 +6,13 @@ $user = require_role(['admin']);
 $id = (int)($_GET['id'] ?? $_POST['booking_id'] ?? 0);
 if ($id <= 0) { header('Location: admin_booking_requests.php?error=' . urlencode('Missing booking ID')); exit; }
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $beforeStmt = $conn->prepare("SELECT b.booking_id, b.user_id, b.booking_status, b.payment_status, COALESCE(r.room_name, f.facility_name) resource_name FROM bookings b LEFT JOIN rooms r ON r.room_id=b.room_id LEFT JOIN facilities f ON f.facility_id=b.facility_id WHERE b.booking_id=? LIMIT 1");
+    $beforeStmt = $conn->prepare("SELECT b.booking_id, b.user_id, b.booking_status, b.payment_status, u.full_name, u.email, COALESCE(r.room_name, f.facility_name) resource_name FROM bookings b JOIN users u ON u.user_id=b.user_id LEFT JOIN rooms r ON r.room_id=b.room_id LEFT JOIN facilities f ON f.facility_id=b.facility_id WHERE b.booking_id=? LIMIT 1");
     $beforeStmt->bind_param('i', $id);
     $beforeStmt->execute();
     $beforeBooking = $beforeStmt->get_result()->fetch_assoc();
     if (!$beforeBooking) { header('Location: admin_booking_requests.php?error=' . urlencode('Booking not found')); exit; }
 
-    $allowedBookingStatuses = ['pending', 'approved', 'rejected', 'cancelled', 'completed', 'expired'];
+    $allowedBookingStatuses = ['pending', 'approved', 'rejected', 'cancelled', 'completed', 'expired', 'return_overdue'];
     $allowedPaymentStatuses = ['unpaid', 'pending_verification', 'paid', 'payment_rejected', 'refunded'];
     $quickStatus = trim((string)($_POST['quick_status'] ?? ''));
     $postedStatus = $quickStatus !== '' ? $quickStatus : trim((string)($_POST['booking_status'] ?? ''));
@@ -31,6 +31,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     if (strtotime($end) <= strtotime($start)) {
         header('Location: admin_edit_booking.php?id=' . $id . '&error=' . urlencode('End date/time must be after start date/time')); exit;
+    }
+    if ($total < 0) {
+        header('Location: admin_edit_booking.php?id=' . $id . '&error=' . urlencode('Total price cannot be negative.')); exit;
     }
 
     // Keep status fully editable: approved/rejected/pending can be changed from any previous status.
@@ -119,16 +122,16 @@ $page_title='Admin Edit Booking'; $active_page='bookings'; include __DIR__ . '/.
             <div><p class="text-xs uppercase font-bold text-slate-500">Cost (RM)</p><p class="font-bold"><?= number_format((float)$booking['total_price'], 2) ?></p></div>
         </div>
         <div class="grid md:grid-cols-2 gap-4">
-            <div><label class="text-sm font-bold text-slate-600">Booking Status</label><select class="input mt-1" name="booking_status"><?php foreach(['pending','approved','rejected','cancelled','completed','expired'] as $s): ?><option value="<?= $s ?>" <?= $booking['booking_status']===$s?'selected':'' ?>><?= ucfirst($s) ?></option><?php endforeach; ?></select></div>
+            <div><label class="text-sm font-bold text-slate-600">Booking Status</label><select class="input mt-1" name="booking_status"><?php foreach(['pending','approved','rejected','cancelled','completed','expired','return_overdue'] as $s): ?><option value="<?= $s ?>" <?= $booking['booking_status']===$s?'selected':'' ?>><?= ucwords(str_replace('_',' ', $s)) ?></option><?php endforeach; ?></select></div>
             <div><label class="text-sm font-bold text-slate-600">Payment Status</label><select class="input mt-1" name="payment_status"><?php foreach(['unpaid','pending_verification','paid','payment_rejected','refunded'] as $s): ?><option value="<?= $s ?>" <?= $booking['payment_status']===$s?'selected':'' ?>><?= ucwords(str_replace('_',' ', $s)) ?></option><?php endforeach; ?></select></div>
             <div><label class="text-sm font-bold text-slate-600">Start Date/Time</label><input class="input mt-1" type="datetime-local" name="booking_start" value="<?= date('Y-m-d\TH:i', strtotime($booking['booking_start'])) ?>" required></div>
             <div><label class="text-sm font-bold text-slate-600">End Date/Time</label><input class="input mt-1" type="datetime-local" name="booking_end" value="<?= date('Y-m-d\TH:i', strtotime($booking['booking_end'])) ?>" required></div>
-            <div><label class="text-sm font-bold text-slate-600">Total Price (RM)</label><input class="input mt-1" type="number" step="0.01" name="total_price" value="<?= h($booking['total_price']) ?>"></div>
+            <div><label class="text-sm font-bold text-slate-600">Total Price (RM)</label><input class="input mt-1" type="number" min="0" step="0.01" name="total_price" value="<?= h($booking['total_price']) ?>"></div>
         </div>
         <div><label class="text-sm font-bold text-slate-600">Remarks / Purpose</label><textarea class="input mt-1" name="purpose" rows="3"><?= h($booking['purpose']) ?></textarea></div>
         <div><label class="text-sm font-bold text-slate-600">Review Remarks</label><textarea class="input mt-1" name="review_remarks" rows="3"><?= h($booking['review_remarks']) ?></textarea></div>
         <div class="flex flex-wrap gap-3 pt-2">
-            <button type="submit" name="quick_status" value="approved" class="bg-green-700 text-white px-4 py-2 rounded-lg font-bold">Approve Booking</button>
+            <button type="submit" name="quick_status" value="approved" data-payment-status="<?= h($booking['payment_status']) ?>" onclick="return confirmApprovePaymentStatus(this.dataset.paymentStatus)" class="bg-green-700 text-white px-4 py-2 rounded-lg font-bold">Approve Booking</button>
             <button type="submit" name="quick_status" value="rejected" class="bg-red-700 text-white px-4 py-2 rounded-lg font-bold">Reject Booking</button>
             <button type="submit" class="btn-primary">Save Booking Changes</button>
         </div>
@@ -138,6 +141,16 @@ $page_title='Admin Edit Booking'; $active_page='bookings'; include __DIR__ . '/.
             if (select) select.value = status;
             const form = document.getElementById('booking-edit-form');
             if (form) form.submit();
+        }
+
+        function confirmApprovePaymentStatus(paymentStatus) {
+            if (paymentStatus === 'pending_verification') {
+                return confirm('Payment status is Pending Verification. Approving this booking will notify the user while payment verification is still pending. Continue?');
+            }
+            if (paymentStatus === 'unpaid') {
+                return confirm('Payment status is Unpaid. Approving this booking will notify the user to complete payment. Continue?');
+            }
+            return true;
         }
         </script>
     </form>

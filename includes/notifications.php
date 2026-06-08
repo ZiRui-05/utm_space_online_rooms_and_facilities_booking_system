@@ -64,6 +64,66 @@ if (!function_exists('create_user_notification_pdo')) {
     }
 }
 
+if (!function_exists('notify_staff_new_booking_pdo')) {
+    function notify_staff_new_booking_pdo(PDO $pdo, int $bookingId, string $resourceName, string $requesterName): void
+    {
+        if ($bookingId <= 0) return;
+        ensure_user_notifications_table_pdo($pdo);
+        $stmt = $pdo->query("SELECT user_id FROM users WHERE role IN ('admin','facility_manager') AND account_status='active'");
+        if (!$stmt) return;
+        $title   = 'New booking request';
+        $message = 'New booking request #' . $bookingId . ' from ' . $requesterName . ' for ' . $resourceName . ' is pending your review.';
+        foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $staffId) {
+            create_user_notification_pdo($pdo, (int)$staffId, $bookingId, $title, $message, 'booking_request');
+        }
+    }
+}
+
+if (!function_exists('notify_staff_return_overdue_pdo')) {
+    function notify_staff_return_overdue_pdo(PDO $pdo, int $bookingId, string $resourceName, string $requesterName, string $endedAt): void
+    {
+        if ($bookingId <= 0) return;
+        ensure_user_notifications_table_pdo($pdo);
+        $stmt = $pdo->query("SELECT user_id FROM users WHERE role IN ('admin','facility_manager') AND account_status='active'");
+        if (!$stmt) return;
+        $title = 'Booking return overdue';
+        $message = 'Booking #' . $bookingId . ' for ' . $resourceName . ' by ' . $requesterName . ' ended at ' . $endedAt . ' and has not been confirmed returned after 10 minutes.';
+        foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $staffId) {
+            create_user_notification_pdo($pdo, (int)$staffId, $bookingId, $title, $message, 'return_overdue');
+        }
+    }
+}
+
+if (!function_exists('notify_staff_return_overdue_mysqli')) {
+    function notify_staff_return_overdue_mysqli(mysqli $conn, int $bookingId, string $resourceName, string $requesterName, string $endedAt): void
+    {
+        if ($bookingId <= 0) return;
+        ensure_user_notifications_table_mysqli($conn);
+        $result = $conn->query("SELECT user_id FROM users WHERE role IN ('admin','facility_manager') AND account_status='active'");
+        if (!$result) return;
+        $title = 'Booking return overdue';
+        $message = 'Booking #' . $bookingId . ' for ' . $resourceName . ' by ' . $requesterName . ' ended at ' . $endedAt . ' and has not been confirmed returned after 10 minutes.';
+        while ($row = $result->fetch_assoc()) {
+            create_user_notification_mysqli($conn, (int)$row['user_id'], $bookingId, $title, $message, 'return_overdue');
+        }
+    }
+}
+
+if (!function_exists('notify_staff_new_booking_mysqli')) {
+    function notify_staff_new_booking_mysqli(mysqli $conn, int $bookingId, string $resourceName, string $requesterName): void
+    {
+        if ($bookingId <= 0) return;
+        ensure_user_notifications_table_mysqli($conn);
+        $result = $conn->query("SELECT user_id FROM users WHERE role IN ('admin','facility_manager') AND account_status='active'");
+        if (!$result) return;
+        $title   = 'New booking request';
+        $message = 'New booking request #' . $bookingId . ' from ' . $requesterName . ' for ' . $resourceName . ' is pending your review.';
+        while ($row = $result->fetch_assoc()) {
+            create_user_notification_mysqli($conn, (int)$row['user_id'], $bookingId, $title, $message, 'booking_request');
+        }
+    }
+}
+
 if (!function_exists('notify_booking_status_change_mysqli')) {
     function notify_booking_status_change_mysqli(mysqli $conn, array $before, string $newStatus, string $newPaymentStatus): void
     {
@@ -89,11 +149,49 @@ if (!function_exists('notify_booking_status_change_mysqli')) {
         } elseif ($newStatus === 'rejected') {
             $title = 'Booking request not approved';
             $message = 'Your booking request #' . $bookingId . ' for ' . $resourceName . ' was not approved. Payment status: ' . $paymentLabel . '.';
+        } elseif ($newStatus === 'return_overdue') {
+            $title = 'Booking return overdue';
+            $message = 'Your booking #' . $bookingId . ' for ' . $resourceName . ' has been marked return overdue. Please contact admin or the facility manager if this is incorrect. Payment status: ' . $paymentLabel . '.';
         } else {
             $title = 'Booking request status updated';
             $message = 'Your booking request #' . $bookingId . ' for ' . $resourceName . ' is now ' . $statusLabel . '. Payment status: ' . $paymentLabel . '.';
         }
 
         create_user_notification_mysqli($conn, $userId, $bookingId, $title, $message, 'booking_status');
+
+        if ($newStatus === 'approved' && $oldStatus !== 'approved') {
+            $toEmail = trim((string)($before['email'] ?? ''));
+            $toName = trim((string)($before['full_name'] ?? ''));
+
+            if ($toEmail === '' || $toName === '') {
+                $userStmt = $conn->prepare('SELECT full_name, email FROM users WHERE user_id = ? LIMIT 1');
+                $userStmt->bind_param('i', $userId);
+                $userStmt->execute();
+                $recipient = $userStmt->get_result()->fetch_assoc();
+                if ($recipient) {
+                    $toEmail = $toEmail !== '' ? $toEmail : trim((string)($recipient['email'] ?? ''));
+                    $toName = $toName !== '' ? $toName : trim((string)($recipient['full_name'] ?? ''));
+                }
+            }
+
+            if ($toEmail !== '' && filter_var($toEmail, FILTER_VALIDATE_EMAIL)) {
+                require_once __DIR__ . '/../config/mailer.php';
+                $emailSubject = 'Booking Request Approved';
+                $emailText = "Hello " . ($toName !== '' ? $toName : 'there') . ",\n\n"
+                    . "Your booking request #{$bookingId} for {$resourceName} has been approved.\n"
+                    . "Payment status: {$paymentLabel}.\n\n"
+                    . "Please sign in to UTM Space Booking for the latest booking and payment details.\n\n"
+                    . "Thank you.";
+                $emailHtml = '<p>Hello ' . htmlspecialchars($toName !== '' ? $toName : 'there', ENT_QUOTES, 'UTF-8') . ',</p>'
+                    . '<p>Your booking request <strong>#' . $bookingId . '</strong> for <strong>' . htmlspecialchars($resourceName, ENT_QUOTES, 'UTF-8') . '</strong> has been approved.</p>'
+                    . '<p><strong>Payment status:</strong> ' . htmlspecialchars($paymentLabel, ENT_QUOTES, 'UTF-8') . '</p>'
+                    . '<p>Please sign in to UTM Space Booking for the latest booking and payment details.</p>'
+                    . '<p>Thank you.</p>';
+                $sendResult = sendMail($toEmail, $toName, $emailSubject, $emailText, $emailHtml);
+                if (!$sendResult['success']) {
+                    error_log('Booking approval email failed for booking #' . $bookingId . ': ' . $sendResult['message']);
+                }
+            }
+        }
     }
 }

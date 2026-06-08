@@ -243,7 +243,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $input = json_decode(file_get_contents('php://input'), true);
-    $phoneNumber = trim($input['phone_number'] ?? '');
+    $phoneNumber = preg_replace('/[^0-9+]/', '', trim($input['phone_number'] ?? ''));
     $department = trim($input['department'] ?? '');
     $gender = trim($input['gender'] ?? '');
     $address = trim($input['address'] ?? '');

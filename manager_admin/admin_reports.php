@@ -10,7 +10,7 @@ $facilityId = (int)($_GET['facility_id'] ?? 0);
 
 if (strtotime($from) > strtotime($to)) { $tmp = $from; $from = $to; $to = $tmp; }
 
-$validStatuses = ['all','pending','approved','rejected','cancelled','completed','expired'];
+$validStatuses = ['all','pending','approved','rejected','cancelled','completed','expired','return_overdue'];
 if (!in_array($status, $validStatuses, true)) $status = 'all';
 
 $rooms = $conn->query('SELECT room_id, room_name, room_code FROM rooms ORDER BY room_name')->fetch_all(MYSQLI_ASSOC);
@@ -51,7 +51,7 @@ $page_title='Admin Formal Booking Report'; $active_page='reports'; include __DIR
 <form class="no-print bg-white rounded-xl border border-[#dcc0c2] p-5 shadow-sm mb-6 grid md:grid-cols-3 xl:grid-cols-6 gap-4 items-end">
     <div><label class="text-sm font-bold text-slate-600">From Date</label><input class="input" type="date" name="from" value="<?= h($from) ?>"></div>
     <div><label class="text-sm font-bold text-slate-600">To Date</label><input class="input" type="date" name="to" value="<?= h($to) ?>"></div>
-    <div><label class="text-sm font-bold text-slate-600">Status</label><select class="input" name="status"><option value="all">All Status</option><?php foreach(array_slice($validStatuses,1) as $s): ?><option value="<?= h($s) ?>" <?= $status===$s?'selected':'' ?>><?= h(ucfirst($s)) ?></option><?php endforeach; ?></select></div>
+    <div><label class="text-sm font-bold text-slate-600">Status</label><select class="input" name="status"><option value="all">All Status</option><?php foreach(array_slice($validStatuses,1) as $s): ?><option value="<?= h($s) ?>" <?= $status===$s?'selected':'' ?>><?= h(ucwords(str_replace('_',' ', $s))) ?></option><?php endforeach; ?></select></div>
     <div><label class="text-sm font-bold text-slate-600">Room</label><select class="input" name="room_id"><option value="0">All Rooms</option><?php foreach($rooms as $r): ?><option value="<?= h($r['room_id']) ?>" <?= $roomId===(int)$r['room_id']?'selected':'' ?>><?= h(report_room_filter_label($r)) ?></option><?php endforeach; ?></select></div>
     <div><label class="text-sm font-bold text-slate-600">Facility</label><select class="input" name="facility_id"><option value="0">All Facilities</option><?php foreach($facilities as $f): ?><option value="<?= h($f['facility_id']) ?>" <?= $facilityId===(int)$f['facility_id']?'selected':'' ?>><?= h($f['facility_name']) ?></option><?php endforeach; ?></select></div>
     <div class="flex gap-2"><button class="btn-primary flex-1">Generate</button><a class="btn-light" href="admin_reports.php">Reset</a></div>
@@ -79,7 +79,7 @@ $page_title='Admin Formal Booking Report'; $active_page='reports'; include __DIR
         <div class="border rounded-lg p-4"><p class="text-xs uppercase text-slate-500 font-bold">Total Amount</p><p class="text-2xl font-black">RM <?= number_format((float)($summary['total_amount'] ?? 0),2) ?></p></div>
     </div>
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <div><h3 class="text-lg font-black text-[#36000f] mb-3">2. Booking Status Breakdown</h3><table class="w-full border"><thead><tr><th class="table-th">Status</th><th class="table-th">Total</th><th class="table-th">Amount</th></tr></thead><tbody><?php while($r=$byStatus->fetch_assoc()): ?><tr><td class="table-td"><span class="badge badge-<?= h($r['booking_status']) ?>"><?= h(ucfirst($r['booking_status'])) ?></span></td><td class="table-td font-bold"><?= h($r['total']) ?></td><td class="table-td">RM <?= number_format((float)$r['amount'],2) ?></td></tr><?php endwhile; ?></tbody></table></div>
+        <div><h3 class="text-lg font-black text-[#36000f] mb-3">2. Booking Status Breakdown</h3><table class="w-full border"><thead><tr><th class="table-th">Status</th><th class="table-th">Total</th><th class="table-th">Amount</th></tr></thead><tbody><?php while($r=$byStatus->fetch_assoc()): ?><tr><td class="table-td"><span class="badge badge-<?= h($r['booking_status']) ?>"><?= h(ucwords(str_replace('_',' ', $r['booking_status']))) ?></span></td><td class="table-td font-bold"><?= h($r['total']) ?></td><td class="table-td">RM <?= number_format((float)$r['amount'],2) ?></td></tr><?php endwhile; ?></tbody></table></div>
         <div><h3 class="text-lg font-black text-[#36000f] mb-3">3. Top Used Rooms / Facilities</h3><table class="w-full border"><thead><tr><th class="table-th">Resource</th><th class="table-th">Location</th><th class="table-th">Bookings</th></tr></thead><tbody><?php while($r=$popular->fetch_assoc()): ?><tr><td class="table-td font-bold"><?= h($r['resource_name'] ?: 'Deleted resource') ?></td><td class="table-td"><?= h($r['location'] ?: '-') ?></td><td class="table-td"><?= h($r['total']) ?></td></tr><?php endwhile; ?></tbody></table></div>
     </div>
     <div class="page-break"></div>

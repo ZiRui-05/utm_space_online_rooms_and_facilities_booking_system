@@ -34,7 +34,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Roboto','Oxygen','
 .breadcrumb{padding:16px 30px;background:var(--white);border-bottom:1px solid var(--border-light);font-size:13px;color:var(--text-light)}
 .breadcrumb a{color:var(--primary-color);text-decoration:none;cursor:pointer}
 .breadcrumb a:hover{text-decoration:underline}
-.main-container{display:flex;max-width:1400px;margin:30px auto;gap:30px;padding:0 30px}
+.main-container{display:flex;width:100%;max-width:1400px;margin:30px auto;gap:30px;padding:0 30px;align-items:flex-start}
 .sidebar{flex:0 0 250px}
 .filter-section{background:var(--white);padding:20px;border-radius:8px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,.08)}
 .filter-title{font-size:16px;font-weight:700;color:var(--text-dark);margin-bottom:16px;text-transform:uppercase;letter-spacing:.5px}
@@ -48,8 +48,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Roboto','Oxygen','
 .btn-apply:hover{background:var(--primary-hover)}
 .btn-reset{background:var(--white);color:var(--text-dark);border:1px solid var(--border-light)}
 .btn-reset:hover{border-color:var(--primary-color);color:var(--primary-color)}
-.content-area{flex:1}
-.content-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}
+.content-area{flex:1 1 auto;min-width:0;width:100%}
+.content-header{display:flex;justify-content:space-between;align-items:center;gap:18px;margin-bottom:24px}
 .content-title{font-size:28px;font-weight:700;color:var(--text-dark)}
 .content-subtitle{font-size:14px;color:var(--text-light);margin-bottom:8px}
 
@@ -60,8 +60,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Roboto','Oxygen','
 .btn-sort-dir{display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;padding:0;background:var(--white);border:1px solid var(--border-light);border-radius:4px;cursor:pointer;color:var(--text-dark);font-size:16px;transition:all .2s ease}
 .btn-sort-dir:hover{border-color:var(--primary-color);color:var(--primary-color);background:#fcfcfc}
 
-.room-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:24px}
-.room-card{background:var(--white);border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08);transition:all .3s ease}
+.room-grid{display:grid;width:100%;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));gap:24px;align-items:start}
+.room-card{width:100%;min-width:0;background:var(--white);border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08);transition:all .3s ease}
 .room-card:hover{transform:translateY(-4px);box-shadow:0 8px 16px rgba(0,0,0,.12)}
 .room-image{position:relative;height:200px;background:#ddd;overflow:hidden}
 .room-image img{width:100%;height:100%;object-fit:cover}
@@ -85,6 +85,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Roboto','Oxygen','
 
     .main-container {
         flex-direction: column;
+        width: 100%;
+        margin: 20px auto;
         padding: 0 15px;
         gap: 20px;
     }

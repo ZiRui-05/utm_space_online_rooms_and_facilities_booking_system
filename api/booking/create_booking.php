@@ -181,7 +181,8 @@ try {
     $table = $resourceType === 'room' ? 'rooms' : 'facilities';
     $idCol = $resourceType === 'room' ? 'room_id' : 'facility_id';
 
-    $stmtResource = $pdo->prepare("SELECT price_per_day, resource_status FROM {$table} WHERE {$idCol} = ? LIMIT 1");
+    $nameCol = $resourceType === 'room' ? 'room_name' : 'facility_name';
+    $stmtResource = $pdo->prepare("SELECT price_per_day, resource_status, {$nameCol} AS resource_name FROM {$table} WHERE {$idCol} = ? LIMIT 1");
     $stmtResource->execute([$resourceId]);
     $resource = $stmtResource->fetch(PDO::FETCH_ASSOC);
 
@@ -279,6 +280,10 @@ try {
 
     $newBookingId = (int)$pdo->lastInsertId();
     create_user_notification_pdo($pdo, $userId, $newBookingId, 'Booking request submitted', 'Your booking request #' . $newBookingId . ' has been submitted and is waiting for approval.', 'booking_request');
+
+    $resourceDisplayName = trim((string)($resource['resource_name'] ?? ($resourceType === 'room' ? 'Room' : 'Facility')));
+    $requesterName = trim((string)($profile['full_name'] ?? 'Unknown'));
+    notify_staff_new_booking_pdo($pdo, $newBookingId, $resourceDisplayName, $requesterName);
 
     echo json_encode([
         'success' => true,

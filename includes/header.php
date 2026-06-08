@@ -149,8 +149,6 @@ $toRoot = static fn(string $path): string => $prefix . ltrim($path, '/');
         .nav-links { flex-direction: column; gap: 8px; }
         .noti-menu { right: auto; left: 0; width: calc(100vw - 32px); }
 
-    @media (max-width:768px){
-
     .navbar{
         display:flex;
         flex-direction:column;
@@ -191,7 +189,14 @@ $toRoot = static fn(string $path): string => $prefix . ltrim($path, '/');
         width:auto;
         margin:0;
     }
-}
+    }
+
+    /* ── Shared mobile baseline (all user-facing pages) ─────────────── */
+    @media (max-width: 768px) {
+        /* Images never overflow their containers */
+        img { max-width: 100%; height: auto; }
+        /* Breadcrumbs use tighter side padding on phones */
+        .breadcrumb { padding: 12px 16px; }
     }
 </style>
 
@@ -386,7 +391,7 @@ $toRoot = static fn(string $path): string => $prefix . ltrim($path, '/');
         };
 
         function notificationIcon(type) {
-            const map = { booking_status: '📅', booking_request: '📅', account: '👤', security: '🔐', payment: '💳', issue_report: '⚠️', profile: '🪪' };
+            const map = { booking_status: '📅', booking_request: '📅', return_overdue: '⚠️', account: '👤', security: '🔐', payment: '💳', issue_report: '⚠️', profile: '🪪' };
             return map[type] || '🔔';
         }
 

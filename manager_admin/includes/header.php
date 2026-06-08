@@ -23,13 +23,127 @@ function role_url($page) { global $prefix; return $prefix . '_' . $page . '.php'
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
     <script>tailwind.config = { theme: { extend: { colors: { primary:'#36000f', 'primary-container':'#5c001f', 'secondary-container':'#fdaa1d', 'outline-variant':'#dcc0c2', background:'#f8f9ff' } } } };</script>
-    <style>body{font-family:Inter,sans-serif;background:#f8f9ff;overflow-x:hidden;min-height:100vh}.material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;vertical-align:middle}.table-th{padding:14px 18px;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#64748b;background:#f8fafc;text-align:left}.table-td{padding:14px 18px;border-top:1px solid #e2e8f0;font-size:14px;vertical-align:top}.input{width:100%;border:1px solid #dcc0c2;border-radius:8px;padding:10px 12px;background:#fff}.btn-primary{background:#5c001f;color:#fff;padding:10px 16px;border-radius:8px;font-weight:700;display:inline-block}.btn-warning{background:#fdaa1d;color:#291800;padding:10px 16px;border-radius:8px;font-weight:700;display:inline-block}.btn-light{background:#f8fafc;border:1px solid #dcc0c2;padding:10px 16px;border-radius:8px;font-weight:700;display:inline-block}.badge{display:inline-flex;align-items:center;border-radius:999px;padding:4px 10px;font-size:12px;font-weight:700}.badge-pending{background:#fff7ed;color:#9a3412}.badge-approved,.badge-active,.badge-available,.badge-completed,.badge-paid,.badge-verified,.badge-resolved{background:#dcfce7;color:#166534}.badge-rejected,.badge-suspended,.badge-unavailable,.badge-cancelled,.badge-expired,.badge-unpaid,.badge-unverified,.badge-payment_rejected{background:#fee2e2;color:#991b1b}.badge-maintenance,.badge-inactive,.badge-blocked,.badge-pending_verification,.badge-refunded,.badge-in_review,.badge-closed{background:#e2e8f0;color:#334155}.slot-cell{min-width:110px;height:58px;border:1px solid #e2e8f0;text-align:center;font-size:12px;cursor:pointer}.slot-free{background:#fff}.slot-selected{background:#fef3c7!important;outline:2px solid #f59e0b}.slot-booked{background:#dbeafe;color:#1e40af;cursor:not-allowed}.slot-blocked{background:#fee2e2;color:#991b1b}.slot-maintenance{background:#e2e8f0;color:#334155}@media print{.no-print,header,aside{display:none!important}main{margin-left:0!important;padding:0!important;max-width:none!important}.print-card{box-shadow:none!important;border-color:#111!important}.page-break{page-break-before:always}body{background:#fff!important;color:#111!important;overflow-x:visible}}.admin-page-main{min-height:calc(100vh - 5rem);display:flex;flex-direction:column}.admin-page-footer{margin-top:auto;padding-top:2rem;color:#64748b;font-size:.75rem;text-align:center}
+    <style>body{font-family:Inter,sans-serif;background:#f8f9ff;overflow-x:hidden;min-height:100vh}.material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;vertical-align:middle}.table-th{padding:14px 18px;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#64748b;background:#f8fafc;text-align:left}.table-td{padding:14px 18px;border-top:1px solid #e2e8f0;font-size:14px;vertical-align:top}.input{width:100%;border:1px solid #dcc0c2;border-radius:8px;padding:10px 12px;background:#fff}.btn-primary{background:#5c001f;color:#fff;padding:10px 16px;border-radius:8px;font-weight:700;display:inline-block}.btn-warning{background:#fdaa1d;color:#291800;padding:10px 16px;border-radius:8px;font-weight:700;display:inline-block}.btn-light{background:#f8fafc;border:1px solid #dcc0c2;padding:10px 16px;border-radius:8px;font-weight:700;display:inline-block}.badge{display:inline-flex;align-items:center;border-radius:999px;padding:4px 10px;font-size:12px;font-weight:700}.badge-pending{background:#fff7ed;color:#9a3412}.badge-return_overdue{background:#fef3c7;color:#92400e}.badge-approved,.badge-active,.badge-available,.badge-completed,.badge-paid,.badge-verified,.badge-resolved{background:#dcfce7;color:#166534}.badge-rejected,.badge-suspended,.badge-unavailable,.badge-cancelled,.badge-expired,.badge-unpaid,.badge-unverified,.badge-payment_rejected{background:#fee2e2;color:#991b1b}.badge-maintenance,.badge-inactive,.badge-blocked,.badge-pending_verification,.badge-refunded,.badge-in_review,.badge-closed{background:#e2e8f0;color:#334155}.slot-cell{min-width:110px;height:58px;border:1px solid #e2e8f0;text-align:center;font-size:12px;cursor:pointer}.slot-free{background:#fff}.slot-selected{background:#fef3c7!important;outline:2px solid #f59e0b}.slot-booked{background:#dbeafe;color:#1e40af;cursor:not-allowed}.slot-blocked{background:#fee2e2;color:#991b1b}.slot-maintenance{background:#e2e8f0;color:#334155}@media print{.no-print,header,aside{display:none!important}main{margin-left:0!important;padding:0!important;max-width:none!important}.print-card{box-shadow:none!important;border-color:#111!important}.page-break{page-break-before:always}body{background:#fff!important;color:#111!important;overflow-x:visible}}.admin-page-main{min-height:calc(100vh - 5rem);display:flex;flex-direction:column}.admin-page-footer{margin-top:auto;padding-top:2rem;color:#64748b;font-size:.75rem;text-align:center}
 </style>
 </head>
 <body class="antialiased text-slate-900">
 <header class="no-print flex flex-wrap justify-between items-center gap-4 w-full max-w-full box-border px-4 sm:px-6 lg:px-10 py-4 sticky top-0 z-50 bg-white border-b border-slate-200">
     <div class="flex min-w-0 flex-wrap items-center gap-4 lg:gap-8"><span class="shrink-0 text-xl font-bold tracking-tight text-red-900 uppercase">SPACEBOOK</span><nav class="hidden md:flex min-w-0 flex-wrap gap-x-6 gap-y-2 text-sm font-medium"><a class="text-slate-600 hover:text-red-900" href="../homepage.php">Home</a><a class="text-slate-600 hover:text-red-900" href="<?= h($dashboardLink) ?>"><?= h($dashboardLabel) ?></a><?php if($isAdmin): ?><a class="text-slate-600 hover:text-red-900" href="admin_booking_requests.php">Bookings</a><?php else: ?><a class="text-slate-600 hover:text-red-900" href="manager_booking_requests.php">Bookings</a><?php endif; ?><a class="text-slate-600 hover:text-red-900" href="<?= h(role_url('issue_reports')) ?>">Issue Reports</a><a class="text-slate-600 hover:text-red-900" href="admin_reports.php">Reports</a></nav></div>
-    <div class="flex min-w-0 flex-wrap items-center gap-3 sm:gap-4"><span class="hidden sm:block min-w-0 truncate text-sm text-slate-600"><?= $user ? h($user['full_name']) . ' · ' . h(ucwords(str_replace('_',' ', $user['role']))) : 'Guest' ?></span><a class="btn-light py-2" href="logout.php">Logout</a><div class="h-9 w-9 shrink-0 rounded-full overflow-hidden border border-slate-200"><img src="https://ui-avatars.com/api/?name=<?= urlencode($user['full_name'] ?? 'User') ?>&background=5c001f&color=fff" class="h-full w-full object-cover" alt="Avatar"></div></div>
+    <div class="flex min-w-0 flex-wrap items-center gap-3 sm:gap-4">
+        <span class="hidden sm:block min-w-0 truncate text-sm text-slate-600"><?= $user ? h($user['full_name']) . ' · ' . h(ucwords(str_replace('_',' ', $user['role']))) : 'Guest' ?></span>
+
+        <!-- Notification Bell -->
+        <div class="relative" id="admin-noti-container">
+            <button id="admin-noti-btn" onclick="toggleAdminNoti(event)"
+                    class="relative flex items-center justify-center w-9 h-9 rounded-full text-slate-500 hover:text-red-900 hover:bg-red-50 transition-all"
+                    title="Notifications">
+                <span class="material-symbols-outlined" style="font-size:20px;">notifications</span>
+                <span id="admin-noti-badge" style="display:none;"
+                      class="absolute top-0.5 right-0.5 bg-red-700 text-white text-[9px] font-bold leading-none min-w-[16px] h-4 flex items-center justify-center rounded-full px-1">0</span>
+            </button>
+
+            <div id="admin-noti-menu" style="display:none;"
+                 class="absolute top-11 right-0 bg-white rounded-xl border border-slate-200 shadow-xl w-80 z-50 overflow-hidden">
+                <div class="flex justify-between items-center px-4 py-3 border-b border-slate-100 bg-slate-50">
+                    <h3 class="text-sm font-semibold text-slate-700">Notifications</h3>
+                    <button onclick="markAllAdminNotiRead()" class="text-xs text-red-800 hover:underline font-medium">Mark all as read</button>
+                </div>
+                <div id="admin-noti-body" class="max-h-72 overflow-y-auto divide-y divide-slate-50">
+                    <div class="px-4 py-4 text-sm text-slate-400 text-center">Loading…</div>
+                </div>
+                <div class="px-4 py-2.5 bg-slate-50 border-t border-slate-100 text-center">
+                    <a href="../pages/app/all_notifications.php" class="text-xs text-red-800 font-semibold hover:underline">View all notifications</a>
+                </div>
+            </div>
+        </div>
+
+        <a class="btn-light py-2" href="logout.php">Logout</a>
+        <div class="h-9 w-9 shrink-0 rounded-full overflow-hidden border border-slate-200"><img src="https://ui-avatars.com/api/?name=<?= urlencode($user['full_name'] ?? 'User') ?>&background=5c001f&color=fff" class="h-full w-full object-cover" alt="Avatar"></div>
+    </div>
+
+<script>
+(function () {
+    function notiIcon(type) {
+        var map = { booking_request:'📋', booking_status:'📅', booking_cancelled:'📅', return_overdue:'⚠️', account:'👤', payment:'💳', issue_report:'⚠️' };
+        return map[type] || '🔔';
+    }
+    function escHtml(s) {
+        return String(s||'').replace(/[&<>"]/g, function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]);});
+    }
+    function timeFmt(v) {
+        if (!v) return '';
+        var d = new Date(String(v).replace(' ','T'));
+        return isNaN(d.getTime()) ? v : d.toLocaleString();
+    }
+
+    function renderAdminNoti(data) {
+        var body  = document.getElementById('admin-noti-body');
+        var badge = document.getElementById('admin-noti-badge');
+        if (!body || !badge) return;
+        var count = Number(data && data.unread_count || 0);
+        badge.textContent = count > 99 ? '99+' : String(count);
+        badge.style.display = count > 0 ? 'flex' : 'none';
+        var items = Array.isArray(data && data.notifications) ? data.notifications : [];
+        if (items.length === 0) {
+            body.innerHTML = '<div class="px-4 py-6 text-sm text-slate-400 text-center">No notifications yet.</div>';
+            return;
+        }
+        body.innerHTML = items.map(function(item) {
+            var unread = Number(item.is_read) === 0;
+            return '<div class="flex gap-3 px-4 py-3 cursor-pointer hover:bg-slate-50 transition-colors' + (unread ? ' bg-red-50/40' : '') + '"'
+                + ' onclick="markAdminNotiRead(' + Number(item.notification_id) + ')">'
+                + '<span class="text-base mt-0.5 shrink-0">' + notiIcon(item.notification_type) + '</span>'
+                + '<div class="min-w-0 flex-1">'
+                + '<p class="text-xs font-semibold text-slate-700 mb-0.5 truncate">' + escHtml(item.title) + '</p>'
+                + '<p class="text-xs text-slate-500 leading-relaxed line-clamp-2">' + escHtml(item.message) + '</p>'
+                + '<span class="text-[10px] text-slate-400 mt-1 block">' + timeFmt(item.created_at) + '</span>'
+                + '</div></div>';
+        }).join('');
+    }
+
+    function loadAdminNoti() {
+        fetch('../api/user/notifications.php', { credentials: 'same-origin' })
+            .then(function(r){ return r.ok ? r.json() : null; })
+            .then(function(d){ if (d && d.success) renderAdminNoti(d); })
+            .catch(function(){});
+    }
+
+    window.toggleAdminNoti = function(e) {
+        if (e) e.stopPropagation();
+        var menu = document.getElementById('admin-noti-menu');
+        if (menu) menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+    };
+
+    window.markAllAdminNotiRead = function() {
+        fetch('../api/user/notifications.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ action: 'mark_all_read' })
+        }).catch(function(){});
+        var badge = document.getElementById('admin-noti-badge');
+        if (badge) badge.style.display = 'none';
+        document.querySelectorAll('#admin-noti-body > div').forEach(function(el){ el.classList.remove('bg-red-50/40'); });
+    };
+
+    window.markAdminNotiRead = function(id) {
+        fetch('../api/user/notifications.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ action: 'mark_read', notification_id: id })
+        }).then(function(){ loadAdminNoti(); }).catch(function(){});
+    };
+
+    document.addEventListener('click', function(e) {
+        var c = document.getElementById('admin-noti-container');
+        var m = document.getElementById('admin-noti-menu');
+        if (m && c && !c.contains(e.target)) m.style.display = 'none';
+    });
+
+    document.addEventListener('DOMContentLoaded', loadAdminNoti);
+})();
+</script>
 </header>
 <div class="flex min-h-screen">
 <aside class="no-print flex flex-col fixed left-0 top-0 pt-20 pb-8 px-4 z-40 bg-slate-50 h-screen w-64 border-r border-slate-200">
