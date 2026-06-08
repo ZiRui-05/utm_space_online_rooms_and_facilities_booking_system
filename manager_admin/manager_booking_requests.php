@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/../includes/notifications.php';
+require_once __DIR__ . '/../includes/booking_validation.php';
 $user = require_role(['facility_manager']);
 $self_file = 'manager_booking_requests.php';
 $edit_file = 'manager_edit_booking.php';
@@ -8,21 +9,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['booking_id'], $_POST[
     $booking_id = (int)$_POST['booking_id'];
     $decision = $_POST['decision'] === 'approved' ? 'approved' : 'rejected';
     $remarks = trim($_POST['review_remarks'] ?? '');
-    $beforeStmt = $conn->prepare("SELECT b.booking_id, b.user_id, b.booking_status, b.payment_status, u.full_name, u.email, COALESCE(r.room_name, f.facility_name) resource_name FROM bookings b JOIN users u ON u.user_id=b.user_id LEFT JOIN rooms r ON r.room_id=b.room_id LEFT JOIN facilities f ON f.facility_id=b.facility_id WHERE b.booking_id=? LIMIT 1");
-    $beforeStmt->bind_param('i', $booking_id);
-    $beforeStmt->execute();
-    $beforeBooking = $beforeStmt->get_result()->fetch_assoc();
+    $beforeBooking = null;
+    $newPaymentStatus = 'unpaid';
+    try {
+        $conn->begin_transaction();
 
-    $stmt = $conn->prepare("UPDATE bookings SET booking_status=?, payment_status=CASE WHEN ?='rejected' AND payment_status IN ('paid','pending_verification') THEN 'refunded' WHEN ?='approved' AND payment_status='refunded' THEN 'unpaid' ELSE payment_status END, reviewed_by=?, reviewed_at=NOW(), review_remarks=? WHERE booking_id=?");
-    $stmt->bind_param('sssisi', $decision, $decision, $decision, $user['user_id'], $remarks, $booking_id);
-    $stmt->execute();
-    if ($stmt->affected_rows && $beforeBooking) {
-        $newPaymentStatus = (string)($beforeBooking['payment_status'] ?? 'unpaid');
-        if ($decision === 'rejected' && in_array($newPaymentStatus, ['paid', 'pending_verification'], true)) {
-            $newPaymentStatus = 'refunded';
-        } elseif ($decision === 'approved' && $newPaymentStatus === 'refunded') {
-            $newPaymentStatus = 'unpaid';
+        $beforeStmt = $conn->prepare("SELECT b.booking_id, b.user_id, b.resource_type, b.room_id, b.facility_id, b.booking_start, b.booking_end, b.total_price, b.booking_status, b.payment_status, u.full_name, u.email, COALESCE(r.room_name, f.facility_name) resource_name FROM bookings b JOIN users u ON u.user_id=b.user_id LEFT JOIN rooms r ON r.room_id=b.room_id LEFT JOIN facilities f ON f.facility_id=b.facility_id WHERE b.booking_id=? LIMIT 1 FOR UPDATE");
+        $beforeStmt->bind_param('i', $booking_id);
+        $beforeStmt->execute();
+        $beforeBooking = $beforeStmt->get_result()->fetch_assoc();
+        if (!$beforeBooking) {
+            throw new RuntimeException('Booking not found.');
         }
+        if ((string)$beforeBooking['booking_status'] !== 'pending') {
+            throw new RuntimeException('Only pending booking requests can be approved or rejected from this list.');
+        }
+
+        if ($decision === 'approved') {
+            $resourceId = booking_active_resource_id($beforeBooking);
+            $availability = booking_validate_resource_availability_mysqli($conn, (string)$beforeBooking['resource_type'], $resourceId, (string)$beforeBooking['booking_start'], (string)$beforeBooking['booking_end'], $booking_id, true);
+            if (!$availability['ok']) {
+                throw new RuntimeException($availability['message']);
+            }
+        }
+
+        $newPaymentStatus = booking_payment_after_status_change($decision, (string)$beforeBooking['payment_status'], (float)$beforeBooking['total_price']);
+        $stmt = $conn->prepare("UPDATE bookings SET booking_status=?, payment_status=?, reviewed_by=?, reviewed_at=NOW(), review_remarks=? WHERE booking_id=? AND booking_status='pending'");
+        $stmt->bind_param('ssisi', $decision, $newPaymentStatus, $user['user_id'], $remarks, $booking_id);
+        $stmt->execute();
+        if ($stmt->affected_rows < 1) {
+            throw new RuntimeException('Booking status changed before this action could be saved. Please refresh and try again.');
+        }
+
+        $conn->commit();
+    } catch (Throwable $e) {
+        $conn->rollback();
+        header('Location: ' . $self_file . '?error=' . urlencode($e->getMessage()));
+        exit;
+    }
+
+    if ($beforeBooking) {
         notify_booking_status_change_mysqli($conn, $beforeBooking, $decision, $newPaymentStatus);
     }
     $msg = $beforeBooking ? 'Booking #' . $booking_id . ' changed to ' . $decision . ' and student notified.' : 'Booking not found.';

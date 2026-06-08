@@ -2,51 +2,78 @@
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/../includes/notifications.php';
 require_once __DIR__ . '/../includes/booking_expiry.php';
+require_once __DIR__ . '/../includes/booking_validation.php';
 $user = require_role(['facility_manager', 'admin']);
 $id = (int)($_GET['id'] ?? $_POST['booking_id'] ?? 0);
 if ($id <= 0) { header('Location: manager_booking_requests.php?error=' . urlencode('Missing booking ID')); exit; }
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $beforeStmt = $conn->prepare("SELECT b.booking_id, b.user_id, b.booking_status, b.payment_status, u.full_name, u.email, COALESCE(r.room_name, f.facility_name) resource_name FROM bookings b JOIN users u ON u.user_id=b.user_id LEFT JOIN rooms r ON r.room_id=b.room_id LEFT JOIN facilities f ON f.facility_id=b.facility_id WHERE b.booking_id=? LIMIT 1");
-    $beforeStmt->bind_param('i', $id);
-    $beforeStmt->execute();
-    $beforeBooking = $beforeStmt->get_result()->fetch_assoc();
-    if (!$beforeBooking) { header('Location: manager_booking_requests.php?error=' . urlencode('Booking not found')); exit; }
-
     $allowedBookingStatuses = ['pending', 'approved', 'rejected', 'cancelled', 'completed', 'expired', 'return_overdue'];
     $allowedPaymentStatuses = ['unpaid', 'pending_verification', 'paid', 'payment_rejected', 'refunded'];
     $quickStatus = trim((string)($_POST['quick_status'] ?? ''));
     $postedStatus = $quickStatus !== '' ? $quickStatus : trim((string)($_POST['booking_status'] ?? ''));
     $postedPayment = trim((string)($_POST['payment_status'] ?? ''));
-    $status = in_array($postedStatus, $allowedBookingStatuses, true) ? $postedStatus : (string)$beforeBooking['booking_status'];
-    $payment = in_array($postedPayment, $allowedPaymentStatuses, true) ? $postedPayment : (string)$beforeBooking['payment_status'];
+    $status = in_array($postedStatus, $allowedBookingStatuses, true) ? $postedStatus : '';
+    $payment = in_array($postedPayment, $allowedPaymentStatuses, true) ? $postedPayment : '';
 
-    $start = trim((string)($_POST['booking_start'] ?? ''));
-    $end = trim((string)($_POST['booking_end'] ?? ''));
+    $startInput = trim((string)($_POST['booking_start'] ?? ''));
+    $endInput = trim((string)($_POST['booking_end'] ?? ''));
     $purpose = trim((string)($_POST['purpose'] ?? ''));
     $remarks = trim((string)($_POST['review_remarks'] ?? ''));
     $total = (float)($_POST['total_price'] ?? 0);
 
-    if ($start === '' || $end === '' || strtotime($start) === false || strtotime($end) === false) {
+    if ($startInput === '' || $endInput === '' || strtotime($startInput) === false || strtotime($endInput) === false) {
         header('Location: manager_edit_booking.php?id=' . $id . '&error=' . urlencode('Please enter a valid start and end date/time.')); exit;
     }
-    if (strtotime($end) <= strtotime($start)) {
+    if (strtotime($endInput) <= strtotime($startInput)) {
         header('Location: manager_edit_booking.php?id=' . $id . '&error=' . urlencode('End date/time must be after start date/time')); exit;
     }
     if ($total < 0) {
         header('Location: manager_edit_booking.php?id=' . $id . '&error=' . urlencode('Total price cannot be negative.')); exit;
     }
 
-    // Keep status fully editable: approved/rejected/pending can be changed from any previous status.
-    // Only adjust payment when the selected booking status would otherwise conflict with the current payment state.
-    if ($status === 'rejected' && in_array($payment, ['paid', 'pending_verification'], true)) {
-        $payment = 'refunded';
-    } elseif ($status === 'approved' && $payment === 'refunded') {
-        $payment = 'unpaid';
-    }
+    $start = date('Y-m-d H:i:s', strtotime($startInput));
+    $end = date('Y-m-d H:i:s', strtotime($endInput));
 
-    $stmt = $conn->prepare('UPDATE bookings SET booking_status=?, payment_status=?, booking_start=?, booking_end=?, purpose=?, total_price=?, reviewed_by=?, reviewed_at=NOW(), review_remarks=? WHERE booking_id=? LIMIT 1');
-    $stmt->bind_param('sssssdisi', $status, $payment, $start, $end, $purpose, $total, $user['user_id'], $remarks, $id);
-    $stmt->execute();
+    try {
+        $conn->begin_transaction();
+
+        $beforeStmt = $conn->prepare("SELECT b.booking_id, b.user_id, b.resource_type, b.room_id, b.facility_id, b.booking_start, b.booking_end, b.total_price, b.booking_status, b.payment_status, u.full_name, u.email, COALESCE(r.room_name, f.facility_name) resource_name FROM bookings b JOIN users u ON u.user_id=b.user_id LEFT JOIN rooms r ON r.room_id=b.room_id LEFT JOIN facilities f ON f.facility_id=b.facility_id WHERE b.booking_id=? LIMIT 1 FOR UPDATE");
+        $beforeStmt->bind_param('i', $id);
+        $beforeStmt->execute();
+        $beforeBooking = $beforeStmt->get_result()->fetch_assoc();
+        if (!$beforeBooking) {
+            throw new RuntimeException('Booking not found');
+        }
+        if ($status === '') {
+            $status = (string)$beforeBooking['booking_status'];
+        }
+        if ($payment === '') {
+            $payment = (string)$beforeBooking['payment_status'];
+        }
+
+        $statusChanged = $status !== (string)$beforeBooking['booking_status'];
+        $timeChanged = strtotime((string)$beforeBooking['booking_start']) !== strtotime($start)
+            || strtotime((string)$beforeBooking['booking_end']) !== strtotime($end);
+
+        if (in_array($status, ['pending', 'approved'], true) && ($statusChanged || $timeChanged)) {
+            $resourceId = booking_active_resource_id($beforeBooking);
+            $availability = booking_validate_resource_availability_mysqli($conn, (string)$beforeBooking['resource_type'], $resourceId, $start, $end, $id, true);
+            if (!$availability['ok']) {
+                throw new RuntimeException($availability['message']);
+            }
+        }
+
+        $payment = booking_payment_after_status_change($status, $payment, $total);
+
+        $stmt = $conn->prepare('UPDATE bookings SET booking_status=?, payment_status=?, booking_start=?, booking_end=?, purpose=?, total_price=?, reviewed_by=?, reviewed_at=NOW(), review_remarks=? WHERE booking_id=? LIMIT 1');
+        $stmt->bind_param('sssssdisi', $status, $payment, $start, $end, $purpose, $total, $user['user_id'], $remarks, $id);
+        $stmt->execute();
+
+        $conn->commit();
+    } catch (Throwable $e) {
+        $conn->rollback();
+        header('Location: manager_edit_booking.php?id=' . $id . '&error=' . urlencode($e->getMessage())); exit;
+    }
 
     notify_booking_status_change_mysqli($conn, $beforeBooking, $status, $payment);
     suspend_users_with_missed_payments_mysqli($conn);

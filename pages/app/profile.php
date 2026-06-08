@@ -1268,10 +1268,11 @@
                 : '<span class="action-link">-</span>';
             const totalPrice = Number(booking.total_price || 0);
             const paymentStatus = (booking.payment_status || '').toLowerCase();
+            const canUploadPayment = ['pending', 'approved'].includes(normalizedStatus);
             let paymentHTML = '<span class="payment-unavailable">Unavailable</span>';
             if (totalPrice > 0 && paymentStatus === 'paid') {
                 paymentHTML = '<span class="status-badge payment-paid">Paid</span>';
-            } else if (totalPrice > 0 && paymentStatus === 'unpaid') {
+            } else if (totalPrice > 0 && paymentStatus === 'unpaid' && canUploadPayment) {
                 paymentHTML = `<button type="button" class="btn-payment" onclick="openPaymentModal(${Number(booking.booking_id)})">Complete Payment</button>`;
             } else if (totalPrice > 0 && paymentStatus) {
                 const paymentLabel = paymentStatus

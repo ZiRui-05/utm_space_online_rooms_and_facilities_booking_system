@@ -38,16 +38,30 @@ if ($bookingId <= 0) {
 }
 
 try {
+    $pdo->beginTransaction();
+
     $stmt = $pdo->prepare(
-        "UPDATE bookings
-         SET booking_status = 'cancelled'
-         WHERE booking_id = ?
-           AND user_id = ?
-           AND booking_status IN ('pending', 'approved')"
+        "SELECT booking_id, booking_status, booking_start, total_price, payment_status
+         FROM bookings
+         WHERE booking_id = ? AND user_id = ?
+         LIMIT 1
+         FOR UPDATE"
     );
     $stmt->execute([$bookingId, $userId]);
+    $booking = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if ($stmt->rowCount() < 1) {
+    if (!$booking) {
+        $pdo->rollBack();
+        http_response_code(404);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Booking not found.'
+        ]);
+        exit;
+    }
+
+    if (!in_array((string)$booking['booking_status'], ['pending', 'approved'], true)) {
+        $pdo->rollBack();
         http_response_code(400);
         echo json_encode([
             'success' => false,
@@ -56,6 +70,42 @@ try {
         exit;
     }
 
+    if (strtotime((string)$booking['booking_start']) <= time()) {
+        $pdo->rollBack();
+        http_response_code(400);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Bookings cannot be cancelled after the booking start time.'
+        ]);
+        exit;
+    }
+
+    $update = $pdo->prepare(
+        "UPDATE bookings
+         SET booking_status = 'cancelled',
+             payment_status = CASE
+                 WHEN total_price > 0 AND payment_status IN ('paid', 'pending_verification') THEN 'refunded'
+                 ELSE payment_status
+             END
+         WHERE booking_id = ?
+           AND user_id = ?
+           AND booking_status IN ('pending', 'approved')
+           AND booking_start > NOW()"
+    );
+    $update->execute([$bookingId, $userId]);
+
+    if ($update->rowCount() < 1) {
+        $pdo->rollBack();
+        http_response_code(400);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Booking could not be cancelled. Please refresh and try again.'
+        ]);
+        exit;
+    }
+
+    $pdo->commit();
+
     create_user_notification_pdo($pdo, $userId, $bookingId, 'Booking cancelled', 'Your booking request #' . $bookingId . ' has been cancelled.', 'booking_status');
 
     echo json_encode([
@@ -63,6 +113,9 @@ try {
         'message' => 'Booking has been cancelled successfully.'
     ]);
 } catch (Throwable $e) {
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
     http_response_code(500);
     echo json_encode([
         'success' => false,

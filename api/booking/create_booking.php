@@ -7,6 +7,7 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../../includes/notifications.php';
+require_once __DIR__ . '/../../includes/booking_validation.php';
 
 $userId = (int)($_SESSION['user']['user_id'] ?? ($_SESSION['user_id'] ?? 0));
 $resourceType = strtolower(trim($_POST['resource_type'] ?? 'facility'));
@@ -178,26 +179,17 @@ try {
         exit;
     }
 
-    $table = $resourceType === 'room' ? 'rooms' : 'facilities';
-    $idCol = $resourceType === 'room' ? 'room_id' : 'facility_id';
+    $pdo->beginTransaction();
 
-    $nameCol = $resourceType === 'room' ? 'room_name' : 'facility_name';
-    $stmtResource = $pdo->prepare("SELECT price_per_day, resource_status, {$nameCol} AS resource_name FROM {$table} WHERE {$idCol} = ? LIMIT 1");
-    $stmtResource->execute([$resourceId]);
-    $resource = $stmtResource->fetch(PDO::FETCH_ASSOC);
-
-    if (!$resource) {
-        http_response_code(404);
-        echo json_encode(['success' => false, 'message' => 'Selected resource was not found']);
+    $availability = booking_validate_resource_availability_pdo($pdo, $resourceType, $resourceId, $bookingStart, $bookingEnd, null, true);
+    if (!$availability['ok']) {
+        $pdo->rollBack();
+        http_response_code(str_contains($availability['message'], 'not found') ? 404 : 409);
+        echo json_encode(['success' => false, 'message' => $availability['message']]);
         exit;
     }
 
-    $resourceStatus = strtolower((string)($resource['resource_status'] ?? 'unavailable'));
-    if ($resourceStatus !== 'available') {
-        http_response_code(409);
-        echo json_encode(['success' => false, 'message' => 'Selected resource is currently ' . $resourceStatus . ' and cannot be booked.']);
-        exit;
-    }
+    $resource = $availability['resource'];
 
     $pricePerDay = (float)($resource['price_per_day'] ?? 0);
 
@@ -206,58 +198,6 @@ try {
 
     $roomId = $resourceType === 'room' ? $resourceId : null;
     $facilityId = $resourceType === 'facility' ? $resourceId : null;
-
-    $stmtConflict = $pdo->prepare(
-        "SELECT booking_id, booking_status FROM bookings
-         WHERE resource_type = ?
-           AND {$idCol} = ?
-           AND booking_status IN ('pending', 'approved')
-           AND booking_start < ?
-           AND booking_end > ?
-         LIMIT 1"
-    );
-    $stmtConflict->execute([$resourceType, $resourceId, $bookingEnd, $bookingStart]);
-    $conflictingBooking = $stmtConflict->fetch(PDO::FETCH_ASSOC);
-    if ($conflictingBooking) {
-        http_response_code(409);
-        echo json_encode(['success' => false, 'message' => 'Selected time slot is already ' . strtolower((string)$conflictingBooking['booking_status']) . '.']);
-        exit;
-    }
-
-    $stmtSchedule = $pdo->prepare(
-        "SELECT status FROM schedules
-         WHERE resource_type = ?
-           AND {$idCol} = ?
-           AND status IN ('blocked', 'maintenance')
-           AND start_time < ?
-           AND end_time > ?
-         LIMIT 1"
-    );
-    $stmtSchedule->execute([$resourceType, $resourceId, $bookingEnd, $bookingStart]);
-    $conflictingSchedule = $stmtSchedule->fetch(PDO::FETCH_ASSOC);
-    if ($conflictingSchedule) {
-        http_response_code(409);
-        echo json_encode(['success' => false, 'message' => 'Selected time slot is ' . strtolower((string)$conflictingSchedule['status']) . '.']);
-        exit;
-    }
-
-    $stmtWeeklyRule = $pdo->prepare(
-        "SELECT status FROM weekly_schedule_rules
-         WHERE resource_type = ?
-           AND {$idCol} = ?
-           AND weekday = ?
-           AND status IN ('blocked', 'maintenance')
-           AND start_hour < ?
-           AND end_hour > ?
-         LIMIT 1"
-    );
-    $stmtWeeklyRule->execute([$resourceType, $resourceId, $selectedDayOfWeek, (int)ceil($endMinutes / 60), (int)floor($startMinutes / 60)]);
-    $conflictingWeeklyRule = $stmtWeeklyRule->fetch(PDO::FETCH_ASSOC);
-    if ($conflictingWeeklyRule) {
-        http_response_code(409);
-        echo json_encode(['success' => false, 'message' => 'Selected time slot is ' . strtolower((string)$conflictingWeeklyRule['status']) . '.']);
-        exit;
-    }
 
     $sql = "INSERT INTO bookings
     (user_id, resource_type, room_id, facility_id, booking_start, booking_end, purpose, remarks, price_per_day, total_price, booking_status, payment_status)
@@ -279,6 +219,8 @@ try {
     ]);
 
     $newBookingId = (int)$pdo->lastInsertId();
+    $pdo->commit();
+
     create_user_notification_pdo($pdo, $userId, $newBookingId, 'Booking request submitted', 'Your booking request #' . $newBookingId . ' has been submitted and is waiting for approval.', 'booking_request');
 
     $resourceDisplayName = trim((string)($resource['resource_name'] ?? ($resourceType === 'room' ? 'Room' : 'Facility')));
@@ -291,6 +233,9 @@ try {
         'booking_id' => $newBookingId,
     ]);
 } catch (Throwable $e) {
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
     http_response_code(500);
     echo json_encode(['success' => false, 'message' => 'Failed to create booking']);
 }

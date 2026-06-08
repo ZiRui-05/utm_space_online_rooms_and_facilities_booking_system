@@ -66,28 +66,41 @@ if ($rawReceipt === false) {
 }
 
 try {
+    $pdo->beginTransaction();
+
     $stmt = $pdo->prepare(
-        "SELECT booking_id, total_price, payment_status
+        "SELECT booking_id, total_price, booking_status, payment_status
          FROM bookings
          WHERE booking_id = ? AND user_id = ?
          LIMIT 1"
+         . " FOR UPDATE"
     );
     $stmt->execute([$bookingId, $userId]);
     $booking = $stmt->fetch();
 
     if (!$booking) {
+        $pdo->rollBack();
         http_response_code(404);
         echo json_encode(['success' => false, 'message' => 'Booking not found']);
         exit;
     }
 
     if ((float)$booking['total_price'] <= 0) {
+        $pdo->rollBack();
         http_response_code(400);
         echo json_encode(['success' => false, 'message' => 'Payment is unavailable for free bookings']);
         exit;
     }
 
+    if (!in_array((string)$booking['booking_status'], ['pending', 'approved'], true)) {
+        $pdo->rollBack();
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Payment receipt can only be uploaded for pending or approved bookings']);
+        exit;
+    }
+
     if ($booking['payment_status'] === 'paid') {
+        $pdo->rollBack();
         http_response_code(400);
         echo json_encode(['success' => false, 'message' => 'This booking has already been paid']);
         exit;
@@ -98,9 +111,19 @@ try {
          SET payment_proof_base64 = ?,
              payment_proof_mime = ?,
              payment_status = 'pending_verification'
-         WHERE booking_id = ? AND user_id = ?"
+         WHERE booking_id = ? AND user_id = ?
+           AND booking_status IN ('pending', 'approved')"
     );
     $update->execute([base64_encode($rawReceipt), $mime, $bookingId, $userId]);
+
+    if ($update->rowCount() < 1) {
+        $pdo->rollBack();
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Payment receipt could not be uploaded. Please refresh and try again.']);
+        exit;
+    }
+
+    $pdo->commit();
 
     create_user_notification_pdo($pdo, $userId, $bookingId, 'Payment receipt uploaded', 'Your payment receipt for booking #' . $bookingId . ' was uploaded and is pending verification.', 'payment');
 
@@ -109,6 +132,9 @@ try {
         'message' => 'Receipt uploaded. Payment is pending verification.',
     ]);
 } catch (Throwable $e) {
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
     http_response_code(500);
     echo json_encode(['success' => false, 'message' => 'Failed to upload receipt']);
 }
