@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../config/app.php';
+
 // Management module database bridge.
 // Uses the same database environment settings as config/db.php,
 // while keeping mysqli support for the imported management pages.

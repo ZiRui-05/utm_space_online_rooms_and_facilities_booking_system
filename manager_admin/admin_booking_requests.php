@@ -48,10 +48,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['booking_id'], $_POST[
         exit;
     }
 
-    if ($beforeBooking) {
-        notify_booking_status_change_mysqli($conn, $beforeBooking, $decision, $newPaymentStatus);
+    $notificationResult = $beforeBooking
+        ? notify_booking_status_change_mysqli($conn, $beforeBooking, $decision, $newPaymentStatus)
+        : null;
+    $msg = $beforeBooking ? 'Booking #' . $booking_id . ' changed to ' . $decision . '. In-app notification created.' : 'Booking not found.';
+    if ($notificationResult && $notificationResult['email_attempted']) {
+        $msg .= $notificationResult['email_success']
+            ? ' Approval email sent.'
+            : ' Approval email failed; check the mail log (request ' . ($notificationResult['email_request_id'] ?: 'unknown') . ').';
     }
-    $msg = $beforeBooking ? 'Booking #' . $booking_id . ' changed to ' . $decision . ' and student notified.' : 'Booking not found.';
     header('Location: ' . $self_file . '?success=' . urlencode($msg)); exit;
 }
 $status = $_GET['status'] ?? 'all';

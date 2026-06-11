@@ -125,18 +125,25 @@ if (!function_exists('notify_staff_new_booking_mysqli')) {
 }
 
 if (!function_exists('notify_booking_status_change_mysqli')) {
-    function notify_booking_status_change_mysqli(mysqli $conn, array $before, string $newStatus, string $newPaymentStatus): void
+    function notify_booking_status_change_mysqli(mysqli $conn, array $before, string $newStatus, string $newPaymentStatus): array
     {
+        $result = [
+            'notification_created' => false,
+            'email_attempted' => false,
+            'email_success' => false,
+            'email_message' => '',
+            'email_request_id' => '',
+        ];
         $oldStatus = (string)($before['booking_status'] ?? '');
         $oldPayment = (string)($before['payment_status'] ?? '');
         if ($oldStatus === $newStatus && $oldPayment === $newPaymentStatus) {
-            return;
+            return $result;
         }
 
         $bookingId = (int)($before['booking_id'] ?? 0);
         $userId = (int)($before['user_id'] ?? 0);
         if ($bookingId <= 0 || $userId <= 0) {
-            return;
+            return $result;
         }
 
         $resourceName = trim((string)($before['resource_name'] ?? 'your booking'));
@@ -158,6 +165,7 @@ if (!function_exists('notify_booking_status_change_mysqli')) {
         }
 
         create_user_notification_mysqli($conn, $userId, $bookingId, $title, $message, 'booking_status');
+        $result['notification_created'] = true;
 
         if ($newStatus === 'approved' && $oldStatus !== 'approved') {
             $toEmail = trim((string)($before['email'] ?? ''));
@@ -175,6 +183,7 @@ if (!function_exists('notify_booking_status_change_mysqli')) {
             }
 
             if ($toEmail !== '' && filter_var($toEmail, FILTER_VALIDATE_EMAIL)) {
+                $result['email_attempted'] = true;
                 require_once __DIR__ . '/../config/mailer.php';
                 $emailSubject = 'Booking Request Approved';
                 $emailText = "Hello " . ($toName !== '' ? $toName : 'there') . ",\n\n"
@@ -188,10 +197,17 @@ if (!function_exists('notify_booking_status_change_mysqli')) {
                     . '<p>Please sign in to UTM Space Booking for the latest booking and payment details.</p>'
                     . '<p>Thank you.</p>';
                 $sendResult = sendMail($toEmail, $toName, $emailSubject, $emailText, $emailHtml);
+                $result['email_success'] = (bool)$sendResult['success'];
+                $result['email_message'] = (string)$sendResult['message'];
+                $result['email_request_id'] = (string)($sendResult['request_id'] ?? '');
                 if (!$sendResult['success']) {
                     error_log('Booking approval email failed for booking #' . $bookingId . ': ' . $sendResult['message']);
                 }
+            } else {
+                $result['email_message'] = 'No valid recipient email address';
             }
         }
+
+        return $result;
     }
 }

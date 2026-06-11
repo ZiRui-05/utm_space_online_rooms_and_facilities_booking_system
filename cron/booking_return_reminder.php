@@ -29,6 +29,33 @@ require_once CRON_ROOT . '/config/db.php';   // provides $pdo
 require_once CRON_ROOT . '/config/mailer.php';
 require_once CRON_ROOT . '/includes/notifications.php';
 
+function reminder_log(string $message): void
+{
+    $line = '[' . date('Y-m-d H:i:s') . '] ' . $message;
+    echo $line . PHP_EOL;
+
+    $logDirectory = CRON_ROOT . '/logs';
+    if (!is_dir($logDirectory) && !mkdir($logDirectory, 0775, true) && !is_dir($logDirectory)) {
+        error_log('Unable to create reminder log directory: ' . $logDirectory);
+        return;
+    }
+
+    file_put_contents($logDirectory . '/booking_return_reminder.log', $line . PHP_EOL, FILE_APPEND | LOCK_EX);
+}
+
+$lockStmt = $pdo->query("SELECT GET_LOCK('utm_space_booking_return_reminder', 0)");
+if ((int)$lockStmt->fetchColumn() !== 1) {
+    reminder_log('Another reminder process is already running; skipped.');
+    exit(0);
+}
+register_shutdown_function(static function () use ($pdo): void {
+    try {
+        $pdo->query("SELECT RELEASE_LOCK('utm_space_booking_return_reminder')");
+    } catch (Throwable $e) {
+        error_log('Unable to release booking reminder lock: ' . $e->getMessage());
+    }
+});
+
 // ── Migration: add return_reminder_sent column if missing ───────────────────
 $colCheck = $pdo->query(
     "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
@@ -38,7 +65,7 @@ $colCheck = $pdo->query(
 );
 if ((int)$colCheck->fetchColumn() === 0) {
     $pdo->exec("ALTER TABLE bookings ADD COLUMN return_reminder_sent TINYINT(1) NOT NULL DEFAULT 0");
-    echo "[migration] Added return_reminder_sent column to bookings.\n";
+    reminder_log('[migration] Added return_reminder_sent column to bookings.');
 }
 
 // ── Fetch bookings that end in 8–12 minutes, not yet reminded ───────────────
@@ -60,12 +87,16 @@ $stmt->execute();
 $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 if (empty($bookings)) {
-    echo "[" . date('Y-m-d H:i:s') . "] No upcoming bookings to remind.\n";
+    reminder_log('No upcoming bookings to remind.');
     exit(0);
 }
 
 $appUrl    = rtrim((string)(getenv('APP_URL') ?: 'http://localhost/utm_space_online_rooms_and_facilities_booking_system'), '/');
-$appSecret = (string)(getenv('APP_SECRET') ?: 'utm-space-booking-secret-key-2024');
+$appSecret = trim((string)(getenv('APP_SECRET') ?: ''));
+if ($appSecret === '') {
+    reminder_log('APP_SECRET is not configured; reminder links cannot be signed.');
+    exit(1);
+}
 
 foreach ($bookings as $booking) {
     $bookingId   = (int)$booking['booking_id'];
@@ -194,10 +225,11 @@ HTML;
         // Mark as reminded
         $markStmt = $pdo->prepare("UPDATE bookings SET return_reminder_sent = 1 WHERE booking_id = ?");
         $markStmt->execute([$bookingId]);
-        echo "[" . date('Y-m-d H:i:s') . "] Reminder sent for booking #{$bookingId} ({$userEmail})\n";
+        reminder_log("Reminder sent for booking #{$bookingId}; mail request {$result['request_id']}.");
     } else {
-        echo "[" . date('Y-m-d H:i:s') . "] Failed to send reminder for booking #{$bookingId}: " . $result['message'] . "\n";
+        reminder_log("Failed to send reminder for booking #{$bookingId}; mail request "
+            . ($result['request_id'] ?? 'unknown') . '; code ' . ($result['code'] ?? 'unknown') . '.');
     }
 }
 
-echo "[" . date('Y-m-d H:i:s') . "] Done. Processed " . count($bookings) . " booking(s).\n";
+reminder_log('Done. Processed ' . count($bookings) . ' booking(s).');

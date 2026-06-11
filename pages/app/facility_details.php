@@ -426,6 +426,16 @@ $bookingUrl .= '&resource_name=' . urlencode($details['name']);
         return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
     }
 
+    function bookingDateLimitDays() {
+        return currentUserRole === 'student' ? 2 : 30;
+    }
+
+    function bookingDateRangeMessage() {
+        return currentUserRole === 'student'
+            ? 'Booking date must be within 3 days including today.'
+            : 'Booking date must be within 30 days including today.';
+    }
+
     function setupAvailabilityPreview() {
         const dateInput = document.getElementById('availability-date');
         const note = document.getElementById('date-range-note');
@@ -434,15 +444,9 @@ $bookingUrl .= '&resource_name=' . urlencode($details['name']);
         const today = new Date();
         dateInput.min = formatLocalDate(today);
         const maxDate = new Date(today);
-        if (currentUserRole === 'student') {
-            maxDate.setDate(maxDate.getDate() + 2);
-            dateInput.max = formatLocalDate(maxDate);
-            note.textContent = 'Student accounts can choose from today up to the next 2 days only.';
-        } else {
-            maxDate.setDate(maxDate.getDate() + 30);
-            dateInput.max = formatLocalDate(maxDate);
-            note.textContent = 'Select a weekday date from today onward.';
-        }
+        maxDate.setDate(maxDate.getDate() + bookingDateLimitDays());
+        dateInput.max = formatLocalDate(maxDate);
+        if (note) note.textContent = bookingDateRangeMessage();
 
         dateInput.value = dateInput.min;
         renderStartSlotCards();
@@ -532,8 +536,10 @@ $bookingUrl .= '&resource_name=' . urlencode($details['name']);
 
     function validatePreviewSelection() {
         const dateValue = document.getElementById('availability-date')?.value || '';
+        const dateInput = document.getElementById('availability-date');
         const selectedCards = Array.from(document.querySelectorAll('#start-slot-grid .time-slot-card.is-selected'));
         if (!dateValue) return { valid:false, message:'Please choose a booking date.' };
+        if (!dateInput || dateValue < dateInput.min || dateValue > dateInput.max) return { valid:false, message:bookingDateRangeMessage() };
         const day = new Date(`${dateValue}T00:00:00`).getDay();
         if (day === 0 || day === 6) return { valid:false, message:'Bookings are only available on weekdays (Monday to Friday).' };
         if (selectedCards.length === 0) return { valid:false, message:'Please choose at least one available time slot.' };

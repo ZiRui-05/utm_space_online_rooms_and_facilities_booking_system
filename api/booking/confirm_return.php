@@ -8,7 +8,11 @@
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../../includes/notifications.php';
 
-$appSecret = (string)(getenv('APP_SECRET') ?: 'utm-space-booking-secret-key-2024');
+$appSecret = trim((string)(getenv('APP_SECRET') ?: ''));
+if ($appSecret === '') {
+    http_response_code(503);
+    exit('Return confirmation is temporarily unavailable.');
+}
 
 $bookingId = (int)($_GET['bid'] ?? 0);
 $userId    = (int)($_GET['uid'] ?? 0);

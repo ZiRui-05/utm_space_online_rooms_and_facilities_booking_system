@@ -75,9 +75,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Location: admin_edit_booking.php?id=' . $id . '&error=' . urlencode($e->getMessage())); exit;
     }
 
-    notify_booking_status_change_mysqli($conn, $beforeBooking, $status, $payment);
+    $notificationResult = notify_booking_status_change_mysqli($conn, $beforeBooking, $status, $payment);
     suspend_users_with_missed_payments_mysqli($conn);
-    header('Location: admin_booking_requests.php?success=' . urlencode('Booking #' . $id . ' updated to ' . $status . '.')); exit;
+    $message = 'Booking #' . $id . ' updated to ' . $status . '.';
+    if ($notificationResult['email_attempted']) {
+        $message .= $notificationResult['email_success']
+            ? ' Approval email sent.'
+            : ' Approval email failed; check the mail log (request ' . ($notificationResult['email_request_id'] ?: 'unknown') . ').';
+    }
+    header('Location: admin_booking_requests.php?success=' . urlencode($message)); exit;
 }
 $stmt=$conn->prepare("SELECT b.booking_id, b.user_id, b.booking_start, b.booking_end, b.purpose, b.total_price, b.booking_status, b.payment_status, b.review_remarks,
     u.full_name, u.email, u.phone_number, u.utm_id, u.role,

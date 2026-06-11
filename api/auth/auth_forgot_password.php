@@ -28,11 +28,10 @@ $stmt = $pdo->prepare('SELECT user_id, full_name FROM users WHERE email = :email
 $stmt->execute(['email' => $email]);
 $user = $stmt->fetch();
 
-$logFile = __DIR__ . '/password_reset_mail.log';
 $logBase = sprintf('[%s] request_id=%s email_hash=%s ', date('c'), $requestId, hash('sha256', strtolower($email)));
 
 if (!$user) {
-    file_put_contents($logFile, $logBase . "user_exists=no send_attempted=no\n", FILE_APPEND);
+    error_log($logBase . 'user_exists=no send_attempted=no');
     echo json_encode(['success' => true, 'message' => 'If this email exists, a reset code has been sent.', 'request_id' => $requestId]);
     exit;
 }
@@ -58,6 +57,12 @@ $message = "Hello,\n\nYour password reset code is: {$otpCode}\n\nThis code expir
 $htmlMessage = '<p>Hello,</p><p>Your password reset code is:</p><p style="font-size:24px;font-weight:bold;letter-spacing:3px;">' . htmlspecialchars($otpCode, ENT_QUOTES, 'UTF-8') . '</p><p>This code expires in 15 minutes.</p><p>If you did not request this, please ignore this email.</p>';
 $sendResult = sendMail($email, (string)($user['full_name'] ?? ''), $subject, $message, $htmlMessage);
 
-file_put_contents($logFile, $logBase . sprintf("user_exists=yes send_attempted=yes mail_return=%s target=%s detail=%s\n", $sendResult['success'] ? 'true' : 'false', $email, $sendResult['message']), FILE_APPEND);
+if (!$sendResult['success']) {
+    error_log($logBase . sprintf(
+        'user_exists=yes send_attempted=yes mail_return=false mail_request_id=%s code=%s',
+        $sendResult['request_id'] ?? 'unknown',
+        $sendResult['code'] ?? 'unknown'
+    ));
+}
 
 echo json_encode(['success' => true, 'message' => 'If this email exists, a reset code has been sent.', 'request_id' => $requestId]);

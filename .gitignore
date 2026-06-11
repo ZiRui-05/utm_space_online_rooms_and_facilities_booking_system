@@ -400,3 +400,9 @@ FodyWeavers.xsd
 # JetBrains Rider
 *.sln.iml
 /vendor
+
+# Local secrets and runtime logs
+.env
+.env.*
+!.env.example
+/logs/

@@ -701,6 +701,16 @@ function formatLocalDate(date) {
     return `${year}-${month}-${day}`;
 }
 
+function bookingDateLimitDays() {
+    return normalizedRole === 'student' ? 2 : 30;
+}
+
+function bookingDateRangeMessage() {
+    return normalizedRole === 'student'
+        ? 'Booking date must be within 3 days including today.'
+        : 'Booking date must be within 30 days including today.';
+}
+
 function minutesFromTime(time) {
     const [hours, minutes] = String(time || '').split(':').map(Number);
     if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return NaN;
@@ -719,7 +729,7 @@ function setupDateConstraints() {
 
     const today = new Date();
     const maxDate = new Date(today);
-    maxDate.setDate(today.getDate() + 2);
+    maxDate.setDate(today.getDate() + bookingDateLimitDays());
 
     dateInput.min = formatLocalDate(today);
     dateInput.max = formatLocalDate(maxDate);
@@ -727,7 +737,7 @@ function setupDateConstraints() {
     dateInput.addEventListener('change', () => {
         if (!dateInput.value) return;
         if (dateInput.value < dateInput.min || dateInput.value > dateInput.max) {
-            alert('Booking date must be within 3 days including today.');
+            alert(bookingDateRangeMessage());
             dateInput.value = '';
         }
         renderTimeSlotCards();
@@ -975,7 +985,7 @@ function validateBookingSelection(showMessage = true) {
 
     if (!selected) return fail(`Select a ${resourceLabel} first.`);
     if (!isResourceAvailable(selected)) return fail(`This ${resourceLabel} is not available for booking.`);
-    if (!date || !dateInput || date < dateInput.min || date > dateInput.max) return fail('Choose a booking date within 3 days including today.');
+    if (!date || !dateInput || date < dateInput.min || date > dateInput.max) return fail(bookingDateRangeMessage());
 
     const day = new Date(`${date}T00:00:00`).getDay();
     if (day === 0 || day === 6) return fail('Bookings are only available on weekdays (Monday to Friday).');

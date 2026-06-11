@@ -74,28 +74,6 @@ if (($endMinutes - $startMinutes) < 60) {
     exit;
 }
 
-$selectedBookingDate = DateTimeImmutable::createFromFormat('Y-m-d', $bookingDate);
-$today = new DateTimeImmutable('today');
-$latestBookingDate = $today->modify('+2 days');
-
-if (
-    !$selectedBookingDate ||
-    $selectedBookingDate->format('Y-m-d') !== $bookingDate ||
-    $selectedBookingDate < $today ||
-    $selectedBookingDate > $latestBookingDate
-) {
-    http_response_code(400);
-    echo json_encode(['success' => false, 'message' => 'Booking date must be within 3 days including today']);
-    exit;
-}
-
-$selectedDayOfWeek = (int)$selectedBookingDate->format('N');
-if ($selectedDayOfWeek > 5) {
-    http_response_code(400);
-    echo json_encode(['success' => false, 'message' => 'Bookings are allowed on weekdays only']);
-    exit;
-}
-
 try {
 
     $stmtProfile = $pdo->prepare(
@@ -156,27 +134,52 @@ try {
     $department = trim((string)($profile['department'] ?? ''));
     $isFree = $department === $spaceUtmDepartment;
 
+    $selectedBookingDate = DateTimeImmutable::createFromFormat('!Y-m-d', $bookingDate);
+    $today = new DateTimeImmutable('today');
+    $latestBookingDate = $today->modify($role === 'student' ? '+2 days' : '+30 days');
+    $dateRangeMessage = $role === 'student'
+        ? 'Booking date must be within 3 days including today'
+        : 'Booking date must be within 30 days including today';
+
+    if (
+        !$selectedBookingDate ||
+        $selectedBookingDate->format('Y-m-d') !== $bookingDate ||
+        $selectedBookingDate < $today ||
+        $selectedBookingDate > $latestBookingDate
+    ) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => $dateRangeMessage]);
+        exit;
+    }
+
+    $selectedDayOfWeek = (int)$selectedBookingDate->format('N');
+    if ($selectedDayOfWeek > 5) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Bookings are allowed on weekdays only']);
+        exit;
+    }
+
     if ($role === 'student' && ($endMinutes - $startMinutes) > (3 * 60)) {
         http_response_code(400);
         echo json_encode(['success' => false, 'message' => 'Students can book up to 3 hours per session']);
         exit;
     }
 
-    $stmtExisting = $pdo->prepare(
-        "SELECT COUNT(*) FROM bookings
-         WHERE user_id = ?
-           AND (
-               booking_status = 'pending'
-               OR booking_status = 'approved'
-           )"
-    );
-    $stmtExisting->execute([$userId]);
-    $existingActiveOrPending = (int)$stmtExisting->fetchColumn();
+    if ($role === 'student' && $resourceType === 'room') {
+        $stmtExisting = $pdo->prepare(
+            "SELECT COUNT(*) FROM bookings
+             WHERE user_id = ?
+               AND resource_type = 'room'
+               AND booking_status IN ('pending', 'approved')"
+        );
+        $stmtExisting->execute([$userId]);
+        $existingActiveOrPending = (int)$stmtExisting->fetchColumn();
 
-    if ($existingActiveOrPending > 0) {
-        http_response_code(400);
-        echo json_encode(['success' => false, 'message' => 'You already have a pending request or unreturned booking']);
-        exit;
+        if ($existingActiveOrPending > 0) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'You already have a pending request or unreturned room booking']);
+            exit;
+        }
     }
 
     $pdo->beginTransaction();
