@@ -64,7 +64,7 @@ function role_url($page) { global $prefix; return $prefix . '_' . $page . '.php'
 <script>
 (function () {
     function notiIcon(type) {
-        var map = { booking_request:'📋', booking_status:'📅', booking_cancelled:'📅', return_overdue:'⚠️', account:'👤', payment:'💳', issue_report:'⚠️' };
+        var map = { booking_request:'📋', booking_status:'📅', booking_cancelled:'📅', return_overdue:'⚠️', account:'👤', account_assistance:'👤', payment:'💳', issue_report:'⚠️' };
         return map[type] || '🔔';
     }
     function escHtml(s) {

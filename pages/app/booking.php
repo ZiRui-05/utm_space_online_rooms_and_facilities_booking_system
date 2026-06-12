@@ -463,6 +463,21 @@ body{
     display: flex;
 }
 
+.account-action-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    padding: 16px;
+}
+
+.account-action-modal.is-open {
+    display: flex;
+}
+
 .login-required-content {
     width: min(420px, 100%);
     background: var(--white);
@@ -480,6 +495,80 @@ body{
     margin-bottom: 18px;
     color: var(--text-light);
     line-height: 1.45;
+}
+
+.account-action-content {
+    width: min(560px, 100%);
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
+    background: var(--white);
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 16px 40px rgba(0,0,0,.24);
+}
+
+.account-action-content h3 {
+    color: var(--primary-color);
+    margin-bottom: 10px;
+}
+
+.account-action-summary {
+    color: var(--text-light);
+    line-height: 1.55;
+    margin-bottom: 18px;
+}
+
+.account-action-section {
+    padding: 14px 16px;
+    border: 1px solid #ead7dc;
+    border-radius: 8px;
+    background: #fff8fa;
+    margin-bottom: 12px;
+}
+
+.account-action-section strong {
+    color: var(--primary-color);
+}
+
+.account-action-section ul {
+    margin: 8px 0 0 20px;
+    color: var(--text-light);
+    line-height: 1.55;
+}
+
+.account-action-help {
+    color: var(--text-light);
+    line-height: 1.5;
+    margin: 16px 0;
+}
+
+.account-action-status {
+    min-height: 22px;
+    margin-bottom: 14px;
+    color: var(--text-light);
+    font-size: 14px;
+    line-height: 1.45;
+}
+
+.account-action-status.success {
+    color: var(--success);
+}
+
+.account-action-status.error {
+    color: var(--danger);
+}
+
+.account-action-actions {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.account-action-actions button:disabled {
+    cursor: wait;
+    opacity: .65;
 }
 
 .login-required-actions {
@@ -511,6 +600,21 @@ body{
 
 .btn-submit:hover{
     background:var(--primary-hover);
+}
+
+@media (max-width: 600px) {
+    .account-action-content {
+        padding: 20px;
+    }
+
+    .account-action-actions {
+        align-items: stretch;
+        flex-direction: column-reverse;
+    }
+
+    .account-action-actions button {
+        width: 100%;
+    }
 }
 
 .btn-cancel{
@@ -668,6 +772,21 @@ include __DIR__ . '/../../includes/header.php';
         </div>
     </div>
 </div>
+
+<div id="account-action-modal" class="account-action-modal" aria-hidden="true">
+    <div class="account-action-content" role="dialog" aria-modal="true" aria-labelledby="account-action-title" aria-describedby="account-action-summary">
+        <h3 id="account-action-title" tabindex="-1">Account Action Required</h3>
+        <p id="account-action-summary" class="account-action-summary">Your booking request has not been submitted. Complete the account steps below before trying again.</p>
+        <div id="account-action-details"></div>
+        <p class="account-action-help">You can update these details from your profile. If you need help with verification or account information, notify an administrator here.</p>
+        <div id="account-action-status" class="account-action-status" role="status" aria-live="polite"></div>
+        <div class="account-action-actions">
+            <button type="button" class="btn-cancel" onclick="closeAccountActionModal()">Close</button>
+            <button type="button" id="notify-admin-button" class="btn-cancel" onclick="notifyAdminForAccountHelp()">Notify Admin</button>
+            <button type="button" class="btn-submit" onclick="goToProfilePage()">Go to Profile</button>
+        </div>
+    </div>
+</div>
 <?php include __DIR__ . '/../../includes/payment_receipt_modal.php'; ?>
 <?php include __DIR__ . '/../../includes/footer.php'; ?>
 <script>
@@ -686,6 +805,7 @@ const initialBookingDate = <?= json_encode($selectedDateParam) ?>;
 const initialStartTime = <?= json_encode($selectedStartParam) ?>;
 const initialEndTime = <?= json_encode($selectedEndParam) ?>;
 let slotStatusCache = [];
+let accountActionDetails = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     setupDateConstraints();
@@ -1054,6 +1174,10 @@ async function submitBooking(event) {
         const result = await response.json();
 
         if (!response.ok || !result.success) {
+            if (result.code === 'account_action_required') {
+                openAccountActionModal(result);
+                return;
+            }
             alert(result.message || 'Failed to create booking.');
             return;
         }
@@ -1097,13 +1221,130 @@ function closeLoginRequiredModal() {
     modal.setAttribute('aria-hidden', 'true');
 }
 
+function openAccountActionModal(details) {
+    const modal = document.getElementById('account-action-modal');
+    const detailsContainer = document.getElementById('account-action-details');
+    const status = document.getElementById('account-action-status');
+    const notifyButton = document.getElementById('notify-admin-button');
+    if (!modal || !detailsContainer || !status || !notifyButton) return;
+
+    accountActionDetails = details || {};
+    detailsContainer.replaceChildren();
+    status.textContent = '';
+    status.className = 'account-action-status';
+    notifyButton.disabled = false;
+    notifyButton.textContent = 'Notify Admin';
+
+    const missingFields = Array.isArray(accountActionDetails.missing_fields)
+        ? accountActionDetails.missing_fields.filter(Boolean)
+        : [];
+
+    if (missingFields.length > 0) {
+        const section = document.createElement('div');
+        section.className = 'account-action-section';
+        const heading = document.createElement('strong');
+        heading.textContent = 'Complete your profile information';
+        const list = document.createElement('ul');
+        missingFields.forEach(field => {
+            const item = document.createElement('li');
+            item.textContent = field;
+            list.appendChild(item);
+        });
+        section.append(heading, list);
+        detailsContainer.appendChild(section);
+    }
+
+    if (String(accountActionDetails.verification_status || '').toLowerCase() !== 'verified') {
+        const section = document.createElement('div');
+        section.className = 'account-action-section';
+        const heading = document.createElement('strong');
+        heading.textContent = 'Complete account verification';
+        const guidance = document.createElement('p');
+        guidance.style.marginTop = '8px';
+        guidance.style.color = 'var(--text-light)';
+        guidance.style.lineHeight = '1.5';
+        guidance.textContent = accountActionDetails.has_utm_card === true
+            ? 'Your front and back UTM Card images have been uploaded and are waiting for administrator verification.'
+            : 'Upload clear front and back images of your UTM Card from your profile, then wait for administrator verification.';
+        section.append(heading, guidance);
+        detailsContainer.appendChild(section);
+    }
+
+    modal.classList.add('is-open');
+    modal.setAttribute('aria-hidden', 'false');
+    document.getElementById('account-action-title')?.focus();
+}
+
+function closeAccountActionModal() {
+    const modal = document.getElementById('account-action-modal');
+    if (!modal) return;
+    modal.classList.remove('is-open');
+    modal.setAttribute('aria-hidden', 'true');
+    accountActionDetails = null;
+}
+
+async function notifyAdminForAccountHelp() {
+    const button = document.getElementById('notify-admin-button');
+    const status = document.getElementById('account-action-status');
+    if (!button || !status || !accountActionDetails) return;
+
+    button.disabled = true;
+    button.textContent = 'Notifying...';
+    status.textContent = '';
+    status.className = 'account-action-status';
+
+    try {
+        const response = await fetch('../../api/user/request_account_assistance.php', {
+            method: 'POST',
+            credentials: 'same-origin'
+        });
+        const result = await response.json();
+
+        status.textContent = result.message || (response.ok
+            ? 'An administrator has been notified.'
+            : 'Unable to notify an administrator. Please try again.');
+
+        if (response.ok && result.success) {
+            status.className = 'account-action-status success';
+            button.textContent = result.code === 'recently_notified' ? 'Admin Already Notified' : 'Admin Notified';
+            return;
+        }
+
+        status.className = result.code === 'account_ready'
+            ? 'account-action-status success'
+            : 'account-action-status error';
+        button.disabled = result.code === 'account_ready';
+        button.textContent = result.code === 'account_ready' ? 'Account Ready' : 'Try Again';
+    } catch (error) {
+        status.textContent = 'Unable to notify an administrator right now. Please try again later.';
+        status.className = 'account-action-status error';
+        button.disabled = false;
+        button.textContent = 'Try Again';
+    }
+}
+
 function goToLoginPage() {
     window.location.href = '../auth/login.php';
+}
+
+function goToProfilePage() {
+    window.location.href = 'profile.php';
 }
 
 function goHome() {
     window.location.href = '../../homepage.php';
 }
+
+document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') {
+        closeLoginRequiredModal();
+        closeAccountActionModal();
+    }
+});
+
+document.getElementById('account-action-modal')?.addEventListener('click', event => {
+    if (event.target === event.currentTarget) closeAccountActionModal();
+});
 
 function escapeHtml(value) {
     return String(value ?? '').replace(/[&<>'"]/g, char => ({

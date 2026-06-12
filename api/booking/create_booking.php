@@ -77,7 +77,16 @@ if (($endMinutes - $startMinutes) < 60) {
 try {
 
     $stmtProfile = $pdo->prepare(
-        'SELECT full_name, utm_id, ic_no, phone_number, department, gender, address, role, verification_status, account_status FROM users WHERE user_id = ? LIMIT 1'
+        "SELECT full_name, utm_id, ic_no, phone_number, department, gender, address, role,
+                verification_status, account_status,
+                CASE
+                    WHEN utm_card_base64 IS NOT NULL AND utm_card_base64 <> ''
+                     AND utm_card_back_base64 IS NOT NULL AND utm_card_back_base64 <> ''
+                    THEN 1 ELSE 0
+                END AS has_utm_card
+         FROM users
+         WHERE user_id = ?
+         LIMIT 1"
     );
     $stmtProfile->execute([$userId]);
     $profile = $stmtProfile->fetch(PDO::FETCH_ASSOC) ?: [];
@@ -94,12 +103,6 @@ try {
     if ($accountStatus !== 'active') {
         http_response_code(403);
         echo json_encode(['success' => false, 'message' => 'Your account is not active. Please contact admin for further help.']);
-        exit;
-    }
-
-    if ($verificationStatus !== 'verified') {
-        http_response_code(403);
-        echo json_encode(['success' => false, 'message' => 'Only verified accounts can submit booking requests.']);
         exit;
     }
 
@@ -120,12 +123,16 @@ try {
         }
     }
 
-    if ($missingFields !== []) {
-        http_response_code(400);
+    if ($verificationStatus !== 'verified' || $missingFields !== []) {
+        $hasUtmCard = (int)($profile['has_utm_card'] ?? 0) === 1;
+        http_response_code(403);
         echo json_encode([
             'success' => false,
-            'message' => 'Please complete your profile before submitting a booking request',
+            'code' => 'account_action_required',
+            'message' => 'Your booking request has not been submitted. Please complete the account steps below before trying again.',
             'missing_fields' => $missingFields,
+            'verification_status' => $verificationStatus,
+            'has_utm_card' => $hasUtmCard,
         ]);
         exit;
     }
