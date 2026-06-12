@@ -234,6 +234,8 @@ try {
         'success' => true,
         'message' => 'Booking created successfully',
         'booking_id' => $newBookingId,
+        'total_price' => $totalPrice,
+        'requires_payment' => $totalPrice > 0,
     ]);
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {

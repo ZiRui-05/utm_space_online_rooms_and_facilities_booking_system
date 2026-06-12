@@ -19,11 +19,18 @@ MAIL_ENCRYPTION=tls
 MAIL_FROM_EMAIL=verified-sender@example.com
 MAIL_FROM_NAME=UTM Space Booking
 MAIL_TIMEOUT=15
+BREVO_API_KEY=your-brevo-api-key
 ```
 
 `MAIL_FROM_EMAIL` must be a sender or domain verified in Brevo. The SMTP
 password starts with `xsmtpsib-`; a Brevo API key starting with `xkeysib-`
 must not be used for SMTP authentication.
+
+The application tries SMTP first. If SMTP is unavailable or rejects the send,
+it falls back to Brevo's Transactional Email API when `BREVO_API_KEY` is set.
+If the SMTP relay already accepted the message, a later bounce or block does
+not trigger the API fallback; inspect the Brevo transactional log for that
+message ID and recipient.
 
 ## Production deployment
 
@@ -37,7 +44,9 @@ environment variables. Ensure PHP, the database server, and the host use
 
 Runtime delivery information is written to `logs/mail.log` and
 `logs/booking_return_reminder.log`. The logs do not contain plaintext recipient
-addresses.
+addresses. An accepted request is logged as `mail_accepted` with its `transport`
+(`smtp` or `brevo_api`). Provider acceptance does not guarantee final delivery;
+failed transport attempts are recorded before fallback.
 
 ## Key rotation
 

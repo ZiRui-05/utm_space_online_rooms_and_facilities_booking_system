@@ -538,29 +538,31 @@
             font-weight: 600;
         }
 
-        .status-confirmed {
-            background: #e8f5e9;
-            color: var(--success);
-        }
-
         .status-approved {
             background: #e8f5e9;
-            color: var(--success);
+            color: #047857;
         }
 
         .status-pending {
             background: #fff8e1;
-            color: var(--warning);
+            color: #b26a00;
         }
 
         .status-completed {
-            background: #fff3cd;
-            color: #856404;
+            background: #e8f5e9;
+            color: #047857;
         }
 
-        .status-cancelled {
+        .status-rejected,
+        .status-cancelled,
+        .status-expired {
             background: #ffebee;
-            color: var(--danger);
+            color: #b91c1c;
+        }
+
+        .status-return_overdue {
+            background: #fff3cd;
+            color: #856404;
         }
 
         .payment-unavailable {
@@ -571,96 +573,6 @@
         .payment-paid {
             background: #e8f5e9;
             color: var(--success);
-        }
-
-        .btn-payment {
-            background: var(--primary-color);
-            color: var(--white);
-            border: none;
-            padding: 7px 12px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: 700;
-            cursor: pointer;
-            white-space: nowrap;
-            transition: background 0.3s;
-        }
-
-        .btn-payment:hover {
-            background: var(--primary-hover);
-        }
-
-        .payment-modal-backdrop {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.45);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-            z-index: 1000;
-        }
-
-        .payment-modal {
-            width: min(520px, 100%);
-            background: var(--white);
-            border-radius: 8px;
-            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22);
-            padding: 24px;
-        }
-
-        .payment-modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 16px;
-            margin-bottom: 16px;
-        }
-
-        .payment-modal-header h3 {
-            font-size: 18px;
-            color: var(--text-dark);
-        }
-
-        .payment-modal-close {
-            width: 32px;
-            height: 32px;
-            border: none;
-            border-radius: 50%;
-            background: var(--bg-light);
-            color: var(--text-dark);
-            cursor: pointer;
-            font-size: 20px;
-            line-height: 1;
-        }
-
-        .payment-instruction {
-            color: var(--text-light);
-            font-size: 14px;
-            line-height: 1.6;
-            margin-bottom: 18px;
-        }
-
-        .payment-reference {
-            background: var(--bg-light);
-            border: 1px solid var(--border-light);
-            border-radius: 6px;
-            padding: 12px;
-            margin-bottom: 18px;
-            font-size: 13px;
-            color: var(--text-dark);
-        }
-
-        .payment-modal-actions {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-
-        .payment-upload-status {
-            color: var(--text-light);
-            font-size: 12px;
         }
 
         .action-link {
@@ -676,6 +588,17 @@
 
         .action-cancel {
             color: var(--danger);
+        }
+
+        .action-return {
+            color: #047857;
+        }
+
+        .action-cancel:disabled,
+        .action-return:disabled {
+            cursor: not-allowed;
+            opacity: 0.6;
+            text-decoration: none;
         }
 
         .view-history {
@@ -1034,27 +957,6 @@
         </div>
     </div>
 
-    <div class="payment-modal-backdrop" id="payment-modal-backdrop">
-        <div class="payment-modal" role="dialog" aria-modal="true" aria-labelledby="payment-modal-title">
-            <div class="payment-modal-header">
-                <h3 id="payment-modal-title">Complete Payment</h3>
-                <button type="button" class="payment-modal-close" onclick="closePaymentModal()" aria-label="Close payment dialog">×</button>
-            </div>
-            <p class="payment-instruction">
-                You may manually made a payment by transferring to official bank account number:
-                <strong>202620270382</strong> with reference:
-                <strong>"SPACEBOOK" + "booking_id"</strong>
-            </p>
-            <div class="payment-reference" id="payment-reference-text"></div>
-            <input type="file" id="payment-receipt-input" accept="image/jpeg,image/png,image/webp,application/pdf" style="display:none;">
-            <div class="payment-modal-actions">
-                <button type="button" class="btn-payment" onclick="triggerReceiptUpload()">Upload Receipt</button>
-                <span class="payment-upload-status" id="payment-upload-status">JPG, PNG, WEBP, or PDF. Max 5MB.</span>
-            </div>
-        </div>
-    </div>
-
-
     <div class="issue-modal-backdrop" id="issue-modal-backdrop">
         <div class="issue-modal" role="dialog" aria-modal="true" aria-labelledby="issue-modal-title">
             <div class="issue-modal-header">
@@ -1110,6 +1012,7 @@
         </div>
     </div>
 
+    <?php include __DIR__ . '/../../includes/payment_receipt_modal.php'; ?>
     <?php include __DIR__ . '/../../includes/footer.php'; ?>
 
 
@@ -1124,8 +1027,6 @@
     let pendingBackCardBase64 = "";
     let pendingBackCardMime = "";
     let currentVerificationStatus = 'unverified';
-    let activePaymentBookingId = null;
-    
     // Initial Load Hook
     document.addEventListener('DOMContentLoaded', async function() {
         const sessionResponse = await fetch('../../api/auth/auth_session.php', { credentials: 'same-origin' });
@@ -1134,7 +1035,6 @@
         if (!sessionData.authenticated) { window.location.href = '../auth/login.php'; return; }
         await loadProfileData();
         setupCardListeners(); // Initialize modern side listeners safely
-        setupReceiptUpload();
     });
 
     async function loadProfileData() {
@@ -1261,11 +1161,18 @@
                 : (booking.facility_name || 'Unknown Facility');
             const normalizedStatus = (booking.booking_status || '').toLowerCase();
             const statusClass = `status-${normalizedStatus}`;
-            const statusLabel = normalizedStatus.charAt(0).toUpperCase() + normalizedStatus.slice(1);
-            const canCancel = normalizedStatus === 'pending' || normalizedStatus === 'approved';
-            const actionHTML = canCancel
-                ? `<button type="button" class="action-link action-cancel" onclick="cancelBooking(${Number(booking.booking_id)})">Cancel Booking</button>`
-                : '<span class="action-link">-</span>';
+            const statusLabel = normalizedStatus
+                .split('_')
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(' ');
+            const canCancel = Number(booking.can_cancel) === 1;
+            const canReturn = Number(booking.can_return) === 1;
+            let actionHTML = '<span class="action-link">-</span>';
+            if (canReturn) {
+                actionHTML = `<button type="button" class="action-link action-return" onclick="returnBooking(${Number(booking.booking_id)}, this)">Return</button>`;
+            } else if (canCancel) {
+                actionHTML = `<button type="button" class="action-link action-cancel" onclick="cancelBooking(${Number(booking.booking_id)}, this)">Cancel Booking</button>`;
+            }
             const totalPrice = Number(booking.total_price || 0);
             const paymentStatus = (booking.payment_status || '').toLowerCase();
             const canUploadPayment = ['pending', 'approved'].includes(normalizedStatus);
@@ -1301,17 +1208,16 @@
     }
 
     function openPaymentModal(bookingId) {
-        activePaymentBookingId = bookingId;
-        document.getElementById('payment-reference-text').innerHTML =
-            `<strong>Booking ID:</strong> ${bookingId}<br><strong>Suggested reference:</strong> SPACEBOOK${bookingId}`;
-        document.getElementById('payment-upload-status').textContent = 'JPG, PNG, WEBP, or PDF. Max 5MB.';
-        document.getElementById('payment-receipt-input').value = '';
-        document.getElementById('payment-modal-backdrop').style.display = 'flex';
+        PaymentReceiptModal.open(bookingId, {
+            onUploadSuccess: async () => {
+                await loadProfileData();
+                setTimeout(() => PaymentReceiptModal.close({ silent: true }), 600);
+            }
+        });
     }
 
     function closePaymentModal() {
-        activePaymentBookingId = null;
-        document.getElementById('payment-modal-backdrop').style.display = 'none';
+        PaymentReceiptModal.close();
     }
 
     function openIssueReportModal() {
@@ -1349,56 +1255,6 @@
         }
         statusText.textContent = 'Issue report submitted successfully.';
         setTimeout(closeIssueReportModal, 700);
-    }
-
-    function triggerReceiptUpload() {
-        if (!activePaymentBookingId) return;
-        document.getElementById('payment-receipt-input').click();
-    }
-
-    function setupReceiptUpload() {
-        const receiptInput = document.getElementById('payment-receipt-input');
-        receiptInput.addEventListener('change', async function(event) {
-            const file = event.target.files[0];
-            if (!file || !activePaymentBookingId) return;
-
-            const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
-            if (!allowedTypes.includes(file.type)) {
-                alert('Receipt must be JPG, PNG, WEBP, or PDF.');
-                event.target.value = '';
-                return;
-            }
-
-            if (file.size > 5 * 1024 * 1024) {
-                alert('Receipt file must be 5MB or smaller.');
-                event.target.value = '';
-                return;
-            }
-
-            const uploadStatus = document.getElementById('payment-upload-status');
-            uploadStatus.textContent = 'Uploading receipt...';
-
-            const formData = new FormData();
-            formData.append('id', String(activePaymentBookingId));
-            formData.append('receipt', file);
-
-            const response = await fetch('../../api/booking/upload_receipt.php', {
-                method: 'POST',
-                credentials: 'same-origin',
-                body: formData
-            });
-            const result = await response.json();
-
-            if (!response.ok || !result.success) {
-                uploadStatus.textContent = 'Upload failed.';
-                alert(result.message || 'Failed to upload receipt.');
-                return;
-            }
-
-            uploadStatus.textContent = 'Receipt uploaded. Pending verification.';
-            await loadProfileData();
-            setTimeout(closePaymentModal, 600);
-        });
     }
 
     // Trigger Hidden Card Inputs Click Event
@@ -1669,7 +1525,96 @@
         alert('Profile updated successfully.');
     }
 
-    function cancelBooking() {}
+    async function cancelBooking(bookingId, button) {
+        if (!Number.isInteger(Number(bookingId)) || Number(bookingId) <= 0) {
+            alert('Invalid booking ID.');
+            return;
+        }
+
+        if (!confirm(`Cancel booking #${bookingId}? This action cannot be undone.`)) {
+            return;
+        }
+
+        const originalText = button ? button.textContent : 'Cancel Booking';
+        if (button) {
+            button.disabled = true;
+            button.textContent = 'Cancelling...';
+        }
+
+        try {
+            const body = new URLSearchParams();
+            body.set('id', String(bookingId));
+
+            const response = await fetch('../../api/booking/cancel_booking.php', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'},
+                body: body.toString()
+            });
+            const result = await response.json();
+
+            if (!response.ok || !result.success) {
+                alert(result.message || 'Failed to cancel booking.');
+                return;
+            }
+
+            await loadProfileData();
+            alert(result.message || 'Booking has been cancelled successfully.');
+        } catch (error) {
+            alert('Failed to cancel booking. Please try again.');
+        } finally {
+            if (button && button.isConnected) {
+                button.disabled = false;
+                button.textContent = originalText;
+            }
+        }
+    }
+
+    async function returnBooking(bookingId, button) {
+        if (!Number.isInteger(Number(bookingId)) || Number(bookingId) <= 0) {
+            alert('Invalid booking ID.');
+            return;
+        }
+
+        if (!confirm(`Confirm that booking #${bookingId} has been returned?`)) {
+            return;
+        }
+
+        const originalText = button ? button.textContent : 'Return';
+        if (button) {
+            button.disabled = true;
+            button.textContent = 'Returning...';
+        }
+
+        try {
+            const body = new URLSearchParams();
+            body.set('id', String(bookingId));
+
+            const response = await fetch('../../api/booking/return_booking.php', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'},
+                body: body.toString()
+            });
+            const result = await response.json();
+
+            if (!response.ok || !result.success) {
+                alert(result.message || 'Failed to return booking.');
+                return;
+            }
+
+            await loadProfileData();
+            alert(result.message || 'Booking has been returned successfully.');
+        } catch (error) {
+            alert('Failed to return booking. Please try again.');
+        } finally {
+            if (button && button.isConnected) {
+                button.disabled = false;
+                button.textContent = originalText;
+            }
+        }
+    }
+
     function navigateTo(page) {
         if (page === 'notifications') { window.location.href = 'all_notifications.php'; return; }
         if (page === 'privacy') { window.location.href = '../auth/forgot-password.html'; return; }

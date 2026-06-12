@@ -18,8 +18,21 @@ $sql = "SELECT b.booking_id,
                b.booking_start,
                b.booking_end,
                b.booking_status,
+               b.payment_status,
                b.total_price AS cost,
                b.created_at,
+               CASE
+                   WHEN b.booking_status IN ('pending', 'approved')
+                    AND b.booking_start > NOW()
+                   THEN 1
+                   ELSE 0
+               END AS can_cancel,
+               CASE
+                   WHEN b.booking_status = 'approved'
+                    AND b.booking_start <= NOW()
+                   THEN 1
+                   ELSE 0
+               END AS can_return,
                COALESCE(r.room_name, f.facility_name) AS resource_name
         FROM bookings b
         LEFT JOIN rooms r ON b.room_id = r.room_id

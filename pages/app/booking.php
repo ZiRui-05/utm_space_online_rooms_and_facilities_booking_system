@@ -668,6 +668,7 @@ include __DIR__ . '/../../includes/header.php';
         </div>
     </div>
 </div>
+<?php include __DIR__ . '/../../includes/payment_receipt_modal.php'; ?>
 <?php include __DIR__ . '/../../includes/footer.php'; ?>
 <script>
 const resourceType = <?= json_encode($resourceType) ?>;
@@ -1054,6 +1055,18 @@ async function submitBooking(event) {
 
         if (!response.ok || !result.success) {
             alert(result.message || 'Failed to create booking.');
+            return;
+        }
+
+        if (result.requires_payment === true) {
+            PaymentReceiptModal.open(result.booking_id, {
+                onUploadSuccess: async () => {
+                    window.location.href = 'profile.php';
+                },
+                onClose: () => {
+                    window.location.href = 'profile.php';
+                }
+            });
             return;
         }
 

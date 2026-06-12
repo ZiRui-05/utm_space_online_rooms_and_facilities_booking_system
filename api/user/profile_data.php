@@ -226,6 +226,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $bookingStmt = $pdo->prepare(
         'SELECT b.booking_id, b.resource_type, b.booking_start, b.booking_end, b.booking_status,
                 b.payment_status, b.total_price, b.created_at,
+                CASE
+                    WHEN b.booking_status IN (\'pending\', \'approved\')
+                     AND b.booking_start > NOW()
+                    THEN 1
+                    ELSE 0
+                END AS can_cancel,
+                CASE
+                    WHEN b.booking_status = \'approved\'
+                     AND b.booking_start <= NOW()
+                    THEN 1
+                    ELSE 0
+                END AS can_return,
                 r.room_name, f.facility_name
          FROM bookings b
          LEFT JOIN rooms r ON b.room_id = r.room_id
