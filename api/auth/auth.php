@@ -36,7 +36,7 @@ function require_login(): array {
         header('Location: ' . management_login_path());
         exit;
     }
-    if ($user['account_status'] !== 'active') {
+    if (!in_array($user['account_status'], ['active', 'suspended'], true)) {
         session_destroy();
         header('Location: ' . management_login_path() . '?error=' . urlencode('Account is not active'));
         exit;

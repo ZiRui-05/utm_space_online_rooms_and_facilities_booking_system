@@ -8,6 +8,7 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../../includes/notifications.php';
 require_once __DIR__ . '/../../includes/booking_validation.php';
+require_once __DIR__ . '/../../includes/booking_constraints.php';
 
 $userId = (int)($_SESSION['user']['user_id'] ?? ($_SESSION['user_id'] ?? 0));
 $resourceType = strtolower(trim($_POST['resource_type'] ?? 'facility'));
@@ -74,6 +75,29 @@ if (($endMinutes - $startMinutes) < 60) {
     exit;
 }
 
+$bookingStartDateTime = DateTimeImmutable::createFromFormat('!Y-m-d H:i', $bookingDate . ' ' . $startTime);
+$bookingStartErrors = DateTimeImmutable::getLastErrors();
+if (
+    !$bookingStartDateTime ||
+    (is_array($bookingStartErrors) && ($bookingStartErrors['warning_count'] > 0 || $bookingStartErrors['error_count'] > 0)) ||
+    $bookingStartDateTime->format('Y-m-d H:i') !== $bookingDate . ' ' . $startTime
+) {
+    http_response_code(400);
+    echo json_encode(['success' => false, 'message' => 'Invalid booking start time']);
+    exit;
+}
+
+$bookingGraceDeadline = $bookingStartDateTime->modify('+15 minutes');
+if (new DateTimeImmutable('now') >= $bookingGraceDeadline) {
+    http_response_code(400);
+    echo json_encode([
+        'success' => false,
+        'code' => 'booking_time_passed',
+        'message' => 'This time slot is no longer available. Same-day slots can only be booked within 15 minutes after their start time.',
+    ]);
+    exit;
+}
+
 try {
 
     $stmtProfile = $pdo->prepare(
@@ -96,7 +120,11 @@ try {
 
     if ($accountStatus === 'suspended' || $accountStatus === 'suspend') {
         http_response_code(403);
-        echo json_encode(['success' => false, 'message' => 'Your account is under suspend, kindly contact to admin for further help.']);
+        echo json_encode([
+            'success' => false,
+            'code' => 'booking_privileges_suspended',
+            'message' => 'Your booking privileges are suspended. You may continue using your account, but cannot create new bookings. Please contact admin for help.',
+        ]);
         exit;
     }
 
@@ -172,6 +200,57 @@ try {
         exit;
     }
 
+    $transactionAttempt = 0;
+    while (true) {
+        $transactionAttempt++;
+        try {
+            $pdo->beginTransaction();
+
+    $lockedUserStmt = $pdo->prepare(
+        'SELECT role, account_status FROM users WHERE user_id = ? LIMIT 1 FOR UPDATE'
+    );
+    $lockedUserStmt->execute([$userId]);
+    $lockedUser = $lockedUserStmt->fetch(PDO::FETCH_ASSOC);
+    if (!$lockedUser || !in_array((string)$lockedUser['account_status'], ['active'], true)) {
+        throw new BookingConstraintException('account_not_active', 'Your account is not active.');
+    }
+    $role = strtolower((string)$lockedUser['role']);
+
+    $requestFingerprint = booking_request_fingerprint(
+        $resourceType,
+        $resourceId,
+        $bookingStart,
+        $bookingEnd
+    );
+    $duplicateSql = "SELECT booking_id, total_price
+        FROM bookings
+        WHERE user_id = ?
+          AND resource_type = ?
+          AND " . ($resourceType === 'room' ? 'room_id' : 'facility_id') . " = ?
+          AND booking_start = ?
+          AND booking_end = ?
+          AND booking_status IN ('pending', 'approved')
+        ORDER BY booking_id ASC
+        LIMIT 1
+        FOR UPDATE";
+    $duplicateStmt = $pdo->prepare($duplicateSql);
+    $duplicateStmt->execute([$userId, $resourceType, $resourceId, $bookingStart, $bookingEnd]);
+    $duplicateBooking = $duplicateStmt->fetch(PDO::FETCH_ASSOC);
+    if ($duplicateBooking) {
+        $pdo->commit();
+        $duplicatePrice = (float)$duplicateBooking['total_price'];
+        echo json_encode([
+            'success' => true,
+            'message' => 'This booking request was already submitted.',
+            'booking_id' => (int)$duplicateBooking['booking_id'],
+            'total_price' => $duplicatePrice,
+            'requires_payment' => $duplicatePrice > 0,
+            'created' => false,
+            'idempotent_replay' => true,
+        ]);
+        exit;
+    }
+
     if ($role === 'student' && $resourceType === 'room') {
         $stmtExisting = $pdo->prepare(
             "SELECT COUNT(*) FROM bookings
@@ -183,19 +262,28 @@ try {
         $existingActiveOrPending = (int)$stmtExisting->fetchColumn();
 
         if ($existingActiveOrPending > 0) {
-            http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'You already have a pending request or unreturned room booking']);
+            $pdo->rollBack();
+            http_response_code(409);
+            echo json_encode([
+                'success' => false,
+                'code' => 'student_room_limit',
+                'message' => 'You already have a pending request or unreturned room booking'
+            ]);
             exit;
         }
     }
 
-    $pdo->beginTransaction();
-
     $availability = booking_validate_resource_availability_pdo($pdo, $resourceType, $resourceId, $bookingStart, $bookingEnd, null, true);
     if (!$availability['ok']) {
         $pdo->rollBack();
-        http_response_code(str_contains($availability['message'], 'not found') ? 404 : 409);
-        echo json_encode(['success' => false, 'message' => $availability['message']]);
+        $availabilityMessage = (string)$availability['message'];
+        $availabilityCode = (string)($availability['code'] ?? 'resource_unavailable');
+        http_response_code($availabilityCode === 'resource_not_found' ? 404 : 409);
+        echo json_encode([
+            'success' => false,
+            'code' => $availabilityCode,
+            'message' => $availabilityMessage,
+        ]);
         exit;
     }
 
@@ -210,12 +298,13 @@ try {
     $facilityId = $resourceType === 'facility' ? $resourceId : null;
 
     $sql = "INSERT INTO bookings
-    (user_id, resource_type, room_id, facility_id, booking_start, booking_end, purpose, remarks, price_per_day, total_price, booking_status, payment_status)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)";
+    (user_id, request_fingerprint, resource_type, room_id, facility_id, booking_start, booking_end, purpose, remarks, price_per_day, total_price, booking_status, payment_status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)";
 
     $stmt = $pdo->prepare($sql);
     $stmt->execute([
         $userId,
+        $requestFingerprint,
         $resourceType,
         $roomId,
         $facilityId,
@@ -229,7 +318,28 @@ try {
     ]);
 
     $newBookingId = (int)$pdo->lastInsertId();
-    $pdo->commit();
+    booking_acquire_claims_pdo($pdo, [
+        'booking_id' => $newBookingId,
+        'user_id' => $userId,
+        'resource_type' => $resourceType,
+        'room_id' => $roomId,
+        'facility_id' => $facilityId,
+        'booking_start' => $bookingStart,
+        'booking_end' => $bookingEnd,
+    ], $role);
+            $pdo->commit();
+            break;
+        } catch (Throwable $transactionError) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            if (booking_is_retryable_database_error($transactionError) && $transactionAttempt < 3) {
+                usleep(50000 * $transactionAttempt);
+                continue;
+            }
+            throw $transactionError;
+        }
+    }
 
     create_user_notification_pdo($pdo, $userId, $newBookingId, 'Booking request submitted', 'Your booking request #' . $newBookingId . ' has been submitted and is waiting for approval.', 'booking_request');
 
@@ -243,11 +353,32 @@ try {
         'booking_id' => $newBookingId,
         'total_price' => $totalPrice,
         'requires_payment' => $totalPrice > 0,
+        'created' => true,
+        'idempotent_replay' => false,
+    ]);
+} catch (BookingConstraintException $e) {
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+    http_response_code(in_array($e->constraintCode, ['slot_conflict', 'student_room_limit'], true) ? 409 : 400);
+    echo json_encode([
+        'success' => false,
+        'code' => $e->constraintCode,
+        'message' => $e->getMessage(),
     ]);
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();
     }
-    http_response_code(500);
-    echo json_encode(['success' => false, 'message' => 'Failed to create booking']);
+    if (booking_is_retryable_database_error($e)) {
+        http_response_code(409);
+        echo json_encode([
+            'success' => false,
+            'code' => 'concurrent_update',
+            'message' => 'Another booking update is in progress. Please try again.',
+        ]);
+    } else {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'Failed to create booking']);
+    }
 }

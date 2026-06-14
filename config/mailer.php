@@ -14,6 +14,7 @@ function getMailerConfig(): array
         'reply_to_email' => getenv('MAIL_REPLY_TO_EMAIL') ?: '',
         'reply_to_name' => getenv('MAIL_REPLY_TO_NAME') ?: '',
         'timeout' => (int)(getenv('MAIL_TIMEOUT') ?: 15),
+        'resend_api_key' => trim((string)(getenv('RESEND_API_KEY') ?: '')),
         'brevo_api_key' => trim((string)(getenv('BREVO_API_KEY') ?: '')),
     ];
 }
@@ -36,6 +37,123 @@ function writeMailLog(string $event, array $context = []): void
         json_encode($record, JSON_UNESCAPED_SLASHES) . PHP_EOL,
         FILE_APPEND | LOCK_EX
     );
+}
+
+function formatApiMailbox(string $email, string $name = ''): string
+{
+    $safeName = trim((string)preg_replace('/[\r\n<>]+/', ' ', $name));
+    return $safeName !== '' ? $safeName . ' <' . $email . '>' : $email;
+}
+
+function sendMailWithResendApi(
+    array $config,
+    string $toEmail,
+    string $toName,
+    string $subject,
+    string $textContent,
+    string $htmlContent,
+    string $idempotencyKey
+): array {
+    if ($config['resend_api_key'] === '') {
+        return [
+            'success' => false,
+            'message' => 'Resend API is not configured',
+            'code' => 'api_not_configured',
+        ];
+    }
+
+    if (!function_exists('curl_init')) {
+        return [
+            'success' => false,
+            'message' => 'PHP cURL extension is required for Resend API delivery',
+            'code' => 'curl_missing',
+        ];
+    }
+
+    $payload = [
+        'from' => formatApiMailbox($config['from_email'], $config['from_name']),
+        'to' => [formatApiMailbox($toEmail, $toName)],
+        'subject' => $subject,
+        'text' => $textContent,
+        'html' => $htmlContent !== ''
+            ? $htmlContent
+            : nl2br(htmlspecialchars($textContent, ENT_QUOTES, 'UTF-8')),
+    ];
+
+    if ($config['reply_to_email'] !== '') {
+        $payload['reply_to'] = formatApiMailbox(
+            $config['reply_to_email'],
+            $config['reply_to_name'] !== '' ? $config['reply_to_name'] : $config['from_name']
+        );
+    }
+
+    try {
+        $jsonPayload = json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+    } catch (JsonException $e) {
+        return [
+            'success' => false,
+            'message' => 'Unable to encode Resend API request',
+            'code' => 'api_payload_failed',
+            'detail' => $e->getMessage(),
+        ];
+    }
+
+    $curl = curl_init('https://api.resend.com/emails');
+    if ($curl === false) {
+        return [
+            'success' => false,
+            'message' => 'Unable to initialize Resend API request',
+            'code' => 'api_init_failed',
+        ];
+    }
+
+    curl_setopt_array($curl, [
+        CURLOPT_POST => true,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_CONNECTTIMEOUT => max(1, min(10, $config['timeout'])),
+        CURLOPT_TIMEOUT => max(1, $config['timeout']),
+        CURLOPT_HTTPHEADER => [
+            'Accept: application/json',
+            'Authorization: Bearer ' . $config['resend_api_key'],
+            'Content-Type: application/json',
+            'Idempotency-Key: ' . $idempotencyKey,
+        ],
+        CURLOPT_POSTFIELDS => $jsonPayload,
+    ]);
+
+    $responseBody = curl_exec($curl);
+    $curlError = curl_error($curl);
+    $statusCode = (int)curl_getinfo($curl, CURLINFO_RESPONSE_CODE);
+    curl_close($curl);
+
+    if ($responseBody === false) {
+        return [
+            'success' => false,
+            'message' => 'Resend API request failed',
+            'code' => 'api_connection_failed',
+            'detail' => $curlError,
+        ];
+    }
+
+    $response = json_decode($responseBody, true);
+    if ($statusCode >= 200 && $statusCode < 300) {
+        return [
+            'success' => true,
+            'message' => 'Email accepted by Resend API',
+            'code' => 'sent',
+            'message_id' => is_array($response) ? (string)($response['id'] ?? '') : '',
+        ];
+    }
+
+    $apiMessage = is_array($response) ? trim((string)($response['message'] ?? '')) : '';
+
+    return [
+        'success' => false,
+        'message' => 'Resend API rejected the email request',
+        'code' => 'api_rejected',
+        'detail' => $apiMessage !== '' ? $apiMessage : 'HTTP ' . $statusCode,
+        'http_status' => $statusCode,
+    ];
 }
 
 function sendMailWithBrevoApi(
@@ -162,16 +280,17 @@ function sendMail(string $toEmail, string $toName, string $subject, string $text
     $requestId = bin2hex(random_bytes(8));
     $recipientHash = hash('sha256', strtolower(trim($toEmail)));
     $config = getMailerConfig();
+    $resendConfigured = $config['resend_api_key'] !== '';
     $smtpConfigured = $config['username'] !== '' && $config['password'] !== '';
-    $apiConfigured = $config['brevo_api_key'] !== '';
+    $brevoConfigured = $config['brevo_api_key'] !== '';
 
-    if ($config['from_email'] === '' || (!$smtpConfigured && !$apiConfigured)) {
+    if ($config['from_email'] === '' || (!$resendConfigured && !$smtpConfigured && !$brevoConfigured)) {
         $missing = [];
         if ($config['from_email'] === '') {
             $missing[] = 'MAIL_FROM_EMAIL';
         }
-        if (!$smtpConfigured && !$apiConfigured) {
-            $missing[] = 'SMTP credentials or BREVO_API_KEY';
+        if (!$resendConfigured && !$smtpConfigured && !$brevoConfigured) {
+            $missing[] = 'RESEND_API_KEY, SMTP credentials, or BREVO_API_KEY';
         }
 
         $message = 'Missing mail configuration: ' . implode(', ', $missing);
@@ -192,6 +311,47 @@ function sendMail(string $toEmail, string $toName, string $subject, string $text
         $message = 'Invalid sender or recipient email address';
         writeMailLog('mail_failed', ['request_id' => $requestId, 'recipient_hash' => $recipientHash, 'code' => 'invalid_address']);
         return ['success' => false, 'message' => $message, 'code' => 'invalid_address', 'request_id' => $requestId];
+    }
+
+    $lastFailure = null;
+
+    if ($resendConfigured) {
+        $resendResult = sendMailWithResendApi(
+            $config,
+            $toEmail,
+            $toName,
+            $subject,
+            $textContent,
+            $htmlContent,
+            $requestId
+        );
+
+        if ($resendResult['success']) {
+            writeMailLog('mail_accepted', [
+                'request_id' => $requestId,
+                'recipient_hash' => $recipientHash,
+                'transport' => 'resend_api',
+                'message_id' => $resendResult['message_id'] ?? '',
+            ]);
+
+            return [
+                'success' => true,
+                'message' => $resendResult['message'],
+                'code' => 'sent',
+                'transport' => 'resend_api',
+                'request_id' => $requestId,
+            ];
+        }
+
+        writeMailLog('mail_transport_failed', [
+            'request_id' => $requestId,
+            'recipient_hash' => $recipientHash,
+            'transport' => 'resend_api',
+            'code' => $resendResult['code'],
+            'detail' => $resendResult['detail'] ?? $resendResult['message'],
+            'http_status' => $resendResult['http_status'] ?? null,
+        ]);
+        $lastFailure = $resendResult;
     }
 
     $smtpFailure = null;
@@ -263,6 +423,7 @@ function sendMail(string $toEmail, string $toName, string $subject, string $text
                 ];
             }
         }
+        $lastFailure = $smtpFailure;
 
         writeMailLog('mail_transport_failed', [
             'request_id' => $requestId,
@@ -273,7 +434,7 @@ function sendMail(string $toEmail, string $toName, string $subject, string $text
         ]);
     }
 
-    if ($apiConfigured) {
+    if ($brevoConfigured) {
         $apiResult = sendMailWithBrevoApi($config, $toEmail, $toName, $subject, $textContent, $htmlContent);
         if ($apiResult['success']) {
             writeMailLog('mail_accepted', [
@@ -319,14 +480,14 @@ function sendMail(string $toEmail, string $toName, string $subject, string $text
     writeMailLog('mail_failed', [
         'request_id' => $requestId,
         'recipient_hash' => $recipientHash,
-        'code' => $smtpFailure['code'] ?? 'configuration_missing',
+        'code' => $lastFailure['code'] ?? 'configuration_missing',
         'fallback' => 'not_configured',
     ]);
 
     return [
         'success' => false,
-        'message' => $smtpFailure['message'] ?? 'No mail transport is configured',
-        'code' => $smtpFailure['code'] ?? 'configuration_missing',
+        'message' => $lastFailure['message'] ?? 'No mail transport is configured',
+        'code' => $lastFailure['code'] ?? 'configuration_missing',
         'request_id' => $requestId,
     ];
 }

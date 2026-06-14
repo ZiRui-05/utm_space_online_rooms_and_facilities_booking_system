@@ -31,13 +31,7 @@ if (!$user || !password_verify($password, $user['password_hash'])) {
     exit;
 }
 
-if ($user['account_status'] === 'suspended') {
-    http_response_code(403);
-    echo json_encode(['success' => false, 'message' => 'Account is suspended. Please contact admin for further help.']);
-    exit;
-}
-
-if ($user['account_status'] !== 'active') {
+if (!in_array($user['account_status'], ['active', 'suspended'], true)) {
     http_response_code(403);
     echo json_encode(['success' => false, 'message' => 'Account is not active']);
     exit;
@@ -50,6 +44,7 @@ $_SESSION['user'] = [
     'email' => $user['email'],
     'utm_id' => $user['utm_id'],
     'role' => $user['role'],
+    'account_status' => $user['account_status'],
 ];
 
 echo json_encode(['success' => true, 'message' => 'Login successful', 'user' => $_SESSION['user']]);

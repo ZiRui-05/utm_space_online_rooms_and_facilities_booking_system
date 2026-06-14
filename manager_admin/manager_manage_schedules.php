@@ -9,6 +9,16 @@ $todayMalaysia = date('Y-m-d', $nowMalaysiaTs);
 $conn->query("CREATE TABLE IF NOT EXISTS schedules (schedule_id INT AUTO_INCREMENT PRIMARY KEY, resource_type ENUM('room','facility') NOT NULL, room_id INT NULL, facility_id INT NULL, start_time DATETIME NOT NULL, end_time DATETIME NOT NULL, status ENUM('available','blocked','maintenance') NOT NULL DEFAULT 'available', notes VARCHAR(255) NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)");
 $conn->query("CREATE TABLE IF NOT EXISTS weekly_schedule_rules (rule_id INT AUTO_INCREMENT PRIMARY KEY, resource_type ENUM('room','facility') NOT NULL, room_id INT NULL, facility_id INT NULL, weekday TINYINT NOT NULL, start_hour TINYINT NOT NULL, end_hour TINYINT NOT NULL, status ENUM('blocked','maintenance') NOT NULL DEFAULT 'blocked', notes VARCHAR(255) NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, UNIQUE KEY uniq_weekly_rule_room (resource_type, room_id, weekday, start_hour, end_hour), UNIQUE KEY uniq_weekly_rule_facility (resource_type, facility_id, weekday, start_hour, end_hour))");
 function monday_of_week($date){ $ts=strtotime($date ?: date('Y-m-d')); if($ts===false)$ts=time(); return date('Y-m-d', strtotime('monday this week', $ts)); }
+function lock_schedule_resource(mysqli $conn, string $resourceType, int $resourceId): void {
+    $table = $resourceType === 'room' ? 'rooms' : 'facilities';
+    $idColumn = $resourceType === 'room' ? 'room_id' : 'facility_id';
+    $stmt = $conn->prepare("SELECT {$idColumn} FROM {$table} WHERE {$idColumn}=? LIMIT 1 FOR UPDATE");
+    $stmt->bind_param('i', $resourceId);
+    $stmt->execute();
+    if (!$stmt->get_result()->fetch_assoc()) {
+        throw new RuntimeException('Selected resource was not found.');
+    }
+}
 if(isset($_GET['delete'])){ $id=(int)$_GET['delete']; $stmt=$conn->prepare('SELECT start_time FROM schedules WHERE schedule_id=? LIMIT 1'); $stmt->bind_param('i',$id); $stmt->execute(); $row=$stmt->get_result()->fetch_assoc(); if($row && strtotime($row['start_time']) < $nowMalaysiaTs){ header('Location: '.$self_file.'?error='.urlencode('Cannot remove a past schedule slot')); exit; } $stmt=$conn->prepare('DELETE FROM schedules WHERE schedule_id=?'); $stmt->bind_param('i',$id); $stmt->execute(); header('Location: '.$self_file.'?success='.urlencode('Schedule removed')); exit; }
 $resource_type = $_GET['resource_type'] ?? $_POST['resource_type'] ?? 'room'; if(!in_array($resource_type,['room','facility'],true)) $resource_type='room';
 $resource_id = (int)($_GET['resource_id'] ?? $_POST['resource_id'] ?? 0);
@@ -26,28 +36,37 @@ for($i=0;$i<5;$i++){
     $table_dates[$i]=$candidate;
 }
 if($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['save_slots'])){
-    $status = in_array($_POST['status'] ?? '', ['blocked','maintenance'], true) ? $_POST['status'] : 'blocked';
+    $status = in_array($_POST['status'] ?? '', ['blocked','maintenance','available'], true) ? $_POST['status'] : 'blocked';
     $notes = trim($_POST['notes'] ?? '');
     $slots = $_POST['selected_slots'] ?? [];
     if($resource_id<=0 || empty($slots)){ header('Location: '.$self_file.'?error='.urlencode('Please choose a resource and at least one timeslot')); exit; }
+    $conn->begin_transaction();
+    lock_schedule_resource($conn, $resource_type, $resource_id);
     $saved=0; $skipped=0;
     foreach($slots as $slot){
         [$d,$h] = array_pad(explode('|',$slot),2,''); $hour=(int)$h;
         if(!preg_match('/^\d{4}-\d{2}-\d{2}$/',$d) || $hour<8 || $hour>17){ $skipped++; continue; }
         $weekday=(int)date('N', strtotime($d));
+        $end_hour=$hour+1;
+        if($status!=='available'){
+            if($resource_type==='room') $bookingCheck=$conn->prepare("SELECT booking_id FROM bookings WHERE resource_type='room' AND room_id=? AND booking_status IN ('pending','approved') AND booking_end>NOW() AND WEEKDAY(booking_start)+1=? AND TIME(booking_start)<MAKETIME(?,0,0) AND TIME(booking_end)>MAKETIME(?,0,0) LIMIT 1");
+            else $bookingCheck=$conn->prepare("SELECT booking_id FROM bookings WHERE resource_type='facility' AND facility_id=? AND booking_status IN ('pending','approved') AND booking_end>NOW() AND WEEKDAY(booking_start)+1=? AND TIME(booking_start)<MAKETIME(?,0,0) AND TIME(booking_end)>MAKETIME(?,0,0) LIMIT 1");
+            $bookingCheck->bind_param('iiii',$resource_id,$weekday,$end_hour,$hour);
+            $bookingCheck->execute();
+            if($bookingCheck->get_result()->fetch_assoc()){ $skipped++; continue; }
+        }
         if($status==='available'){
             if($resource_type==='room') $stmt=$conn->prepare("DELETE FROM weekly_schedule_rules WHERE resource_type='room' AND room_id=? AND weekday=? AND start_hour=? AND end_hour=?");
             else $stmt=$conn->prepare("DELETE FROM weekly_schedule_rules WHERE resource_type='facility' AND facility_id=? AND weekday=? AND start_hour=? AND end_hour=?");
-            $end_hour=$hour+1;
             $stmt->bind_param('iiii',$resource_id,$weekday,$hour,$end_hour);
         } else {
             if($resource_type==='room') $stmt=$conn->prepare("INSERT INTO weekly_schedule_rules(resource_type,room_id,facility_id,weekday,start_hour,end_hour,status,notes) VALUES('room',?,NULL,?,?,?,?,?) ON DUPLICATE KEY UPDATE status=VALUES(status), notes=VALUES(notes), updated_at=CURRENT_TIMESTAMP");
             else $stmt=$conn->prepare("INSERT INTO weekly_schedule_rules(resource_type,room_id,facility_id,weekday,start_hour,end_hour,status,notes) VALUES('facility',NULL,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE status=VALUES(status), notes=VALUES(notes), updated_at=CURRENT_TIMESTAMP");
-            $end_hour=$hour+1;
             $stmt->bind_param('iiiiss',$resource_id,$weekday,$hour,$end_hour,$status,$notes);
         }
         $stmt->execute(); $saved++;
     }
+    $conn->commit();
     $msg="Saved $saved timeslot(s) as recurring weekly rule".($skipped?"; skipped $skipped booked/invalid slot(s)":'');
         header('Location: '.$self_file.'?resource_type='.urlencode($resource_type).'&resource_id='.$resource_id.'&selected_date='.urlencode($selected_date).'&success='.urlencode($msg)); exit;
 }
@@ -61,13 +80,15 @@ if($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['save_activity'])){
     if($resource_id<=0 || !preg_match('/^\d{4}-\d{2}-\d{2}$/',$activity_date) || $start_hour<8 || $start_hour>17 || $end_hour<9 || $end_hour>18 || $start_hour>=$end_hour){
         header('Location: '.$self_file.'?resource_type='.urlencode($resource_type).'&resource_id='.$resource_id.'&selected_date='.urlencode($selected_date).'&error='.urlencode('Invalid activity settings').'#date-specific-activities'); exit;
     }
+    $conn->begin_transaction();
+    lock_schedule_resource($conn, $resource_type, $resource_id);
     $start=$activity_date.' '.str_pad((string)$start_hour,2,'0',STR_PAD_LEFT).':00:00';
     $end=$activity_date.' '.str_pad((string)$end_hour,2,'0',STR_PAD_LEFT).':00:00';
-    if(strtotime($start) < $nowMalaysiaTs){ header('Location: '.$self_file.'?resource_type='.urlencode($resource_type).'&resource_id='.$resource_id.'&selected_date='.urlencode($selected_date).'&error='.urlencode('Cannot set past activity').'#date-specific-activities'); exit; }
+    if(strtotime($start) < $nowMalaysiaTs){ $conn->rollback(); header('Location: '.$self_file.'?resource_type='.urlencode($resource_type).'&resource_id='.$resource_id.'&selected_date='.urlencode($selected_date).'&error='.urlencode('Cannot set past activity').'#date-specific-activities'); exit; }
     if($resource_type==='room') $chk=$conn->prepare("SELECT booking_id FROM bookings WHERE resource_type='room' AND room_id=? AND booking_status IN ('pending','approved','completed') AND booking_start < ? AND booking_end > ? LIMIT 1");
     else $chk=$conn->prepare("SELECT booking_id FROM bookings WHERE resource_type='facility' AND facility_id=? AND booking_status IN ('pending','approved','completed') AND booking_start < ? AND booking_end > ? LIMIT 1");
     $chk->bind_param('iss',$resource_id,$end,$start); $chk->execute();
-    if($chk->get_result()->fetch_assoc()){ header('Location: '.$self_file.'?resource_type='.urlencode($resource_type).'&resource_id='.$resource_id.'&selected_date='.urlencode($selected_date).'&error='.urlencode('Activity overlaps an existing booking').'#date-specific-activities'); exit; }
+    if($chk->get_result()->fetch_assoc()){ $conn->rollback(); header('Location: '.$self_file.'?resource_type='.urlencode($resource_type).'&resource_id='.$resource_id.'&selected_date='.urlencode($selected_date).'&error='.urlencode('Activity overlaps an existing booking').'#date-specific-activities'); exit; }
     if($resource_type==='room'){
         if($activity_id>0) $stmt=$conn->prepare("UPDATE schedules SET start_time=?, end_time=?, status=?, notes=? WHERE schedule_id=? AND resource_type='room' AND room_id=?");
         else $stmt=$conn->prepare("INSERT INTO schedules(resource_type,room_id,facility_id,start_time,end_time,status,notes) VALUES('room',?,NULL,?,?,?,?)");
@@ -78,6 +99,7 @@ if($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['save_activity'])){
     if($activity_id>0) $stmt->bind_param('ssssii',$start,$end,$status,$notes,$activity_id,$resource_id);
     else $stmt->bind_param('issss',$resource_id,$start,$end,$status,$notes);
     $stmt->execute();
+    $conn->commit();
     header('Location: '.$self_file.'?resource_type='.urlencode($resource_type).'&resource_id='.$resource_id.'&selected_date='.urlencode($selected_date).'&success='.urlencode($activity_id>0?'Activity updated':'Activity added').'#date-specific-activities'); exit;
 }
 if(isset($_GET['delete_activity'])){

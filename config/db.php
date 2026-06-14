@@ -6,8 +6,6 @@ $port = getenv('DB_PORT') ?: '3306';
 $dbName = getenv('DB_NAME') ?: 'utm_space_booking_system';
 $dbUser = getenv('DB_USER') ?: 'root';
 $dbPass = getenv('DB_PASS') ?: '';
-//Hosting pass: vg(@n^4[M_](Xpl(
-//Keep this to prevent password losing
 $dsn = "mysql:host={$host};port={$port};dbname={$dbName};charset=utf8mb4";
 
 try {

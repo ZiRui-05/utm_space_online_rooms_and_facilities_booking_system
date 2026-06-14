@@ -3,6 +3,7 @@ require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/../includes/notifications.php';
 require_once __DIR__ . '/../includes/booking_expiry.php';
 require_once __DIR__ . '/../includes/booking_validation.php';
+require_once __DIR__ . '/../includes/booking_constraints.php';
 $user = require_role(['admin']);
 $id = (int)($_GET['id'] ?? $_POST['booking_id'] ?? 0);
 if ($id <= 0) { header('Location: admin_booking_requests.php?error=' . urlencode('Missing booking ID')); exit; }
@@ -37,6 +38,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         $conn->begin_transaction();
 
+        $lockContext = booking_lock_context_mysqli($conn, $id);
+        if (!$lockContext) {
+            throw new RuntimeException('Booking not found');
+        }
         $beforeStmt = $conn->prepare("SELECT b.booking_id, b.user_id, b.resource_type, b.room_id, b.facility_id, b.booking_start, b.booking_end, b.total_price, b.booking_status, b.payment_status, u.full_name, u.email, COALESCE(r.room_name, f.facility_name) resource_name FROM bookings b JOIN users u ON u.user_id=b.user_id LEFT JOIN rooms r ON r.room_id=b.room_id LEFT JOIN facilities f ON f.facility_id=b.facility_id WHERE b.booking_id=? LIMIT 1 FOR UPDATE");
         $beforeStmt->bind_param('i', $id);
         $beforeStmt->execute();
@@ -64,11 +69,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $payment = booking_payment_after_status_change($status, $payment, $total);
+        $requestFingerprint = booking_is_active_status($status)
+            ? booking_request_fingerprint(
+                (string)$beforeBooking['resource_type'],
+                booking_active_resource_id($beforeBooking),
+                $start,
+                $end
+            )
+            : null;
 
-        $stmt = $conn->prepare('UPDATE bookings SET booking_status=?, payment_status=?, booking_start=?, booking_end=?, purpose=?, total_price=?, reviewed_by=?, reviewed_at=NOW(), review_remarks=? WHERE booking_id=? LIMIT 1');
-        $stmt->bind_param('sssssdisi', $status, $payment, $start, $end, $purpose, $total, $user['user_id'], $remarks, $id);
+        $stmt = $conn->prepare('UPDATE bookings SET booking_status=?, payment_status=?, request_fingerprint=?, booking_start=?, booking_end=?, purpose=?, total_price=?, reviewed_by=?, reviewed_at=NOW(), review_remarks=? WHERE booking_id=? LIMIT 1');
+        $stmt->bind_param('ssssssdisi', $status, $payment, $requestFingerprint, $start, $end, $purpose, $total, $user['user_id'], $remarks, $id);
         $stmt->execute();
 
+        if (booking_is_active_status($status)) {
+            $claimBooking = $beforeBooking;
+            $claimBooking['booking_start'] = $start;
+            $claimBooking['booking_end'] = $end;
+            booking_acquire_claims_mysqli($conn, $claimBooking, (string)$lockContext['role']);
+        } else {
+            booking_release_claims_mysqli($conn, $id);
+        }
         $conn->commit();
     } catch (Throwable $e) {
         $conn->rollback();
@@ -96,7 +117,7 @@ $stmt->bind_param('i',$id); $stmt->execute(); $booking=$stmt->get_result()->fetc
 if(!$booking) { header('Location: admin_booking_requests.php?error=' . urlencode('Booking not found')); exit; }
 $placeholder = 'data:image/gif;base64,R0lGODlhAQABAAAAACw=';
 $profile = (int)$booking['has_profile_image'] === 1 ? 'user_image.php?id=' . (int)$booking['user_id'] . '&kind=profile' : 'https://ui-avatars.com/api/?name=' . urlencode($booking['full_name'] ?? 'User') . '&background=5c001f&color=fff';
-$page_title='Admin Edit Booking'; $active_page='bookings'; include __DIR__ . '/../includes/management_header.php';
+$page_title='Admin Edit Booking'; $active_page='bookings'; include __DIR__ . '/includes/header.php';
 ?>
 <div class="mb-8"><h1 class="text-4xl font-black text-[#36000f]">Booking Request Details</h1><p class="text-slate-500 mt-2">Review requester and booking details before approving or rejecting.</p></div>
 <?php if (!empty($_GET['success'])): ?><div class="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-bold text-green-800"><?= h($_GET['success']) ?></div><?php endif; ?>
@@ -188,4 +209,4 @@ $page_title='Admin Edit Booking'; $active_page='bookings'; include __DIR__ . '/.
         </script>
     </form>
 </div>
-<?php include __DIR__ . '/../includes/management_footer.php'; ?>
+<?php include __DIR__ . '/includes/footer.php'; ?>

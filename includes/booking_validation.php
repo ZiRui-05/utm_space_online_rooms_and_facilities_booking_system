@@ -40,12 +40,18 @@ if (!function_exists('booking_time_window_parts')) {
 }
 
 if (!function_exists('booking_validation_result')) {
-    function booking_validation_result(bool $ok, string $message = '', ?array $resource = null): array
+    function booking_validation_result(
+        bool $ok,
+        string $message = '',
+        ?array $resource = null,
+        string $code = ''
+    ): array
     {
         return [
             'ok' => $ok,
             'message' => $message,
             'resource' => $resource,
+            'code' => $code,
         ];
     }
 }
@@ -56,7 +62,7 @@ if (!function_exists('booking_validate_resource_availability_pdo')) {
         $meta = booking_resource_meta($resourceType);
         $parts = booking_time_window_parts($bookingStart, $bookingEnd);
         if ($meta === null || $resourceId <= 0 || $parts === null) {
-            return booking_validation_result(false, 'Invalid booking resource or time window.');
+            return booking_validation_result(false, 'Invalid booking resource or time window.', null, 'invalid_booking');
         }
 
         $resourceSql = "SELECT price_per_day, resource_status, {$meta['name_col']} AS resource_name FROM {$meta['table']} WHERE {$meta['id_col']} = ? LIMIT 1";
@@ -68,12 +74,12 @@ if (!function_exists('booking_validate_resource_availability_pdo')) {
         $resource = $stmtResource->fetch(PDO::FETCH_ASSOC);
 
         if (!$resource) {
-            return booking_validation_result(false, 'Selected resource was not found.');
+            return booking_validation_result(false, 'Selected resource was not found.', null, 'resource_not_found');
         }
 
         $resourceStatus = strtolower((string)($resource['resource_status'] ?? 'unavailable'));
         if ($resourceStatus !== 'available') {
-            return booking_validation_result(false, 'Selected resource is currently ' . $resourceStatus . ' and cannot be booked.', $resource);
+            return booking_validation_result(false, 'Selected resource is currently ' . $resourceStatus . ' and cannot be booked.', $resource, 'resource_unavailable');
         }
 
         $conflictSql = "SELECT booking_id, booking_status FROM bookings
@@ -92,7 +98,7 @@ if (!function_exists('booking_validate_resource_availability_pdo')) {
         $stmtConflict->execute($conflictParams);
         $conflictingBooking = $stmtConflict->fetch(PDO::FETCH_ASSOC);
         if ($conflictingBooking) {
-            return booking_validation_result(false, 'Selected time slot is already ' . strtolower((string)$conflictingBooking['booking_status']) . '.', $resource);
+            return booking_validation_result(false, 'Selected time slot is already ' . strtolower((string)$conflictingBooking['booking_status']) . '.', $resource, 'slot_conflict');
         }
 
         $scheduleSql = "SELECT status FROM schedules
@@ -106,7 +112,7 @@ if (!function_exists('booking_validate_resource_availability_pdo')) {
         $stmtSchedule->execute([$resourceType, $resourceId, $bookingEnd, $bookingStart]);
         $conflictingSchedule = $stmtSchedule->fetch(PDO::FETCH_ASSOC);
         if ($conflictingSchedule) {
-            return booking_validation_result(false, 'Selected time slot is ' . strtolower((string)$conflictingSchedule['status']) . '.', $resource);
+            return booking_validation_result(false, 'Selected time slot is ' . strtolower((string)$conflictingSchedule['status']) . '.', $resource, 'schedule_conflict');
         }
 
         $weeklySql = "SELECT status FROM weekly_schedule_rules
@@ -127,7 +133,7 @@ if (!function_exists('booking_validate_resource_availability_pdo')) {
         ]);
         $conflictingWeeklyRule = $stmtWeeklyRule->fetch(PDO::FETCH_ASSOC);
         if ($conflictingWeeklyRule) {
-            return booking_validation_result(false, 'Selected time slot is ' . strtolower((string)$conflictingWeeklyRule['status']) . '.', $resource);
+            return booking_validation_result(false, 'Selected time slot is ' . strtolower((string)$conflictingWeeklyRule['status']) . '.', $resource, 'schedule_conflict');
         }
 
         return booking_validation_result(true, '', $resource);
@@ -140,7 +146,7 @@ if (!function_exists('booking_validate_resource_availability_mysqli')) {
         $meta = booking_resource_meta($resourceType);
         $parts = booking_time_window_parts($bookingStart, $bookingEnd);
         if ($meta === null || $resourceId <= 0 || $parts === null) {
-            return booking_validation_result(false, 'Invalid booking resource or time window.');
+            return booking_validation_result(false, 'Invalid booking resource or time window.', null, 'invalid_booking');
         }
 
         $resourceSql = "SELECT price_per_day, resource_status, {$meta['name_col']} AS resource_name FROM {$meta['table']} WHERE {$meta['id_col']} = ? LIMIT 1";
@@ -153,12 +159,12 @@ if (!function_exists('booking_validate_resource_availability_mysqli')) {
         $resource = $stmtResource->get_result()->fetch_assoc();
 
         if (!$resource) {
-            return booking_validation_result(false, 'Selected resource was not found.');
+            return booking_validation_result(false, 'Selected resource was not found.', null, 'resource_not_found');
         }
 
         $resourceStatus = strtolower((string)($resource['resource_status'] ?? 'unavailable'));
         if ($resourceStatus !== 'available') {
-            return booking_validation_result(false, 'Selected resource is currently ' . $resourceStatus . ' and cannot be booked.', $resource);
+            return booking_validation_result(false, 'Selected resource is currently ' . $resourceStatus . ' and cannot be booked.', $resource, 'resource_unavailable');
         }
 
         $conflictSql = "SELECT booking_id, booking_status FROM bookings
@@ -179,7 +185,7 @@ if (!function_exists('booking_validate_resource_availability_mysqli')) {
         $stmtConflict->execute();
         $conflictingBooking = $stmtConflict->get_result()->fetch_assoc();
         if ($conflictingBooking) {
-            return booking_validation_result(false, 'Selected time slot is already ' . strtolower((string)$conflictingBooking['booking_status']) . '.', $resource);
+            return booking_validation_result(false, 'Selected time slot is already ' . strtolower((string)$conflictingBooking['booking_status']) . '.', $resource, 'slot_conflict');
         }
 
         $scheduleSql = "SELECT status FROM schedules
@@ -194,7 +200,7 @@ if (!function_exists('booking_validate_resource_availability_mysqli')) {
         $stmtSchedule->execute();
         $conflictingSchedule = $stmtSchedule->get_result()->fetch_assoc();
         if ($conflictingSchedule) {
-            return booking_validation_result(false, 'Selected time slot is ' . strtolower((string)$conflictingSchedule['status']) . '.', $resource);
+            return booking_validation_result(false, 'Selected time slot is ' . strtolower((string)$conflictingSchedule['status']) . '.', $resource, 'schedule_conflict');
         }
 
         $weeklySql = "SELECT status FROM weekly_schedule_rules
@@ -212,7 +218,7 @@ if (!function_exists('booking_validate_resource_availability_mysqli')) {
         $stmtWeeklyRule->execute();
         $conflictingWeeklyRule = $stmtWeeklyRule->get_result()->fetch_assoc();
         if ($conflictingWeeklyRule) {
-            return booking_validation_result(false, 'Selected time slot is ' . strtolower((string)$conflictingWeeklyRule['status']) . '.', $resource);
+            return booking_validation_result(false, 'Selected time slot is ' . strtolower((string)$conflictingWeeklyRule['status']) . '.', $resource, 'schedule_conflict');
         }
 
         return booking_validation_result(true, '', $resource);

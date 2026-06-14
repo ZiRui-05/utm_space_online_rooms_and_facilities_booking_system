@@ -23,15 +23,13 @@ $stmt = $pdo->prepare('SELECT user_id, full_name, email, utm_id, role, account_s
 $stmt->execute([$userId]);
 $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if (!$user || $user['account_status'] !== 'active') {
+if (!$user || !in_array($user['account_status'], ['active', 'suspended'], true)) {
     session_unset();
     session_destroy();
     http_response_code(403);
     echo json_encode([
         'authenticated' => false,
-        'message' => ($user && $user['account_status'] === 'suspended')
-            ? 'Account is suspended. Please contact admin for further help.'
-            : 'Account is not active',
+        'message' => 'Account is not active',
     ]);
     exit;
 }
@@ -42,6 +40,7 @@ $_SESSION['user'] = [
     'email' => $user['email'],
     'utm_id' => $user['utm_id'],
     'role' => $user['role'],
+    'account_status' => $user['account_status'],
 ];
 
 echo json_encode(['authenticated' => true, 'user' => $_SESSION['user']]);

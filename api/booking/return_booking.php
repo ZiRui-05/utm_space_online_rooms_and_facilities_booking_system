@@ -15,6 +15,7 @@ if (!isset($_SESSION['user']['user_id'])) {
 
 require __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../../includes/notifications.php';
+require_once __DIR__ . '/../../includes/booking_constraints.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
@@ -40,8 +41,18 @@ if ($bookingId <= 0) {
 try {
     $pdo->beginTransaction();
 
+    $lockContext = booking_lock_context_pdo($pdo, $bookingId);
+    if (!$lockContext || (int)$lockContext['user_id'] !== $userId) {
+        $pdo->rollBack();
+        http_response_code(404);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Booking not found.'
+        ]);
+        exit;
+    }
     $stmt = $pdo->prepare(
-        "SELECT b.booking_id, b.booking_status,
+        "SELECT b.booking_id, b.resource_type, b.booking_status,
                 CASE WHEN b.booking_start <= NOW() THEN 1 ELSE 0 END AS has_started,
                 COALESCE(r.room_name, f.facility_name, 'Resource') AS resource_name
          FROM bookings b
@@ -60,6 +71,16 @@ try {
         echo json_encode([
             'success' => false,
             'message' => 'Booking not found.'
+        ]);
+        exit;
+    }
+
+    if ((string)$booking['resource_type'] !== 'room') {
+        $pdo->rollBack();
+        http_response_code(400);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Only room bookings can be returned online.'
         ]);
         exit;
     }
@@ -87,8 +108,10 @@ try {
     $update = $pdo->prepare(
         "UPDATE bookings
          SET booking_status = 'completed'
+             , request_fingerprint = NULL
          WHERE booking_id = ?
            AND user_id = ?
+           AND resource_type = 'room'
            AND booking_status = 'approved'
            AND booking_start <= NOW()"
     );
@@ -104,6 +127,7 @@ try {
         exit;
     }
 
+    booking_release_claims_pdo($pdo, $bookingId);
     $pdo->commit();
 
     try {
@@ -127,9 +151,18 @@ try {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();
     }
-    http_response_code(500);
-    echo json_encode([
-        'success' => false,
-        'message' => 'Failed to return booking.'
-    ]);
+    if (booking_is_retryable_database_error($e)) {
+        http_response_code(409);
+        echo json_encode([
+            'success' => false,
+            'code' => 'concurrent_update',
+            'message' => 'Another booking update is in progress. Please try again.'
+        ]);
+    } else {
+        http_response_code(500);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Failed to return booking.'
+        ]);
+    }
 }

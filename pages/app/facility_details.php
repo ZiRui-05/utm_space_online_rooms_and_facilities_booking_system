@@ -230,6 +230,7 @@ $bookingUrl .= '&resource_name=' . urlencode($details['name']);
         .time-slot-card.is-disabled { opacity:.55; cursor:not-allowed; background:#f5f5f5; }
         .time-slot-card.status-booked { background:#ffebee; border-color:#f2b8bd; cursor:not-allowed; }
         .time-slot-card.status-pending { background:#fff8e1; border-color:#efd58f; cursor:not-allowed; }
+        .time-slot-card.status-past { background:#f3f4f6; border-color:#d1d5db; cursor:not-allowed; }
         .time-slot-card.status-free { background:#f1f8f3; }
         .time-slot-time { font-size:14px; font-weight:700; margin-bottom:4px; }
         .time-slot-meta { color:var(--text-light); font-size:12px; }
@@ -395,6 +396,20 @@ $bookingUrl .= '&resource_name=' . urlencode($details['name']);
     const dbWeeklyRules = <?php echo json_encode($weeklyScheduleRules, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
     const resourceType = <?= json_encode($type) ?>;
     const continueBookingBaseUrl = <?= json_encode($bookingUrl, JSON_UNESCAPED_SLASHES) ?>;
+    const appTimezone = <?= json_encode(date_default_timezone_get()) ?>;
+    const serverNowEpochMs = <?= (int)floor(microtime(true) * 1000) ?>;
+    const browserNowAtLoadMs = Date.now();
+    const bookingGraceMinutes = 15;
+    const appDateTimeFormatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: appTimezone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hourCycle: 'h23'
+    });
     let currentUserRole = '';
 
     document.addEventListener('DOMContentLoaded', async function() {
@@ -411,13 +426,57 @@ $bookingUrl .= '&resource_name=' . urlencode($details['name']);
         }
 
         setupAvailabilityPreview();
+        schedulePastSlotRefresh();
     });
 
-    function formatLocalDate(date) {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
+    function currentServerEpochMs() {
+        return serverNowEpochMs + (Date.now() - browserNowAtLoadMs);
+    }
+
+    function appNowParts() {
+        const parts = Object.fromEntries(
+            appDateTimeFormatter.formatToParts(new Date(currentServerEpochMs()))
+                .filter(part => part.type !== 'literal')
+                .map(part => [part.type, part.value])
+        );
+        return {
+            date: `${parts.year}-${parts.month}-${parts.day}`,
+            hour: Number(parts.hour),
+            minute: Number(parts.minute),
+            second: Number(parts.second)
+        };
+    }
+
+    function addDaysToDate(dateValue, days) {
+        const [year, month, day] = dateValue.split('-').map(Number);
+        const date = new Date(Date.UTC(year, month - 1, day + days));
+        return [
+            date.getUTCFullYear(),
+            String(date.getUTCMonth() + 1).padStart(2, '0'),
+            String(date.getUTCDate()).padStart(2, '0')
+        ].join('-');
+    }
+
+    function isSlotPastGrace(dateValue, startMinutes) {
+        const now = appNowParts();
+        if (dateValue < now.date) return true;
+        if (dateValue > now.date) return false;
+        const currentSeconds = ((now.hour * 60) + now.minute) * 60 + now.second;
+        return currentSeconds >= (startMinutes + bookingGraceMinutes) * 60;
+    }
+
+    function schedulePastSlotRefresh() {
+        const delay = (60000 - (currentServerEpochMs() % 60000)) + 50;
+        window.setTimeout(() => {
+            renderStartSlotCards(true);
+            renderSelectedTimePreview();
+            updateContinueBookingLink();
+            window.setInterval(() => {
+                renderStartSlotCards(true);
+                renderSelectedTimePreview();
+                updateContinueBookingLink();
+            }, 60000);
+        }, delay);
     }
 
     function formatTime(totalMinutes) {
@@ -441,11 +500,9 @@ $bookingUrl .= '&resource_name=' . urlencode($details['name']);
         const note = document.getElementById('date-range-note');
         if (!dateInput) return;
 
-        const today = new Date();
-        dateInput.min = formatLocalDate(today);
-        const maxDate = new Date(today);
-        maxDate.setDate(maxDate.getDate() + bookingDateLimitDays());
-        dateInput.max = formatLocalDate(maxDate);
+        const today = appNowParts().date;
+        dateInput.min = today;
+        dateInput.max = addDaysToDate(today, bookingDateLimitDays());
         if (note) note.textContent = bookingDateRangeMessage();
 
         dateInput.value = dateInput.min;
@@ -458,24 +515,39 @@ $bookingUrl .= '&resource_name=' . urlencode($details['name']);
         updateContinueBookingLink();
     }
 
-    function renderStartSlotCards() {
+    function renderStartSlotCards(preserveSelection = false) {
         const startGrid = document.getElementById('start-slot-grid');
         if (!startGrid) return;
         const dateValue = document.getElementById('availability-date')?.value || '';
+        const selectedMinutesBeforeRender = preserveSelection
+            ? Array.from(document.querySelectorAll('#start-slot-grid .time-slot-card.is-selected'))
+                .map(card => Number(card.dataset.minute))
+            : [];
 
         let cards = '';
         for (let minute = 8 * 60; minute <= 16 * 60; minute += 60) {
             const start = formatTime(minute);
             const end = formatTime(minute + 59);
             const status = getSlotStatus(dateValue, start, minute + 60);
-            cards += `<button type="button" class="time-slot-card status-${status}" data-minute="${minute}" data-start="${start}" data-end="${formatTime(minute+60)}"><div class="time-slot-time">${start} - ${end}</div><div class="time-slot-meta">${status.toUpperCase()}</div></button>`;
+            const disabled = status !== 'free' ? 'is-disabled' : '';
+            const disabledAttribute = status !== 'free' ? 'disabled' : '';
+            cards += `<button type="button" class="time-slot-card status-${status} ${disabled}" data-minute="${minute}" data-start="${start}" data-end="${formatTime(minute+60)}" ${disabledAttribute}><div class="time-slot-time">${start} - ${end}</div><div class="time-slot-meta">${status.toUpperCase()}</div></button>`;
         }
         startGrid.innerHTML = cards;
         startGrid.querySelectorAll('.time-slot-card').forEach(card => card.addEventListener('click', () => handleSlotClick(card)));
+        if (preserveSelection) {
+            startGrid.querySelectorAll('.time-slot-card.status-free').forEach(card => {
+                if (selectedMinutesBeforeRender.includes(Number(card.dataset.minute))) {
+                    card.classList.add('is-selected');
+                }
+            });
+        }
     }
 
     function getSlotStatus(dateValue, startValue, endMinuteExclusive) {
         if (!dateValue) return 'free';
+        const startMinutes = Number(startValue.slice(0, 2)) * 60 + Number(startValue.slice(3, 5));
+        if (isSlotPastGrace(dateValue, startMinutes)) return 'past';
         const slotStart = new Date(`${dateValue}T${startValue}:00`);
         const slotEnd = new Date(`${dateValue}T${formatTime(endMinuteExclusive)}:00`);
 
@@ -546,6 +618,9 @@ $bookingUrl .= '&resource_name=' . urlencode($details['name']);
         if (currentUserRole === 'student' && selectedCards.length > 3) return { valid:false, message:'Student can select at most 3 time slots.' };
 
         const minutes = selectedCards.map(c => Number(c.dataset.minute)).sort((a,b)=>a-b);
+        if (isSlotPastGrace(dateValue, minutes[0])) {
+            return { valid:false, message:'This time slot is no longer available. Same-day slots can only be booked within 15 minutes after their start time.' };
+        }
         for (let i=1;i<minutes.length;i++) if (minutes[i]-minutes[i-1]!==60) return { valid:false, message:'Please select continuous time slots only.' };
 
         const startValue = formatTime(minutes[0]);

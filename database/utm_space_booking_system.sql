@@ -30,6 +30,7 @@ SET time_zone = "+00:00";
 CREATE TABLE `bookings` (
   `booking_id` int(11) NOT NULL,
   `user_id` int(11) NOT NULL,
+  `request_fingerprint` char(64) DEFAULT NULL,
   `resource_type` enum('room','facility') NOT NULL,
   `room_id` int(11) DEFAULT NULL,
   `facility_id` int(11) DEFAULT NULL,
@@ -57,16 +58,34 @@ CREATE TABLE `bookings` (
 -- Dumping data for table `bookings`
 --
 
-INSERT INTO `bookings` (`booking_id`, `user_id`, `resource_type`, `room_id`, `facility_id`, `booking_start`, `booking_end`, `purpose`, `remarks`, `price_per_day`, `total_price`, `booking_status`, `payment_status`, `payment_proof_base64`, `payment_proof_mime`, `reviewed_by`, `reviewed_at`, `review_remarks`, `created_at`, `updated_at`) VALUES
-(1, 2, 'room', 1, NULL, '2026-05-18 08:00:00', '2026-05-18 11:00:00', 'General booking request', '', 80.00, 0.00, 'cancelled', 'unpaid', NULL, NULL, NULL, NULL, NULL, '2026-05-17 21:54:21', '2026-05-17 22:14:02'),
-(2, 1, 'room', 1, NULL, '2026-05-18 08:00:00', '2026-05-18 15:00:00', 'General booking request', '', 80.00, 0.00, 'cancelled', 'unpaid', NULL, NULL, NULL, NULL, NULL, '2026-05-17 22:20:15', '2026-05-17 22:23:28'),
-(3, 2, 'room', 1, NULL, '2026-05-18 08:00:00', '2026-05-18 09:00:00', 'General booking request', '', 80.00, 0.00, 'cancelled', 'unpaid', NULL, NULL, NULL, NULL, NULL, '2026-05-17 22:38:26', '2026-05-17 22:39:28'),
-(4, 2, 'room', 1, NULL, '2026-05-19 08:00:00', '2026-05-19 10:00:00', 'General booking request', '', 80.00, 0.00, 'cancelled', 'unpaid', NULL, NULL, NULL, NULL, NULL, '2026-05-18 02:26:32', '2026-05-18 02:29:07'),
-(5, 2, 'room', 1, NULL, '2026-05-18 11:00:00', '2026-05-18 12:00:00', 'General booking request', '', 80.00, 0.00, 'cancelled', 'unpaid', NULL, NULL, NULL, NULL, NULL, '2026-05-18 02:29:15', '2026-05-18 02:31:23'),
-(6, 2, 'room', 1, NULL, '2026-05-20 08:00:00', '2026-05-20 10:00:00', 'General booking request', '', 80.00, 0.00, 'rejected', 'unpaid', NULL, NULL, NULL, '2026-05-26 06:58:58', '', '2026-05-19 16:02:45', '2026-05-25 22:58:58'),
-(7, 2, 'room', 2, NULL, '2026-05-26 11:00:00', '2026-05-26 13:00:00', 'General booking request', '', 85.00, 0.00, 'completed', 'unpaid', NULL, NULL, 1, '2026-05-26 09:59:57', '', '2026-05-26 01:58:17', '2026-05-26 01:59:57'),
-(8, 2, 'room', 3, NULL, '2026-06-04 14:00:00', '2026-06-04 16:00:00', 'General booking request', '', 90.00, 90.00, 'rejected', 'refunded', NULL, NULL, NULL, '2026-06-03 17:59:35', '', '2026-06-03 23:24:31', '2026-06-04 00:59:35'),
-(9, 2, 'room', 2, NULL, '2026-06-04 10:00:00', '2026-06-04 11:00:00', 'General booking request', '', 85.00, 85.00, 'expired', 'refunded', NULL, NULL, 1, '2026-06-03 21:06:39', '', '2026-06-04 01:52:13', '2026-06-05 02:34:41');
+INSERT INTO `bookings` (`booking_id`, `user_id`, `request_fingerprint`, `resource_type`, `room_id`, `facility_id`, `booking_start`, `booking_end`, `purpose`, `remarks`, `price_per_day`, `total_price`, `booking_status`, `payment_status`, `payment_proof_base64`, `payment_proof_mime`, `reviewed_by`, `reviewed_at`, `review_remarks`, `created_at`, `updated_at`) VALUES
+(1, 2, NULL, 'room', 1, NULL, '2026-05-18 08:00:00', '2026-05-18 11:00:00', 'General booking request', '', 80.00, 0.00, 'cancelled', 'unpaid', NULL, NULL, NULL, NULL, NULL, '2026-05-17 21:54:21', '2026-05-17 22:14:02'),
+(2, 1, NULL, 'room', 1, NULL, '2026-05-18 08:00:00', '2026-05-18 15:00:00', 'General booking request', '', 80.00, 0.00, 'cancelled', 'unpaid', NULL, NULL, NULL, NULL, NULL, '2026-05-17 22:20:15', '2026-05-17 22:23:28'),
+(3, 2, NULL, 'room', 1, NULL, '2026-05-18 08:00:00', '2026-05-18 09:00:00', 'General booking request', '', 80.00, 0.00, 'cancelled', 'unpaid', NULL, NULL, NULL, NULL, NULL, '2026-05-17 22:38:26', '2026-05-17 22:39:28'),
+(4, 2, NULL, 'room', 1, NULL, '2026-05-19 08:00:00', '2026-05-19 10:00:00', 'General booking request', '', 80.00, 0.00, 'cancelled', 'unpaid', NULL, NULL, NULL, NULL, NULL, '2026-05-18 02:26:32', '2026-05-18 02:29:07'),
+(5, 2, NULL, 'room', 1, NULL, '2026-05-18 11:00:00', '2026-05-18 12:00:00', 'General booking request', '', 80.00, 0.00, 'cancelled', 'unpaid', NULL, NULL, NULL, NULL, NULL, '2026-05-18 02:29:15', '2026-05-18 02:31:23'),
+(6, 2, NULL, 'room', 1, NULL, '2026-05-20 08:00:00', '2026-05-20 10:00:00', 'General booking request', '', 80.00, 0.00, 'rejected', 'unpaid', NULL, NULL, NULL, '2026-05-26 06:58:58', '', '2026-05-19 16:02:45', '2026-05-25 22:58:58'),
+(7, 2, NULL, 'room', 2, NULL, '2026-05-26 11:00:00', '2026-05-26 13:00:00', 'General booking request', '', 85.00, 0.00, 'completed', 'unpaid', NULL, NULL, 1, '2026-05-26 09:59:57', '', '2026-05-26 01:58:17', '2026-05-26 01:59:57'),
+(8, 2, NULL, 'room', 3, NULL, '2026-06-04 14:00:00', '2026-06-04 16:00:00', 'General booking request', '', 90.00, 90.00, 'rejected', 'refunded', NULL, NULL, NULL, '2026-06-03 17:59:35', '', '2026-06-03 23:24:31', '2026-06-04 00:59:35'),
+(9, 2, NULL, 'room', 2, NULL, '2026-06-04 10:00:00', '2026-06-04 11:00:00', 'General booking request', '', 85.00, 85.00, 'expired', 'refunded', NULL, NULL, 1, '2026-06-03 21:06:39', '', '2026-06-04 01:52:13', '2026-06-05 02:34:41');
+
+-- --------------------------------------------------------
+
+CREATE TABLE `booking_resource_slots` (
+  `resource_type` enum('room','facility') NOT NULL,
+  `resource_id` int(11) NOT NULL,
+  `slot_start` datetime NOT NULL,
+  `booking_id` int(11) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+CREATE TABLE `student_room_claims` (
+  `user_id` int(11) NOT NULL,
+  `booking_id` int(11) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
@@ -326,7 +345,18 @@ ALTER TABLE `bookings`
   ADD KEY `user_id` (`user_id`),
   ADD KEY `room_id` (`room_id`),
   ADD KEY `facility_id` (`facility_id`),
-  ADD KEY `reviewed_by` (`reviewed_by`);
+  ADD KEY `reviewed_by` (`reviewed_by`),
+  ADD UNIQUE KEY `uniq_booking_active_request` (`user_id`,`request_fingerprint`),
+  ADD KEY `booking_room_window_idx` (`resource_type`,`room_id`,`booking_status`,`booking_start`,`booking_end`),
+  ADD KEY `booking_facility_window_idx` (`resource_type`,`facility_id`,`booking_status`,`booking_start`,`booking_end`);
+
+ALTER TABLE `booking_resource_slots`
+  ADD PRIMARY KEY (`resource_type`,`resource_id`,`slot_start`),
+  ADD KEY `booking_resource_slots_booking_idx` (`booking_id`);
+
+ALTER TABLE `student_room_claims`
+  ADD PRIMARY KEY (`user_id`),
+  ADD UNIQUE KEY `student_room_claims_booking_unique` (`booking_id`);
 
 --
 -- Indexes for table `facilities`
@@ -449,6 +479,13 @@ ALTER TABLE `bookings`
   ADD CONSTRAINT `bookings_ibfk_2` FOREIGN KEY (`room_id`) REFERENCES `rooms` (`room_id`) ON DELETE SET NULL ON UPDATE CASCADE,
   ADD CONSTRAINT `bookings_ibfk_3` FOREIGN KEY (`facility_id`) REFERENCES `facilities` (`facility_id`) ON DELETE SET NULL ON UPDATE CASCADE,
   ADD CONSTRAINT `bookings_ibfk_4` FOREIGN KEY (`reviewed_by`) REFERENCES `users` (`user_id`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+ALTER TABLE `booking_resource_slots`
+  ADD CONSTRAINT `booking_resource_slots_booking_fk` FOREIGN KEY (`booking_id`) REFERENCES `bookings` (`booking_id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `student_room_claims`
+  ADD CONSTRAINT `student_room_claims_user_fk` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `student_room_claims_booking_fk` FOREIGN KEY (`booking_id`) REFERENCES `bookings` (`booking_id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
 -- Constraints for table `password_reset_otps`

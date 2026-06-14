@@ -2,6 +2,7 @@
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/../includes/notifications.php';
 require_once __DIR__ . '/../includes/booking_validation.php';
+require_once __DIR__ . '/../includes/booking_constraints.php';
 $user = require_role(['admin']);
 $self_file = 'admin_booking_requests.php';
 $edit_file = 'admin_edit_booking.php';
@@ -14,6 +15,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['booking_id'], $_POST[
     try {
         $conn->begin_transaction();
 
+        $lockContext = booking_lock_context_mysqli($conn, $booking_id);
+        if (!$lockContext) {
+            throw new RuntimeException('Booking not found.');
+        }
         $beforeStmt = $conn->prepare("SELECT b.booking_id, b.user_id, b.resource_type, b.room_id, b.facility_id, b.booking_start, b.booking_end, b.total_price, b.booking_status, b.payment_status, u.full_name, u.email, COALESCE(r.room_name, f.facility_name) resource_name FROM bookings b JOIN users u ON u.user_id=b.user_id LEFT JOIN rooms r ON r.room_id=b.room_id LEFT JOIN facilities f ON f.facility_id=b.facility_id WHERE b.booking_id=? LIMIT 1 FOR UPDATE");
         $beforeStmt->bind_param('i', $booking_id);
         $beforeStmt->execute();
@@ -34,13 +39,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['booking_id'], $_POST[
         }
 
         $newPaymentStatus = booking_payment_after_status_change($decision, (string)$beforeBooking['payment_status'], (float)$beforeBooking['total_price']);
-        $stmt = $conn->prepare("UPDATE bookings SET booking_status=?, payment_status=?, reviewed_by=?, reviewed_at=NOW(), review_remarks=? WHERE booking_id=? AND booking_status='pending'");
-        $stmt->bind_param('ssisi', $decision, $newPaymentStatus, $user['user_id'], $remarks, $booking_id);
+        $requestFingerprint = $decision === 'approved'
+            ? booking_request_fingerprint(
+                (string)$beforeBooking['resource_type'],
+                booking_active_resource_id($beforeBooking),
+                (string)$beforeBooking['booking_start'],
+                (string)$beforeBooking['booking_end']
+            )
+            : null;
+        $stmt = $conn->prepare("UPDATE bookings SET booking_status=?, payment_status=?, request_fingerprint=?, reviewed_by=?, reviewed_at=NOW(), review_remarks=? WHERE booking_id=? AND booking_status='pending'");
+        $stmt->bind_param('sssisi', $decision, $newPaymentStatus, $requestFingerprint, $user['user_id'], $remarks, $booking_id);
         $stmt->execute();
         if ($stmt->affected_rows < 1) {
             throw new RuntimeException('Booking status changed before this action could be saved. Please refresh and try again.');
         }
 
+        if ($decision === 'approved') {
+            booking_acquire_claims_mysqli($conn, $beforeBooking, (string)$lockContext['role']);
+        } else {
+            booking_release_claims_mysqli($conn, $booking_id);
+        }
         $conn->commit();
     } catch (Throwable $e) {
         $conn->rollback();
@@ -71,7 +89,7 @@ $orderMap=['newest'=>'b.created_at DESC','oldest'=>'b.created_at ASC','date_asc'
 $order=$orderMap[$sort] ?? $orderMap['newest'];
 $sql="SELECT b.booking_id, b.booking_start, b.booking_end, b.purpose, b.total_price, b.booking_status, b.payment_status, b.review_remarks, u.full_name, u.email, COALESCE(r.room_name, f.facility_name) resource_name, COALESCE(r.location, f.location) location FROM bookings b JOIN users u ON u.user_id=b.user_id LEFT JOIN rooms r ON r.room_id=b.room_id LEFT JOIN facilities f ON f.facility_id=b.facility_id" . ($where ? ' WHERE '.implode(' AND ', $where) : '') . " ORDER BY $order";
 $stmt=$conn->prepare($sql); if($types) $stmt->bind_param($types, ...$params); $stmt->execute(); $list=$stmt->get_result();
-$page_title='Admin Booking Requests'; $active_page='bookings'; include __DIR__ . '/../includes/management_header.php';
+$page_title='Admin Booking Requests'; $active_page='bookings'; include __DIR__ . '/includes/header.php';
 ?>
 <?php if (!empty($_GET['success'])): ?><div class="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-bold text-green-800"><?= h($_GET['success']) ?></div><?php endif; ?>
 <?php if (!empty($_GET['error'])): ?><div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-800"><?= h($_GET['error']) ?></div><?php endif; ?>
@@ -97,5 +115,5 @@ function confirmApprovePaymentStatus(paymentStatus) {
     return true;
 }
 </script>
-<?php include __DIR__ . '/../includes/management_footer.php'; ?>
+<?php include __DIR__ . '/includes/footer.php'; ?>
 

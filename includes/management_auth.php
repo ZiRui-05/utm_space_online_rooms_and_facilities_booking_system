@@ -27,7 +27,7 @@ function require_management_login(): array {
         exit;
     }
 
-    if (($user['account_status'] ?? '') !== 'active') {
+    if (!in_array(($user['account_status'] ?? ''), ['active', 'suspended'], true)) {
         session_destroy();
         header('Location: ../auth/login.html?error=Account%20is%20not%20active');
         exit;

@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/notifications.php';
+require_once __DIR__ . '/booking_constraints.php';
 const BOOKING_EXPIRY_GRACE_MINUTES = 15;
 const MISSED_PAYMENT_SUSPENSION_LIMIT = 3;
 const RETURN_OVERDUE_GRACE_MINUTES = 10;
@@ -98,7 +99,7 @@ function suspend_users_with_missed_payments_pdo(PDO $pdo): int
     $affected = $stmt->rowCount();
     if ($affected > 0) {
         foreach ($notifyUsers as $notifyUserId) {
-            create_user_notification_pdo($pdo, (int)$notifyUserId, null, 'Account suspended', 'Your account was suspended after repeated expired unpaid bookings. Please contact admin for help.', 'account');
+            create_user_notification_pdo($pdo, (int)$notifyUserId, null, 'Booking privileges suspended', 'Your booking privileges were suspended after repeated expired unpaid bookings. You can still sign in and use other account features. Please contact admin for help.', 'account');
         }
     }
     return $affected;
@@ -127,7 +128,7 @@ function suspend_users_with_missed_payments_mysqli(mysqli $conn): int
     $affected = $conn->affected_rows;
     if ($affected > 0) {
         foreach ($notifyUsers as $notifyUserId) {
-            create_user_notification_mysqli($conn, (int)$notifyUserId, null, 'Account suspended', 'Your account was suspended after repeated expired unpaid bookings. Please contact admin for help.', 'account');
+            create_user_notification_mysqli($conn, (int)$notifyUserId, null, 'Booking privileges suspended', 'Your booking privileges were suspended after repeated expired unpaid bookings. You can still sign in and use other account features. Please contact admin for help.', 'account');
         }
     }
     return $affected;
@@ -155,7 +156,7 @@ function suspend_users_with_return_overdue_pdo(PDO $pdo): int
     $affected = $stmt->rowCount();
     if ($affected > 0) {
         foreach ($notifyUsers as $notifyUserId) {
-            create_user_notification_pdo($pdo, (int)$notifyUserId, null, 'Account suspended', 'Your account was suspended after 3 late room/facility returns within 1 month. Please contact admin for help.', 'account');
+            create_user_notification_pdo($pdo, (int)$notifyUserId, null, 'Booking privileges suspended', 'Your booking privileges were suspended after 3 late room/facility returns within 1 month. You can still sign in and use other account features. Please contact admin for help.', 'account');
         }
     }
     return $affected;
@@ -184,7 +185,7 @@ function suspend_users_with_return_overdue_mysqli(mysqli $conn): int
     $affected = $conn->affected_rows;
     if ($affected > 0) {
         foreach ($notifyUsers as $notifyUserId) {
-            create_user_notification_mysqli($conn, (int)$notifyUserId, null, 'Account suspended', 'Your account was suspended after 3 late room/facility returns within 1 month. Please contact admin for help.', 'account');
+            create_user_notification_mysqli($conn, (int)$notifyUserId, null, 'Booking privileges suspended', 'Your booking privileges were suspended after 3 late room/facility returns within 1 month. You can still sign in and use other account features. Please contact admin for help.', 'account');
         }
     }
     return $affected;
@@ -209,9 +210,10 @@ function process_return_overdue_bookings_pdo(PDO $pdo): int
     $processed = 0;
     foreach ($bookings as $booking) {
         $bookingId = (int)$booking['booking_id'];
-        $update = $pdo->prepare("UPDATE bookings SET booking_status = 'return_overdue', return_overdue_notified = 1, return_overdue_at = COALESCE(return_overdue_at, NOW()) WHERE booking_id = ? AND booking_status = 'approved' AND return_overdue_notified = 0");
+        $update = $pdo->prepare("UPDATE bookings SET booking_status = 'return_overdue', request_fingerprint = NULL, return_overdue_notified = 1, return_overdue_at = COALESCE(return_overdue_at, NOW()) WHERE booking_id = ? AND booking_status = 'approved' AND return_overdue_notified = 0");
         $update->execute([$bookingId]);
         if ($update->rowCount() <= 0) continue;
+        booking_release_claims_pdo($pdo, $bookingId);
         $processed++;
         notify_staff_return_overdue_pdo(
             $pdo,
@@ -247,10 +249,11 @@ function process_return_overdue_bookings_mysqli(mysqli $conn): int
     $processed = 0;
     foreach ($bookings as $booking) {
         $bookingId = (int)$booking['booking_id'];
-        $update = $conn->prepare("UPDATE bookings SET booking_status = 'return_overdue', return_overdue_notified = 1, return_overdue_at = COALESCE(return_overdue_at, NOW()) WHERE booking_id = ? AND booking_status = 'approved' AND return_overdue_notified = 0");
+        $update = $conn->prepare("UPDATE bookings SET booking_status = 'return_overdue', request_fingerprint = NULL, return_overdue_notified = 1, return_overdue_at = COALESCE(return_overdue_at, NOW()) WHERE booking_id = ? AND booking_status = 'approved' AND return_overdue_notified = 0");
         $update->bind_param('i', $bookingId);
         $update->execute();
         if ($update->affected_rows <= 0) continue;
+        booking_release_claims_mysqli($conn, $bookingId);
         $processed++;
         notify_staff_return_overdue_mysqli(
             $conn,
@@ -271,6 +274,7 @@ function expire_stale_bookings_pdo(PDO $pdo): int
     $stmt = $pdo->prepare(
         "UPDATE bookings
          SET booking_status = 'expired',
+             request_fingerprint = NULL,
              payment_status = CASE
                  WHEN payment_status IN ('paid', 'pending_verification') THEN 'refunded'
                  ELSE payment_status
@@ -283,6 +287,7 @@ function expire_stale_bookings_pdo(PDO $pdo): int
            )"
     );
     $stmt->execute();
+    booking_cleanup_inactive_claims_pdo($pdo);
     $expiredBookings = $stmt->rowCount();
     if ($expiredBookings > 0) {
         foreach ($expiringBookings as $booking) {
@@ -303,6 +308,7 @@ function expire_stale_bookings_mysqli(mysqli $conn): int
     }
     $sql = "UPDATE bookings
             SET booking_status = 'expired',
+                request_fingerprint = NULL,
                 payment_status = CASE
                     WHEN payment_status IN ('paid', 'pending_verification') THEN 'refunded'
                     ELSE payment_status
@@ -314,6 +320,7 @@ function expire_stale_bookings_mysqli(mysqli $conn): int
                   OR (total_price > 0 AND payment_status <> 'paid')
               )";
     $conn->query($sql);
+    booking_cleanup_inactive_claims_mysqli($conn);
     $expiredBookings = $conn->affected_rows;
     if ($expiredBookings > 0) {
         foreach ($expiringBookings as $booking) {

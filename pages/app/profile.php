@@ -1168,7 +1168,7 @@
             const canCancel = Number(booking.can_cancel) === 1;
             const canReturn = Number(booking.can_return) === 1;
             let actionHTML = '<span class="action-link">-</span>';
-            if (canReturn) {
+            if (booking.resource_type === 'room' && canReturn) {
                 actionHTML = `<button type="button" class="action-link action-return" onclick="returnBooking(${Number(booking.booking_id)}, this)">Return</button>`;
             } else if (canCancel) {
                 actionHTML = `<button type="button" class="action-link action-cancel" onclick="cancelBooking(${Number(booking.booking_id)}, this)">Cancel Booking</button>`;

@@ -28,7 +28,8 @@ $sql = "SELECT b.booking_id,
                    ELSE 0
                END AS can_cancel,
                CASE
-                   WHEN b.booking_status = 'approved'
+                   WHEN b.resource_type = 'room'
+                    AND b.booking_status = 'approved'
                     AND b.booking_start <= NOW()
                    THEN 1
                    ELSE 0

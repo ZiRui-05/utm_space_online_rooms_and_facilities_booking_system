@@ -41,7 +41,7 @@ function require_role(array $allowedRoles): array
     $stmt->execute();
     $user = $stmt->get_result()->fetch_assoc();
 
-    if (!$user || ($user['account_status'] ?? 'inactive') !== 'active') {
+    if (!$user || !in_array(($user['account_status'] ?? 'inactive'), ['active', 'suspended'], true)) {
         session_unset();
         session_destroy();
         header('Location: ../pages/auth/login.php?error=' . urlencode('Session expired. Please login again.'));

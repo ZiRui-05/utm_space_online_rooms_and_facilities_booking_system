@@ -158,7 +158,7 @@ function render() {
             payment = `<span class="status payment-${escapeHtml(paymentStatus)}">${escapeHtml(formatLabel(paymentStatus))}</span>`;
         }
         let action = '-';
-        if (Number(item.can_return) === 1) {
+        if (item.resource_type === 'room' && Number(item.can_return) === 1) {
             action = `<button type="button" class="return-button" onclick="returnBooking(${Number(item.booking_id)}, this)">Return</button>`;
         } else if (Number(item.can_cancel) === 1) {
             action = `<button type="button" class="cancel-button" onclick="cancelBooking(${Number(item.booking_id)}, this)">Cancel Booking</button>`;

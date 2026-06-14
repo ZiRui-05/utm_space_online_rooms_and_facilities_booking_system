@@ -7,6 +7,7 @@
 
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../../includes/notifications.php';
+require_once __DIR__ . '/../../includes/booking_constraints.php';
 
 $appSecret = trim((string)(getenv('APP_SECRET') ?: ''));
 if ($appSecret === '') {
@@ -80,6 +81,14 @@ if (!hash_equals($expected, $token)) {
     exit;
 }
 
+$pdo->beginTransaction();
+$lockContext = booking_lock_context_pdo($pdo, $bookingId);
+if (!$lockContext || (int)$lockContext['user_id'] !== $userId) {
+    $pdo->rollBack();
+    renderPage('error', 'Booking Not Found', 'This booking could not be found. Please contact admin for help.');
+    exit;
+}
+
 // ── Fetch booking ───────────────────────────────────────────────────────────
 $stmt = $pdo->prepare(
     "SELECT b.booking_id, b.user_id, b.booking_status, b.resource_type,
@@ -88,12 +97,14 @@ $stmt = $pdo->prepare(
      LEFT JOIN rooms r ON r.room_id = b.room_id
      LEFT JOIN facilities f ON f.facility_id = b.facility_id
      WHERE b.booking_id = ? AND b.user_id = ?
-     LIMIT 1"
+     LIMIT 1
+     FOR UPDATE"
 );
 $stmt->execute([$bookingId, $userId]);
 $booking = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$booking) {
+    $pdo->rollBack();
     renderPage('error', 'Booking Not Found', 'This booking could not be found. Please contact admin for help.');
     exit;
 }
@@ -102,18 +113,22 @@ $resourceName = (string)($booking['resource_name'] ?? 'Resource');
 
 // Already completed/cancelled
 if ((string)$booking['booking_status'] === 'completed') {
+    $pdo->rollBack();
     renderPage('info', 'Already Confirmed', "Booking #{$bookingId} for <strong>{$resourceName}</strong> has already been marked as returned. Thank you!", $bookingId);
     exit;
 }
 
 if (!in_array((string)$booking['booking_status'], ['approved', 'expired', 'return_overdue'], true)) {
+    $pdo->rollBack();
     renderPage('info', 'Nothing to Confirm', "Booking #{$bookingId} is currently <em>" . htmlspecialchars((string)$booking['booking_status'], ENT_QUOTES, 'UTF-8') . "</em> and does not require a return confirmation.", $bookingId);
     exit;
 }
 
 // ── Mark as completed ───────────────────────────────────────────────────────
-$update = $pdo->prepare("UPDATE bookings SET booking_status = 'completed' WHERE booking_id = ? AND user_id = ?");
+$update = $pdo->prepare("UPDATE bookings SET booking_status = 'completed', request_fingerprint = NULL WHERE booking_id = ? AND user_id = ?");
 $update->execute([$bookingId, $userId]);
+booking_release_claims_pdo($pdo, $bookingId);
+$pdo->commit();
 
 // In-app notification to user
 create_user_notification_pdo(
